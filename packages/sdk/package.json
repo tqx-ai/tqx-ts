@@ -1,0 +1,50 @@
+{
+  "name": "@tqx-ai/sdk",
+  "version": "0.1.4",
+  "description": "TypeScript SDK for the TQX Open API",
+  "keywords": [
+    "openapi",
+    "sdk",
+    "tqx",
+    "trading"
+  ],
+  "homepage": "https://github.com/tqx-ai/tqx-ts",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tqx-ai/tqx-ts.git",
+    "directory": "packages/sdk"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch"
+  },
+  "dependencies": {
+    "valibot": "^1.4.2"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

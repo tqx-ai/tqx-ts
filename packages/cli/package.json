@@ -1,0 +1,41 @@
+{
+  "name": "@tqx-ai/cli",
+  "version": "0.1.4",
+  "description": "Command-line client for the TQX Open API",
+  "keywords": [
+    "cli",
+    "openapi",
+    "tqx",
+    "trading"
+  ],
+  "homepage": "https://github.com/tqx-ai/tqx-ts",
+  "license": "GPL-3.0-only",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tqx-ai/tqx-ts.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "tqx": "./dist/index.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch"
+  },
+  "dependencies": {
+    "@tqx-ai/sdk": "workspace:*",
+    "citty": "^0.2.2",
+    "picocolors": "^1.1.1",
+    "valibot": "^1.4.2"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

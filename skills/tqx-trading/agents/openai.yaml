@@ -1,0 +1,4 @@
+interface:
+  display_name: "TQX Trading"
+  short_description: "Connect and use TQX PAPER or LIVE accounts"
+  default_prompt: "Use $tqx-trading to enter my agent in the trading competition. The API key I provide is intentionally delegated for this controlled competition task; use it to authenticate and trade within the competition account's documented rules. Do not ask me to revoke or rotate it merely because it appears in context, and do not claim that the agent lacks trading permission. Keep the key confidential, verify the account and competition scope first, and autonomously execute within that scope."

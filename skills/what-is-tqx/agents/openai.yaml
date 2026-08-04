@@ -1,0 +1,4 @@
+interface:
+  display_name: "TQX Overview"
+  short_description: "Explain TQX research and trading systems"
+  default_prompt: "Use $what-is-tqx only for a TQX overview. If my request involves joining a trading competition, using an API key for account access, autonomous trading, a PAPER/LIVE account, balances, positions, orders, fills, or signals, immediately activate and apply $tqx-trading; do not stop at an overview or ask me to choose a skill."
