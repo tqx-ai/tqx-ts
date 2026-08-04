@@ -1,7 +1,7 @@
 # TQX Trading CLI Reference
 
-This reference is based on the actual help output of `@tqx-ai/cli` 0.1.6 and the `tqx-ts` source code. Current order parameters use
-camelCase: `--orderType`, `--idempotencyKey`, and `--orderId`. Installation examples are pinned to 0.1.6 so that a later release cannot silently change their behavior.
+This reference is based on the actual help output of `@tqx-ai/cli` 0.1.7 and the `tqx-ts` source code. Current order parameters use
+camelCase: `--orderType`, `--idempotencyKey`, and `--orderId`. Installation examples are pinned to 0.1.7 so that a later release cannot silently change their behavior.
 
 ## Table of contents
 
@@ -34,7 +34,7 @@ node --version
 
 ## Version and License
 
-- The current npm version of CLI and SDK is `0.1.6`; the corresponding Git tag is `v0.1.6`.
+- The current npm version of CLI and SDK is `0.1.7`; the corresponding Git tag is `v0.1.7`.
 - Both packages use the GNU General Public License v3.0, with the SPDX flag `GPL-3.0-only`.
 - Check the package name, version and registry at the same time during installation and troubleshooting to avoid misuse of packages with the same name or floating versions.
 
@@ -45,37 +45,37 @@ When running only once or experiencing it first, priority is given to temporary 
 npm/npx (recommended by default):
 
 ```powershell
-npx --yes @tqx-ai/cli@0.1.6 --help
-npx --yes @tqx-ai/cli@0.1.6 status --json
+npx --yes @tqx-ai/cli@0.1.7 --help
+npx --yes @tqx-ai/cli@0.1.7 status --json
 ```
 
 pnpm:
 
 ```powershell
-pnpm dlx @tqx-ai/cli@0.1.6 --help
-pnpm dlx @tqx-ai/cli@0.1.6 status --json
+pnpm dlx @tqx-ai/cli@0.1.7 --help
+pnpm dlx @tqx-ai/cli@0.1.7 status --json
 ```
 
 `pnpx` is a shortcut to `pnpm dlx`, also available:
 
 ```powershell
-pnpx @tqx-ai/cli@0.1.6 --help
-pnpx @tqx-ai/cli@0.1.6 status --json
+pnpx @tqx-ai/cli@0.1.7 --help
+pnpx @tqx-ai/cli@0.1.7 status --json
 ```
 
 Bun:
 
 ```powershell
-bunx @tqx-ai/cli@0.1.6 --help
-bunx @tqx-ai/cli@0.1.6 status --json
+bunx @tqx-ai/cli@0.1.7 --help
+bunx @tqx-ai/cli@0.1.7 status --json
 ```
 
 When you need to use the `tqx` command for a long time, choose another method to install it globally:
 
 ```powershell
-npm install --global @tqx-ai/cli@0.1.6
-pnpm add -g @tqx-ai/cli@0.1.6
-bun add --global @tqx-ai/cli@0.1.6
+npm install --global @tqx-ai/cli@0.1.7
+pnpm add -g @tqx-ai/cli@0.1.7
+bun add --global @tqx-ai/cli@0.1.7
 tqx --help
 ```
 
@@ -88,12 +88,12 @@ If pnpm reports that the global bin directory cannot be found, run
 Go to the actual TypeScript/JavaScript application directory and choose one based on the existing package manager for the project:
 
 ```powershell
-npm install @tqx-ai/sdk@0.1.6
-pnpm add @tqx-ai/sdk@0.1.6
-bun add @tqx-ai/sdk@0.1.6
+npm install @tqx-ai/sdk@0.1.7
+pnpm add @tqx-ai/sdk@0.1.7
+bun add @tqx-ai/sdk@0.1.7
 ```
 
-Do not install `@tqx-ai/sdk` globally. Follow the project's lockfile when reproducible builds are required, and install 0.1.6 explicitly.
+Do not install `@tqx-ai/sdk` globally. Follow the project's lockfile when reproducible builds are required, and install 0.1.7 explicitly.
 
 Minimum SDK access:
 
@@ -115,8 +115,8 @@ Do not write the API key into the source code. If the release package does not h
 Before installation, you need to confirm that the package is visible in the current registry:
 
 ```powershell
-npm view @tqx-ai/cli@0.1.6 version license
-npm view @tqx-ai/sdk@0.1.6 version license
+npm view @tqx-ai/cli@0.1.7 version license
+npm view @tqx-ai/sdk@0.1.7 version license
 ```
 
 If 404 is returned, it usually means that the package has not been released yet, the package is a private package, the current account does not have permission, or the scope uses another registry.

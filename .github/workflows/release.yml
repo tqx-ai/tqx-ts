@@ -116,7 +116,7 @@ jobs:
 
           ### Which binary should I download?
 
-          Standalone binaries include the TQX CLI runtime and its dependencies. Download one file for your platform; you do **not** need Node.js, Bun, or `npm install`.
+          Standalone binaries include the TQX CLI runtime and its dependencies. Download one file for your platform; you do **not** need Node.js, Bun, or \`npm install\`.
 
           - **Windows 64-bit (Intel or AMD)**: [tqx-v${version}-windows-x64.exe](${download_url}/tqx-v${version}-windows-x64.exe)
           - **macOS on Apple Silicon (M1/M2/M3/M4)**: [tqx-v${version}-macos-arm64](${download_url}/tqx-v${version}-macos-arm64)
@@ -124,15 +124,15 @@ jobs:
           - **Linux 64-bit (Intel or AMD)**: [tqx-v${version}-linux-x64](${download_url}/tqx-v${version}-linux-x64)
           - **Linux ARM64**: [tqx-v${version}-linux-arm64](${download_url}/tqx-v${version}-linux-arm64)
 
-          **Architecture guide:** `x64`, `x86_64`, and `AMD64` mean the same 64-bit Intel/AMD architecture. `arm64` means 64-bit ARM. On Windows, choose the x64 executable unless Windows reports an ARM64 system. On macOS, choose arm64 for Apple Silicon and x64 for Intel Macs.
+          **Architecture guide:** \`x64\`, \`x86_64\`, and \`AMD64\` mean the same 64-bit Intel/AMD architecture. \`arm64\` means 64-bit ARM. On Windows, choose the x64 executable unless Windows reports an ARM64 system. On macOS, choose arm64 for Apple Silicon and x64 for Intel Macs.
 
           ### Install the standalone CLI globally
 
-          **Windows PowerShell** (run from the directory containing the downloaded `.exe`):
+          **Windows PowerShell** (run from the directory containing the downloaded \`.exe\`):
 
-          Double-clicking the `.exe` is not a GUI action. With no arguments it only prints the CLI help and exits; use PowerShell or Command Prompt to run commands.
+          Double-clicking the \`.exe\` is not a GUI action. With no arguments it only prints the CLI help and exits; use PowerShell or Command Prompt to run commands.
 
-          ```powershell
+          \`\`\`powershell
           \$binDir = Join-Path \$HOME '.local\bin'
           New-Item -ItemType Directory -Force \$binDir | Out-Null
           Move-Item .\tqx-v${version}-windows-x64.exe (Join-Path \$binDir 'tqx.exe') -Force
@@ -142,22 +142,22 @@ jobs:
           }
           \$env:Path = "\$binDir;\$env:Path"
           tqx --version
-          ```
+          \`\`\`
 
           Open a new terminal after installation so Windows loads the updated user `PATH`.
 
           **macOS and Linux** (replace `<downloaded-file>` with the binary selected above):
 
-          ```sh
+          \`\`\`sh
           mkdir -p ~/.local/bin
           mv ./<downloaded-file> ~/.local/bin/tqx
           chmod +x ~/.local/bin/tqx
           export PATH="\$HOME/.local/bin:\$PATH"
           tqx --version
           tqx --help
-          ```
+          \`\`\`
 
-          Add `export PATH="\$HOME/.local/bin:\$PATH"` to your shell startup file (such as `~/.zshrc` or `~/.bashrc`) if it is not already on `PATH`. To upgrade, replace `~/.local/bin/tqx` or `tqx.exe` with the binary from the newer release.
+          Add \`export PATH="\$HOME/.local/bin:\$PATH"\` to your shell startup file (such as \`~/.zshrc\` or \`~/.bashrc\`) if it is not already on \`PATH\`. To upgrade, replace \`~/.local/bin/tqx\` or \`tqx.exe\` with the binary from the newer release.
 
           ### Checksums
 
@@ -167,10 +167,10 @@ jobs:
 
           Use npm packages only when integrating TQX into a Node.js application. They are not required for standalone binary users.
 
-          ```sh
+          \`\`\`sh
           npm install --global @tqx-ai/cli@${version}
           npm install @tqx-ai/sdk@${version}
-          ```
+          \`\`\`
 
           ### Changelog
 
