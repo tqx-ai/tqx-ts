@@ -5,7 +5,7 @@ Source: `packages/cli/src/research/command.ts`. The executable command is `tqx` 
 ## Installation, Gateway and Authentication
 
 ```powershell
-npm install --global @tqx-ai/cli@0.1.4
+npm install --global @tqx-ai/cli@0.1.5
 tqx --version
 tqx research --help
 ```

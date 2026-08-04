@@ -5,7 +5,7 @@ Command-line client for the TQX Open API. It requires Node.js 22.18 or newer.
 ## Installation
 
 ```bash
-npm install --global @tqx-ai/cli@0.1.4
+npm install --global @tqx-ai/cli@0.1.5
 tqx --version
 ```
 

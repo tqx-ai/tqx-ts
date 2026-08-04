@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   publish:
@@ -28,11 +29,13 @@ jobs:
         with:
           bun-version: 1.3.14
 
-      - name: Set up Node.js and npm authentication
+      - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22.18.0
-          registry-url: https://registry.npmjs.org
+
+      - name: Update npm for trusted publishing
+        run: npm install --global npm@11.5.1
 
       - name: Confirm tag and package version agree
         shell: bash
@@ -68,14 +71,18 @@ jobs:
           bun pm pack --cwd packages/cli --destination "$GITHUB_WORKSPACE/release-artifacts" --quiet
 
       - name: Publish SDK
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bun publish --cwd packages/sdk --access public --tag latest
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-sdk-${version}.tgz" \
+            --access public --tag latest --provenance
 
       - name: Publish CLI
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: bun publish --cwd packages/cli --access public --tag latest
+        shell: bash
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-cli-${version}.tgz" \
+            --access public --tag latest --provenance
 
       - name: Compile standalone binaries
         shell: bash

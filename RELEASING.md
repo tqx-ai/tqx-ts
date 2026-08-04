@@ -3,10 +3,11 @@
 The SDK must be published before the CLI because `@tqx-ai/cli` depends on the matching
 `@tqx-ai/sdk` version.
 
-The current release is npm version `0.1.4` with Git tag `v0.1.4`.
+The current release is npm version `0.1.5` with Git tag `v0.1.5`.
 
-Use Bun for packing and publishing. Bun rewrites `workspace:*` to the workspace package version;
-an npm-created CLI tarball does not and will fail to install with `EUNSUPPORTEDPROTOCOL`.
+Use Bun to pack packages. Bun rewrites `workspace:*` to the workspace package version; an
+npm-created CLI tarball does not and will fail to install with `EUNSUPPORTEDPROTOCOL`. The release
+workflow publishes the resulting Bun tarballs through npm Trusted Publishing.
 
 ## Prerequisites
 
@@ -17,8 +18,9 @@ an npm-created CLI tarball does not and will fail to install with `EUNSUPPORTEDP
   `TQX_BUILD_GET_API_KEY_URL`.
 - Configure the GitHub repository variables `TQX_BUILD_BASE_URL`,
   `TQX_BUILD_TRADING_BASE_URL`, and `TQX_BUILD_GET_API_KEY_URL` with valid production HTTPS URLs.
-- Configure the `NPM_TOKEN` GitHub Actions secret with permission to publish public packages in
-  the `@tqx-ai` scope.
+- Configure npm Trusted Publishing for both `@tqx-ai/sdk` and `@tqx-ai/cli`: GitHub owner
+  `tqx-ai`, repository `tqx-ts`, workflow filename `release.yml`, no environment, and the
+  `npm publish` allowed action. Do not configure an `NPM_TOKEN` secret or bypass 2FA.
 - Work from an up-to-date `main` branch with no unrelated changes.
 
 ## Prepare
@@ -58,8 +60,9 @@ must point at that exact commit.
 ## Tag And Publish
 
 The tag workflow at `.github/workflows/release.yml` is the only publishing path. It runs the
-release checks, publishes the SDK before the CLI, builds platform binaries, and creates the GitHub
-Release. Do not run the local `publish:sdk` or `publish:cli` scripts for a normal release.
+release checks, publishes the SDK before the CLI through npm OIDC, builds platform binaries, and
+creates the GitHub Release. Do not run the local `publish:sdk` or `publish:cli` scripts for a
+normal release.
 
 ```bash
 git add package.json lerna.json packages/sdk/package.json packages/cli/package.json \
@@ -71,8 +74,9 @@ git push origin v<version>
 ```
 
 Pushing `v<version>` triggers GitHub Actions. Monitor the workflow to completion before proceeding.
-If it fails before either package is published, fix the release commit, create a new patch version,
-and tag that commit. If a package was published, never reuse or overwrite that version.
+For a repository configuration failure before publishing, correct the configuration and rerun the
+workflow for the same tag. For a release-content failure, create a new patch version and tag its
+commit. If a package was published, never reuse or overwrite that version.
 
 ## Verify From npm
 

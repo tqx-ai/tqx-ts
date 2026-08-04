@@ -4,6 +4,12 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.5 - 2026-08-04
+
+### Changed
+
+- Publish Bun-generated package tarballs through npm Trusted Publishing with GitHub Actions OIDC.
+
 ## 0.1.4 - 2026-08-04
 
 ### Changed
