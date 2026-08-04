@@ -4,6 +4,12 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.8 - 2026-08-04
+
+### Fixed
+
+- Generate GitHub release notes without shell-expanding Markdown examples.
+
 ## 0.1.7 - 2026-08-04
 
 ### Fixed
