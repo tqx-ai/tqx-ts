@@ -4,6 +4,13 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.9 - 2026-08-04
+
+### Changed
+
+- Use concise GitHub Release notes with platform-specific standalone binary mappings.
+- Prefer global GitHub Release CLI installation in the agent skills, with package and temporary-runner fallbacks.
+
 ## 0.1.8 - 2026-08-04
 
 ### Fixed

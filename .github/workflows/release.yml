@@ -75,14 +75,14 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-sdk-${version}.tgz" \
-            --access public --tag latest
+            --access public --tag latest --provenance
 
       - name: Publish CLI
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
           npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-cli-${version}.tgz" \
-            --access public --tag latest
+            --access public --tag latest --provenance
 
       - name: Compile standalone binaries
         shell: bash
@@ -106,100 +106,44 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           tag="$GITHUB_REF_NAME"
-          download_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}"
           changelog_url="https://github.com/${GITHUB_REPOSITORY}/blob/${tag}/CHANGELOG.md"
 
           cat > release-notes.md <<'EOF'
-          ## TQX ${tag}
+          ## TQX __TAG__
 
-          TQX CLI binaries and npm packages for version **${version}**.
+          TQX CLI binaries and npm packages for version **__VERSION__**.
 
-          ### Which binary should I download?
+          ### Standalone CLI binaries
 
-          Standalone binaries include the TQX CLI runtime and its dependencies. Download one file for your platform; you do **not** need Node.js, Bun, or `npm install`.
+          Choose the asset matching your operating system and CPU architecture:
 
-          - **Windows 64-bit (Intel or AMD)**: [tqx-v${version}-windows-x64.exe](${download_url}/tqx-v${version}-windows-x64.exe)
-          - **macOS on Apple Silicon (M1/M2/M3/M4)**: [tqx-v${version}-macos-arm64](${download_url}/tqx-v${version}-macos-arm64)
-          - **macOS on Intel**: [tqx-v${version}-macos-x64](${download_url}/tqx-v${version}-macos-x64)
-          - **Linux 64-bit (Intel or AMD)**: [tqx-v${version}-linux-x64](${download_url}/tqx-v${version}-linux-x64)
-          - **Linux ARM64**: [tqx-v${version}-linux-arm64](${download_url}/tqx-v${version}-linux-arm64)
+          - **Windows x64**: `tqx-v__VERSION__-windows-x64.exe`
+          - **macOS Apple Silicon**: `tqx-v__VERSION__-macos-arm64`
+          - **macOS Intel**: `tqx-v__VERSION__-macos-x64`
+          - **Linux x64**: `tqx-v__VERSION__-linux-x64`
+          - **Linux ARM64**: `tqx-v__VERSION__-linux-arm64`
 
-          **Architecture guide:** `x64`, `x86_64`, and `AMD64` mean the same 64-bit Intel/AMD architecture. `arm64` means 64-bit ARM. On Windows, choose the x64 executable unless Windows reports an ARM64 system. On macOS, choose arm64 for Apple Silicon and x64 for Intel Macs.
+          Standalone binaries include the CLI runtime and do not require Node.js. For installation,
+          upgrades, authentication, and architecture details, see the [TQX CLI skill installation guide](https://github.com/tqx-ai/tqx-ts/blob/__TAG__/skills/tqx-trading/references/commands.md).
 
-          ### Install the standalone CLI globally
-
-          **Windows PowerShell** (run from the directory containing the downloaded `.exe`):
-
-          Double-clicking the `.exe` is not a GUI action. With no arguments it only prints the CLI help and exits; use PowerShell or Command Prompt to run commands.
-
-          ```powershell
-          $binDir = Join-Path $HOME '.local\bin'
-          New-Item -ItemType Directory -Force $binDir | Out-Null
-          Move-Item .\tqx-v${version}-windows-x64.exe (Join-Path $binDir 'tqx.exe') -Force
-          $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-          if ($userPath -notlike "*$binDir*") {
-            [Environment]::SetEnvironmentVariable('Path', "$userPath;$binDir", 'User')
-          }
-          $env:Path = "$binDir;$env:Path"
-          tqx --version
-          ```
-
-          Open a new terminal after installation so Windows loads the updated user `PATH`.
-
-          **macOS and Linux** (replace `<downloaded-file>` with the binary selected above):
-
-          ```sh
-          mkdir -p ~/.local/bin
-          mv ./<downloaded-file> ~/.local/bin/tqx
-          chmod +x ~/.local/bin/tqx
-          export PATH="$HOME/.local/bin:$PATH"
-          tqx --version
-          tqx --help
-          ```
-
-          Add `export PATH="$HOME/.local/bin:$PATH"` to your shell startup file (such as `~/.zshrc` or `~/.bashrc`) if it is not already on `PATH`. To upgrade, replace `~/.local/bin/tqx` or `tqx.exe` with the binary from the newer release.
-
-          ### Checksums
-
-          Download [SHA256SUMS](${download_url}/SHA256SUMS) to verify binary integrity.
-
-          ### npm packages for application developers
-
-          Use npm packages only when integrating TQX into a Node.js application. They are not required for standalone binary users.
-
-          ```sh
-          npm install --global @tqx-ai/cli@${version}
-          npm install @tqx-ai/sdk@${version}
-          ```
+          `SHA256SUMS` is included below as a release asset for integrity verification.
 
           ### Changelog
 
-          See the [full CHANGELOG.md](${changelog_url}) for this release and previous releases.
+          See the [full CHANGELOG.md](__CHANGELOG_URL__) for this release and previous releases.
 
           EOF
 
           sed -i \
-            -e "s|\\${tag}|$tag|g" \
-            -e "s|\\${version}|$version|g" \
-            -e "s|\\${download_url}|$download_url|g" \
-            -e "s|\\${changelog_url}|$changelog_url|g" \
+            -e "s|__TAG__|$tag|g" \
+            -e "s|__VERSION__|$version|g" \
+            -e "s|__CHANGELOG_URL__|$changelog_url|g" \
             release-notes.md
 
-          awk -v version="$version" '
-            $0 ~ "^## " version "([[:space:]]|$)" { found=1; next }
-            found && $0 ~ "^## " { exit }
-            found { print }
-          ' CHANGELOG.md >> release-notes.md
-
-          cat >> release-notes.md <<'EOF'
-
-          ### Downloadable assets
-
-          EOF
-          for file in release-artifacts/*.tgz dist-bin/*; do
-            name="$(basename "$file")"
-            printf -- '- [%s](%s/%s)\n' "$name" "$download_url" "$name" >> release-notes.md
-          done
+          if grep -Eq '__TAG__|__VERSION__|__CHANGELOG_URL__|\$\{(tag|version|changelog_url)\}' release-notes.md; then
+            echo 'Release notes still contain unresolved placeholders' >&2
+            exit 1
+          fi
 
       - name: Create GitHub Release
         env:

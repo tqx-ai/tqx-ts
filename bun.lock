@@ -16,7 +16,7 @@
     },
     "packages/cli": {
       "name": "@tqx-ai/cli",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "bin": {
         "tqx": "./dist/index.mjs",
       },
@@ -29,7 +29,7 @@
     },
     "packages/sdk": {
       "name": "@tqx-ai/sdk",
-      "version": "0.1.8",
+      "version": "0.1.9",
       "dependencies": {
         "valibot": "^1.4.2",
       },

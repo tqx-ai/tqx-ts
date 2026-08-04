@@ -4,11 +4,17 @@ Source: `packages/cli/src/research/command.ts`. The executable command is `tqx` 
 
 ## Installation, Gateway and Authentication
 
+Install the CLI globally from the matching GitHub Release standalone binary for the user's OS and
+architecture, then verify it. If that binary cannot be used, fall back to the pinned npm package:
+
 ```powershell
-npm install --global @tqx-ai/cli@0.1.8
+npm install --global @tqx-ai/cli@0.1.9
 tqx --version
 tqx research --help
 ```
+
+Use a pinned temporary runner (`npx --yes`, `pnpm dlx`, or `bunx`) only for an explicitly isolated or
+one-time task. The SDK remains a project dependency and is never installed globally.
 
 Research uses an API key, and the Qube gateway URL must contain `/pandaApi`:
 
