@@ -75,14 +75,14 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-sdk-${version}.tgz" \
-            --access public --tag latest --provenance
+            --access public --tag latest
 
       - name: Publish CLI
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
           npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-cli-${version}.tgz" \
-            --access public --tag latest --provenance
+            --access public --tag latest
 
       - name: Compile standalone binaries
         shell: bash

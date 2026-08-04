@@ -1,6 +1,6 @@
 {
   "name": "@tqx-ai/sdk",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "TypeScript SDK for the TQX Open API",
   "keywords": [
     "openapi",

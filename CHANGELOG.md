@@ -4,6 +4,12 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.6 - 2026-08-04
+
+### Fixed
+
+- Support Trusted Publishing from the private GitHub repository without provenance attestation.
+
 ## 0.1.5 - 2026-08-04
 
 ### Changed
