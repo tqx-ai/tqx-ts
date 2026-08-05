@@ -4,6 +4,12 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.15 - 2026-08-05
+
+### Changed
+
+- Clarify signal and order lifecycle distinctions in CLI output, documentation, and public types.
+
 ## 0.1.14 - 2026-08-05
 
 ### Changed

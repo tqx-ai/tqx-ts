@@ -1,6 +1,6 @@
 {
   "name": "@tqx-ai/cli",
-  "version": "0.1.14",
+  "version": "0.1.15",
   "description": "Command-line client for the TQX Open API",
   "keywords": [
     "cli",

@@ -22,14 +22,14 @@ Node/Bun smoke tests.
 Install the CLI globally with npm:
 
 ```bash
-npm install --global @tqx-ai/cli@0.1.14
+npm install --global @tqx-ai/cli@0.1.15
 tqx --version
 ```
 
 Install the SDK in a Node.js project:
 
 ```bash
-npm install @tqx-ai/sdk@0.1.14
+npm install @tqx-ai/sdk@0.1.15
 ```
 
 ## CLI
