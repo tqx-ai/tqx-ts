@@ -3,7 +3,7 @@
 The SDK must be published before the CLI because `@tqx-ai/cli` depends on the matching
 `@tqx-ai/sdk` version.
 
-The current release is npm version `0.1.13` with Git tag `v0.1.13`.
+The current release is npm version `0.1.14` with Git tag `v0.1.14`.
 
 Use Bun to pack packages. Bun rewrites `workspace:*` to the workspace package version; an
 npm-created CLI tarball does not and will fail to install with `EUNSUPPORTEDPROTOCOL`. The release

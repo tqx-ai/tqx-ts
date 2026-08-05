@@ -4,6 +4,12 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.14 - 2026-08-05
+
+### Changed
+
+- Use the checkout v7 action in all release jobs.
+
 ## 0.1.13 - 2026-08-05
 
 ### Fixed
