@@ -165,6 +165,13 @@ jobs:
           path: release-assets
           merge-multiple: true
 
+      - name: Flatten downloaded release artifacts
+        shell: bash
+        run: |
+          find release-assets -mindepth 2 -type f \( -name 'tqx-v*' -o -name '*.tgz' \) -exec cp {} release-assets/ \;
+          find release-assets -mindepth 2 -type f -name '*.exe' -exec cp {} release-assets/ \;
+          find release-assets -mindepth 1 -type d -empty -delete
+
       - name: Generate SHA256 checksums
         shell: bash
         run: |
