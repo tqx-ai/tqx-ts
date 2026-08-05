@@ -4,6 +4,13 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.11 - 2026-08-05
+
+### Fixed
+
+- Compile the Windows standalone CLI on a Windows runner so the application icon is embedded successfully.
+- Collect release artifacts from platform jobs before generating checksums and creating the GitHub Release.
+
 ## 0.1.10 - 2026-08-05
 
 ### Added

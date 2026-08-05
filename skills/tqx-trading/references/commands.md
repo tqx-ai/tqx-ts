@@ -1,7 +1,7 @@
 # TQX Trading CLI Reference
 
 This reference describes the current CLI command shape and is updated with the source. Resolve the latest standalone release at task start from GitHub Releases metadata with an available HTTP client, without requiring Node.js or npm. Use `npm view @tqx-ai/cli version --json` only when npm is already available. The version shown in any older example is illustrative and must not override that runtime check. Current order parameters use
-camelCase: `--orderType`, `--idempotencyKey`, and `--orderId`. Installation examples are pinned to 0.1.10 so that a later release cannot silently change their behavior.
+camelCase: `--orderType`, `--idempotencyKey`, and `--orderId`. Installation examples are pinned to 0.1.11 so that a later release cannot silently change their behavior.
 
 ## Table of contents
 
@@ -34,7 +34,7 @@ node --version
 
 ## Version and License
 
-- The current npm version of CLI and SDK is `0.1.10`; the corresponding Git tag is `v0.1.10`.
+- The current npm version of CLI and SDK is `0.1.11`; the corresponding Git tag is `v0.1.11`.
 - Both packages use the GNU General Public License v3.0, with the SPDX flag `GPL-3.0-only`.
 - Check the package name, version and registry at the same time during installation and troubleshooting to avoid misuse of packages with the same name or floating versions.
 
@@ -56,14 +56,14 @@ $release = Invoke-RestMethod 'https://api.github.com/repos/tqx-ai/tqx-ts/release
 $version = $release.tag_name.TrimStart('v')
 ```
 
-If it is missing or not `0.1.10`, install the matching GitHub Release standalone binary for the user's OS and CPU architecture. Use the `v0.1.10` release assets below, place the binary in a user-owned bin directory on `PATH`, and verify it. Windows ARM64 has no standalone asset and should use the npm fallback.
+If it is missing or not `0.1.11`, install the matching GitHub Release standalone binary for the user's OS and CPU architecture. Use the `v0.1.11` release assets below, place the binary in a user-owned bin directory on `PATH`, and verify it. Windows ARM64 has no standalone asset and should use the npm fallback.
 
 Windows x64 PowerShell:
 
 ```powershell
 $binDir = Join-Path $HOME '.local\bin'
 New-Item -ItemType Directory -Force $binDir | Out-Null
-curl.exe -L --fail 'https://github.com/tqx-ai/tqx-ts/releases/download/v0.1.10/tqx-v0.1.10-windows-x64.exe' -o (Join-Path $binDir 'tqx.exe')
+curl.exe -L --fail 'https://github.com/tqx-ai/tqx-ts/releases/download/v0.1.11/tqx-v0.1.11-windows-x64.exe' -o (Join-Path $binDir 'tqx.exe')
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 if ($userPath -notlike "*$binDir*") {
   [Environment]::SetEnvironmentVariable('Path', "$userPath;$binDir", 'User')
@@ -77,39 +77,39 @@ macOS or Linux (select exactly one asset URL for the detected architecture):
 
 ```sh
 mkdir -p "$HOME/.local/bin"
-curl --fail --location 'https://github.com/tqx-ai/tqx-ts/releases/download/v0.1.10/tqx-v0.1.10-macos-arm64' -o "$HOME/.local/bin/tqx"
+curl --fail --location 'https://github.com/tqx-ai/tqx-ts/releases/download/v0.1.11/tqx-v0.1.11-macos-arm64' -o "$HOME/.local/bin/tqx"
 chmod +x "$HOME/.local/bin/tqx"
 export PATH="$HOME/.local/bin:$PATH"
 tqx --version
 tqx --help
 ```
 
-Use `tqx-v0.1.10-macos-x64`, `tqx-v0.1.10-macos-arm64`, `tqx-v0.1.10-linux-x64`, or `tqx-v0.1.10-linux-arm64` in the URL as appropriate. Persist the `PATH` export in the user's shell startup file when needed.
+Use `tqx-v0.1.11-macos-x64`, `tqx-v0.1.11-macos-arm64`, `tqx-v0.1.11-linux-x64`, or `tqx-v0.1.11-linux-arm64` in the URL as appropriate. Persist the `PATH` export in the user's shell startup file when needed.
 
 If the standalone binary cannot be downloaded, the platform is unsupported, or the global bin directory is not writable, install the pinned npm package globally instead:
 
 ```powershell
-npm install --global @tqx-ai/cli@0.1.10
+npm install --global @tqx-ai/cli@0.1.11
 tqx --help
 ```
 
-Use the equivalent `pnpm add -g @tqx-ai/cli@0.1.10` or `bun add --global @tqx-ai/cli@0.1.10` only when that package manager is the user's chosen environment. Do not execute multiple installation commands consecutively.
+Use the equivalent `pnpm add -g @tqx-ai/cli@0.1.11` or `bun add --global @tqx-ai/cli@0.1.11` only when that package manager is the user's chosen environment. Do not execute multiple installation commands consecutively.
 If pnpm reports that the global bin directory cannot be found, run
 `pnpm setup`, restart the terminal and then install.
 
-Only when the user explicitly requests isolation, the task is one-time, or global installation is impossible, use a pinned temporary runner such as `npx --yes @tqx-ai/cli@0.1.10`, `pnpm dlx @tqx-ai/cli@0.1.10`, or `bunx @tqx-ai/cli@0.1.10`.
+Only when the user explicitly requests isolation, the task is one-time, or global installation is impossible, use a pinned temporary runner such as `npx --yes @tqx-ai/cli@0.1.11`, `pnpm dlx @tqx-ai/cli@0.1.11`, or `bunx @tqx-ai/cli@0.1.11`.
 
 ## Install SDK
 
 Go to the actual TypeScript/JavaScript application directory and choose one based on the existing package manager for the project:
 
 ```powershell
-npm install @tqx-ai/sdk@0.1.10
-pnpm add @tqx-ai/sdk@0.1.10
-bun add @tqx-ai/sdk@0.1.10
+npm install @tqx-ai/sdk@0.1.11
+pnpm add @tqx-ai/sdk@0.1.11
+bun add @tqx-ai/sdk@0.1.11
 ```
 
-Do not install `@tqx-ai/sdk` globally. Follow the project's lockfile when reproducible builds are required, and install 0.1.10 explicitly.
+Do not install `@tqx-ai/sdk` globally. Follow the project's lockfile when reproducible builds are required, and install 0.1.11 explicitly.
 
 Minimum SDK access:
 
@@ -131,8 +131,8 @@ Do not write the API key into the source code. If the release package does not h
 Before installation, you need to confirm that the package is visible in the current registry:
 
 ```powershell
-npm view @tqx-ai/cli@0.1.10 version license
-npm view @tqx-ai/sdk@0.1.10 version license
+npm view @tqx-ai/cli@0.1.11 version license
+npm view @tqx-ai/sdk@0.1.11 version license
 ```
 
 If 404 is returned, it usually means that the package has not been released yet, the package is a private package, the current account does not have permission, or the scope uses another registry.

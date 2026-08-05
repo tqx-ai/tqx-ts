@@ -1,6 +1,6 @@
 # TQX Research CLI Command Reference
 
-Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`, provided either by the standalone GitHub Release binary or by the `@tqx-ai/cli` npm package; do not use the migrated Python `tqx-cli`. The standalone binary is the preferred user installation path and does not require Node.js. The npm package requires Node.js `>=22.18` and is only a fallback when a Node/npm environment already exists or the binary cannot be used. Resolve the current package version at task start without requiring Node.js; examples pinned to `0.1.10` are illustrative for this repository revision and must not override that runtime check.
+Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`, provided either by the standalone GitHub Release binary or by the `@tqx-ai/cli` npm package; do not use the migrated Python `tqx-cli`. The standalone binary is the preferred user installation path and does not require Node.js. The npm package requires Node.js `>=22.18` and is only a fallback when a Node/npm environment already exists or the binary cannot be used. Resolve the current package version at task start without requiring Node.js; examples pinned to `0.1.11` are illustrative for this repository revision and must not override that runtime check.
 
 ## Installation, Gateway and Authentication
 
