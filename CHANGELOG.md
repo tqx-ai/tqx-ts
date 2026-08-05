@@ -4,6 +4,12 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.13 - 2026-08-05
+
+### Fixed
+
+- Remove nested artifact files after flattening so GitHub Release receives files instead of directories.
+
 ## 0.1.12 - 2026-08-05
 
 ### Fixed
