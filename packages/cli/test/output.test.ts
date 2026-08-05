@@ -72,6 +72,29 @@ describe('Output', () => {
     expect(buffer.value).toContain('order-1')
   })
 
+  it('explains that signal state is separate from order status', () => {
+    const buffer = new BufferOutput()
+
+    new Output('plain', buffer, buffer).success({
+      signal_id: 'signal-1',
+      state: 'ACCEPTED',
+      order_id: 'order-1',
+      order_status: null,
+    })
+
+    expect(buffer.value).toContain('state is the signal lifecycle, not the order status')
+    expect(buffer.value).toContain('ACCEPTED does not mean submitted or filled')
+  })
+
+  it('explains that operation acknowledgements are not final order states', () => {
+    const buffer = new BufferOutput()
+
+    new Output('plain', buffer, buffer).success({ order_id: 'order-1', accepted: true })
+
+    expect(buffer.value).toContain('accepted confirms only that the operation request was accepted')
+    expect(buffer.value).toContain('final state')
+  })
+
   it('animates and clears a loading indicator on an interactive terminal', () => {
     vi.useFakeTimers()
     const stdout = new TtyBufferOutput()

@@ -104,6 +104,21 @@ export class Output {
     if (Array.isArray(data)) return data.map((item) => this.renderHuman(item)).join('\n')
     if (!isRecord(data)) return this.formatValue(data)
 
+    const rendered = this.renderRecord(data)
+    if (isSignalData(data)) {
+      return `${rendered}\n${this.#colors.dim(
+        'Note: state is the signal lifecycle, not the order status. ACCEPTED does not mean submitted or filled; use order_id with orders get and trades to confirm execution.',
+      )}`
+    }
+    if (isOrderOperationAck(data)) {
+      return `${rendered}\n${this.#colors.dim(
+        'Note: accepted confirms only that the operation request was accepted; query the order and trades to confirm its final state.',
+      )}`
+    }
+    return rendered
+  }
+
+  private renderRecord(data: Record<string, unknown>): string {
     const entries = Object.entries(data)
     if (entries.length === 1 && Array.isArray(entries[0]?.[1])) {
       return this.renderTable(entries[0][1] as unknown[])
@@ -155,6 +170,23 @@ export class Output {
     }
     return String(value)
   }
+}
+
+function isSignalData(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.signal_id === 'string' &&
+    typeof value.state === 'string' &&
+    'order_status' in value
+  )
+}
+
+function isOrderOperationAck(value: Record<string, unknown>): boolean {
+  return (
+    typeof value.order_id === 'string' &&
+    typeof value.accepted === 'boolean' &&
+    !('signal_id' in value) &&
+    !('status' in value)
+  )
 }
 
 function formatLocalTimestamp(value: string): string {

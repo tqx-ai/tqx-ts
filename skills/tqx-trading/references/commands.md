@@ -281,7 +281,9 @@ Signal:
 tqx trading signals get <signal-id> --json
 ```
 
-The signal status is `PENDING`, `ACCEPTED`, `UNKNOWN`, or `REJECTED`. A signal is not a fill report; use its `order_id` to continue checking the order.
+The signal status is `PENDING`, `ACCEPTED`, `UNKNOWN`, or `REJECTED`. This is the signal lifecycle, not the order lifecycle. `ACCEPTED` means the signal request was accepted; it does not mean that the linked order was submitted or filled. The response may include a separate nullable `order_status` snapshot. A signal is not a fill report; use its `order_id` with `orders get` and `trades --orderId=<id>` to determine the order result.
+
+`orders list` and the current-order `orders get` endpoint may omit terminal orders. An `order_not_found` response therefore does not by itself prove that an order was filled, canceled, or rejected; cross-check the signal, trades, account/positions, and any historical-order endpoint available for the account.
 
 ## Write Trading Commands
 
@@ -320,7 +322,7 @@ Cancellation:
 tqx trading orders cancel <order-id> --json
 ```
 
-Successful order-modification and cancellation responses contain `order_id` and `accepted`. `accepted: true` means only that the request was accepted; it does not mean that the order reached its final state. Run `orders get` afterward.
+Successful order-modification and cancellation responses contain `order_id` and `accepted`. `accepted: true` means only that the operation request was accepted; it does not mean that the order reached its final state. Run `orders get` and query trades afterward.
 
 ## Diagnostic Help
 

@@ -121,6 +121,8 @@ tqx trading trades [--market=HK|US] [--orderId=<id>] [--limit=<n>] [--cursor=<cu
 tqx trading signals get <signal-id>
 ```
 
+Order submission returns a signal response. Its `state=ACCEPTED` means the signal was accepted, not that the linked order was submitted or filled. The linked order lifecycle is reported separately through `order_status` when available and through `orders get` / `trades --orderId=<id>`; `accepted=true` from modify/cancel acknowledges only the operation request.
+
 Research commands are a separate top-level branch and share the same API key store as trading:
 
 ```text

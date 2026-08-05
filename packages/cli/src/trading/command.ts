@@ -15,7 +15,7 @@ export function createTradingCommand(runtime: CommandRuntime) {
     meta: { name: 'orders', description: 'Inspect and manage orders' },
     subCommands: {
       list: defineCommand({
-        meta: { name: 'list', description: 'List current orders' },
+        meta: { name: 'list', description: 'List current active orders' },
         args: paginationArgs,
         run: ({ args }) =>
           runtime.trading((client) =>
@@ -23,14 +23,17 @@ export function createTradingCommand(runtime: CommandRuntime) {
           ),
       }),
       get: defineCommand({
-        meta: { name: 'get', description: 'Get a current order' },
+        meta: { name: 'get', description: 'Get a current active order by ID' },
         args: {
           orderId: { type: 'positional', description: 'Order ID', required: true },
         },
         run: ({ args }) => runtime.trading((client) => client.trading.getOrder(args.orderId)),
       }),
       place: defineCommand({
-        meta: { name: 'place', description: 'Place an order' },
+        meta: {
+          name: 'place',
+          description: 'Submit an order and return its signal state and order-status snapshot',
+        },
         args: {
           symbol: { type: 'string', required: true, description: 'Symbol such as 00700.HK' },
           side: { type: 'enum', options: ['BUY', 'SELL'], required: true },
@@ -74,7 +77,10 @@ export function createTradingCommand(runtime: CommandRuntime) {
           ),
       }),
       cancel: defineCommand({
-        meta: { name: 'cancel', description: 'Cancel an order' },
+        meta: {
+          name: 'cancel',
+          description: 'Request order cancellation; accepted is not the final order status',
+        },
         args: {
           orderId: { type: 'positional', description: 'Order ID', required: true },
         },
@@ -133,7 +139,10 @@ export function createTradingCommand(runtime: CommandRuntime) {
         meta: { name: 'signals', description: 'Inspect trading signals' },
         subCommands: {
           get: defineCommand({
-            meta: { name: 'get', description: 'Get a signal' },
+            meta: {
+              name: 'get',
+              description: 'Get signal state and optional order-status snapshot',
+            },
             args: {
               signalId: { type: 'positional', description: 'Signal ID', required: true },
             },

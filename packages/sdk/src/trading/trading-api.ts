@@ -38,8 +38,10 @@ export interface TradingApi {
   listPositions(options?: PositionsOptions): Promise<PositionsData>
   listOrders(options?: PaginationOptions): Promise<OrdersData>
   getOrder(orderId: string): Promise<OrderData>
+  /** Returns a signal envelope; `state` is not the linked order's final status. */
   placeOrder(input: PlaceOrderInput): Promise<SignalData>
   modifyOrder(input: ModifyOrderInput): Promise<ModifyOrderData>
+  /** Acknowledges a cancellation request; it does not confirm `CANCELLED`. */
   cancelOrder(orderId: string): Promise<CancelOrderData>
   listTrades(options?: TradesOptions): Promise<TradesData>
   getSignal(signalId: string): Promise<SignalData>

@@ -6,6 +6,8 @@ export const TradingModeSchema = v.picklist(['LIVE', 'PAPER'])
 export const MarketSchema = v.picklist(['HK', 'US'])
 export const OrderSideSchema = v.picklist(['BUY', 'SELL'])
 export const OrderTypeSchema = v.picklist(['MARKET', 'LIMIT'])
+
+/** Final and in-flight lifecycle states of an order. */
 export const OrderStatusSchema = v.picklist([
   'PENDING',
   'SUBMITTED',
@@ -18,6 +20,8 @@ export const OrderStatusSchema = v.picklist([
   'TIMEOUT',
   'FAILED',
 ])
+
+/** Lifecycle states of a trading signal, independent from the order lifecycle. */
 export const SignalStateSchema = v.picklist(['PENDING', 'ACCEPTED', 'UNKNOWN', 'REJECTED'])
 
 const positiveDecimalString = v.pipe(
@@ -95,6 +99,11 @@ export const TradeDataSchema = v.looseObject({
   executed_at: v.string(),
 })
 
+/**
+ * Signal response returned by order submission and signal queries.
+ * `state` describes the signal request. `order_status` is a separate,
+ * optional snapshot of the linked order and may be null while processing.
+ */
 export const SignalDataSchema = v.looseObject({
   signal_id: v.string(),
   state: SignalStateSchema,
@@ -107,6 +116,7 @@ export const SignalDataSchema = v.looseObject({
   broker_error_id: v.optional(v.nullable(v.number())),
 })
 
+/** `accepted` acknowledges the operation request, not the order's final state. */
 export const CancelOrderDataSchema = v.looseObject({
   order_id: v.string(),
   accepted: v.boolean(),
@@ -212,3 +222,5 @@ export type ModifyOrderInput = v.InferInput<typeof ModifyOrderInputSchema>
 export type Market = v.InferOutput<typeof MarketSchema>
 export type OrderSide = v.InferOutput<typeof OrderSideSchema>
 export type OrderType = v.InferOutput<typeof OrderTypeSchema>
+export type OrderStatus = v.InferOutput<typeof OrderStatusSchema>
+export type SignalState = v.InferOutput<typeof SignalStateSchema>
