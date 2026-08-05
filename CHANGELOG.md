@@ -4,6 +4,17 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.1.10 - 2026-08-05
+
+### Added
+
+- Embed the TQX icon in the Windows standalone CLI executable.
+
+### Changed
+
+- Resolve the latest CLI release before skill-driven tasks and recommend upgrading outdated installations.
+- Prefer standalone GitHub Release binaries so CLI installation does not require Node.js or npm.
+
 ## 0.1.9 - 2026-08-04
 
 ### Changed

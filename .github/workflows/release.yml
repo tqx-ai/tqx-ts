@@ -88,12 +88,13 @@ jobs:
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
+          icon_path="packages/cli/assets/tqx.ico"
           mkdir -p dist-bin
           bun build --compile --target=bun-linux-x64 --outfile="dist-bin/tqx-v${version}-linux-x64" packages/cli/dist/index.mjs
           bun build --compile --target=bun-linux-arm64 --outfile="dist-bin/tqx-v${version}-linux-arm64" packages/cli/dist/index.mjs
           bun build --compile --target=bun-darwin-x64 --outfile="dist-bin/tqx-v${version}-macos-x64" packages/cli/dist/index.mjs
           bun build --compile --target=bun-darwin-arm64 --outfile="dist-bin/tqx-v${version}-macos-arm64" packages/cli/dist/index.mjs
-          bun build --compile --target=bun-windows-x64 --outfile="dist-bin/tqx-v${version}-windows-x64.exe" packages/cli/dist/index.mjs
+          bun build --compile --target=bun-windows-x64 --windows-icon="$icon_path" --outfile="dist-bin/tqx-v${version}-windows-x64.exe" packages/cli/dist/index.mjs
 
       - name: Generate SHA256 checksums
         shell: bash

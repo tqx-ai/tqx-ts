@@ -16,6 +16,10 @@ TQX Research has two well-defined layers:
 - **Resource management and execution**: Use `@tqx-ai/cli` or `@tqx-ai/sdk` published by `tqx-ts` to access the `/pandaApi` gateway with an API key. Do not use the Python `tqx-cli`, account/password login, session tokens, or `workflow_*`.
 - **Strategy runtime and data research**: `panda_backtest` and `tqx_data` remain available in Qube Python strategy source. They are not replacements for the TypeScript Research client; they are domain infrastructure that must be verified when generating, reviewing, and running strategies.
 
+## Version resolution
+
+This Skill is served from the moving `main` branch and must not be treated as a version lock. At the start of a CLI task, resolve the latest standalone release version without requiring Node.js, for example from GitHub Releases metadata or the npm registry through an available HTTP client. Use `npm view @tqx-ai/cli version --json` only when npm is already available. Check the user's installed `tqx --version` when present, and use the resolved version consistently for binary installation, temporary execution, and verification. If an older CLI is already installed, tell the user that the CLI is out of date and should be upgraded before running Research commands; do not silently continue with old command shapes. Do not ask the user to install Node.js merely to install or check the CLI. If the latest version cannot be reached, use only an already verified CLI and report that the latest version could not be checked.
+
 ## Read by task
 
 - All CLI operations, authentication, parameters, status and output: read [Commands Reference](references/commands.md).
