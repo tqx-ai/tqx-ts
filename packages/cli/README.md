@@ -1,11 +1,23 @@
 # @tqx-ai/cli
 
-Command-line client for the TQX Open API. It requires Node.js 22.18 or newer.
+Command-line client for the TQX Open API. The standalone release binary does not require Node.js;
+the npm distribution requires Node.js 22.18 or newer.
 
 ## Installation
 
+The recommended installation for agents and servers is the standalone binary from the
+[latest GitHub Release](https://github.com/tqx-ai/tqx-ts/releases/latest). Download the asset for
+your operating system and CPU architecture, put it on your `PATH` as `tqx` (`tqx.exe` on Windows),
+and verify it:
+
 ```bash
-npm install --global @tqx-ai/cli@0.1.15
+tqx --version
+```
+
+If a standalone binary is not available for your platform, install the npm package globally:
+
+```bash
+npm install --global @tqx-ai/cli
 tqx --version
 ```
 

@@ -4,6 +4,15 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.2.0 - 2026-08-06
+
+### Changed
+
+- Recommend standalone CLI binaries for agent and server installations, with npm as a fallback.
+- Resolve the current CLI release dynamically in the bundled research and trading skills.
+- Move contributor setup, build, packaging, and release guidance into `CONTRIBUTING.md`.
+- Simplify the generated GitHub Release notes heading.
+
 ## 0.1.15 - 2026-08-05
 
 ### Changed

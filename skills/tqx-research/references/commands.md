@@ -1,6 +1,6 @@
 # TQX Research CLI Command Reference
 
-Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`, provided either by the standalone GitHub Release binary or by the `@tqx-ai/cli` npm package; do not use the migrated Python `tqx-cli`. The standalone binary is the preferred user installation path and does not require Node.js. The npm package requires Node.js `>=22.18` and is only a fallback when a Node/npm environment already exists or the binary cannot be used. Resolve the current package version at task start without requiring Node.js; examples pinned to `0.1.15` are illustrative for this repository revision and must not override that runtime check.
+Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`, provided either by the standalone GitHub Release binary or by the `@tqx-ai/cli` npm package; do not use the migrated Python `tqx-cli`. The standalone binary is the preferred user installation path and does not require Node.js. The npm package requires Node.js `>=22.18` and is only a fallback when a Node/npm environment already exists or the binary cannot be used. Resolve the current package version at task start without requiring Node.js, and use that resolved version consistently for installation, execution, and verification.
 
 ## Installation, Gateway and Authentication
 
@@ -22,7 +22,8 @@ If the command is missing or its version is older than the resolved version, tel
 installed CLI is out of date and should be upgraded before running Research commands. Install the CLI
 globally from the matching GitHub Release standalone binary for the user's OS and architecture, then
 verify it. Do not ask the user to install Node.js merely to install or check the CLI. If that binary
-cannot be used and a Node/npm environment is available, fall back to the pinned npm package:
+cannot be used and a Node/npm environment is available, fall back to the npm package at the
+resolved version:
 
 ```powershell
 npm install --global @tqx-ai/cli@<resolved-version>

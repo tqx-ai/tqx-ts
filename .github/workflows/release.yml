@@ -190,8 +190,6 @@ jobs:
           changelog_url="https://github.com/${GITHUB_REPOSITORY}/blob/${tag}/CHANGELOG.md"
 
           cat > release-notes.md <<'EOF'
-          ## TQX __TAG__
-
           TQX CLI binaries and npm packages for version **__VERSION__**.
 
           ### Standalone CLI binaries

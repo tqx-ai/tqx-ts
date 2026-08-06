@@ -1,86 +1,38 @@
 # TQX TypeScript SDK and CLI
 
-This Bun workspace contains the Node.js-compatible `@tqx-ai/sdk` and the Citty-based `@tqx-ai/cli`.
-
-## Requirements
-
-- Bun 1.3.14 or newer for development
-- Node.js 22.18 or newer for published packages
-
-Install dependencies and run the complete check suite:
-
-```bash
-bun install
-bun run test
-```
-
-`bun run test` checks formatting, lint, TypeScript types, Vitest tests, production builds, and
-Node/Bun smoke tests.
+TQX provides the Node.js-compatible `@tqx-ai/sdk` and the Citty-based `@tqx-ai/cli`.
 
 ## Installation
 
-Install the CLI globally with npm:
+The standalone CLI binary does not require Node.js. The npm distribution requires Node.js 22.18
+or newer.
+
+Install the CLI from the latest standalone release (recommended for agents and servers):
+
+1. Download the asset for your operating system and CPU architecture from the
+   [latest GitHub Release](https://github.com/tqx-ai/tqx-ts/releases/latest).
+2. Put the binary on your `PATH` as `tqx` (`tqx.exe` on Windows).
+3. Verify the installation:
 
 ```bash
-npm install --global @tqx-ai/cli@0.1.15
+tqx --version
+```
+
+If a standalone binary is not available for your platform, or Node.js is already part of your
+environment, install the CLI globally with npm:
+
+```bash
+npm install --global @tqx-ai/cli
 tqx --version
 ```
 
 Install the SDK in a Node.js project:
 
 ```bash
-npm install @tqx-ai/sdk@0.1.15
+npm install @tqx-ai/sdk
 ```
 
 ## CLI
-
-### Environment
-
-Create the shared and environment-specific files as needed:
-
-```dotenv
-# .env: loaded during development and production builds; values are embedded in the artifact.
-TQX_BUILD_BASE_URL=https://www.tqx.trade/pandaApi
-# Trading, authentication, and health gateway
-TQX_BUILD_TRADING_BASE_URL=https://www.tqx.trade
-TQX_BUILD_GET_API_KEY_URL=https://www.tqx.trade/hk/competition-manage?catalog=2
-
-# .env.dev and .env.prod can override these public defaults for local development
-# and production builds.
-# Node.js does not load these files when executing the built CLI. Set TQX_BASE_URL in the
-# process environment to override every gateway at runtime.
-```
-
-`.env`, `.env.dev`, and `.env.prod` are ignored by Git; `.env.example` is the tracked template.
-`TQX_BUILD_BASE_URL` and `TQX_BUILD_TRADING_BASE_URL` are embedded in the CLI and SDK, while
-`TQX_BUILD_GET_API_KEY_URL` is embedded in the CLI's login guidance. All values are public.
-`TQX_BUILD_BASE_URL` is the research and User API HTTP gateway, and
-`TQX_BUILD_TRADING_BASE_URL` is used for authentication, trading, and health. CLI and SDK users
-can override every gateway at runtime with `TQX_BASE_URL`.
-
-### Development
-
-```bash
-bun install
-bun run dev
-```
-
-`bun run dev` loads `.env`, then `.env.dev`, and watches both packages for changes.
-
-### Build and package
-
-```bash
-bun run build
-bun run pack:check
-```
-
-`bun run build` loads `.env`, then `.env.prod`, and creates production artifacts in `dist`.
-Use Bun to pack and publish this workspace: it replaces local `workspace:*` dependencies with the
-published package version. An npm-created CLI tarball retains `workspace:*` and cannot be installed
-from the registry.
-
-Run the complete release gate with `bun run release:check`. See [RELEASING.md](./RELEASING.md) for
-the versioning, publishing, verification, and Git tag procedure.
 
 After installing the CLI, verify and store an API key:
 
@@ -184,3 +136,8 @@ Valibot schemas alongside their inferred TypeScript types.
 ## License
 
 Licensed under the [GNU General Public License v3.0](./LICENSE).
+
+## Contributing
+
+Repository setup, local development, builds, packaging, and release checks are documented in
+[CONTRIBUTING.md](./CONTRIBUTING.md).
