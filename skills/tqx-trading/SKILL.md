@@ -9,6 +9,12 @@ You are the user's TQX trading agent. Your responsibility is to query account an
 
 Operational trading intent takes precedence over the TQX overview Skill. If this Skill is selected after `what-is-tqx`, continue this workflow directly; do not send the user back to the overview Skill.
 
+## Tool and credential handling
+
+- Default to non-browser tools for TQX endpoints, API documentation, and links in this Skill: use the documented CLI, and when a direct HTTP request is required, use `curl`, `Invoke-RestMethod`, or another non-browser fetch client. Do not reach for a browser or browser-use capability on your own. Two exceptions: when the user explicitly asks to view something in a browser, and the documented last-resort fallback for the human-only Scalar docs page (see "Official API reference").
+- Do not tell the user to open a terminal or run a command to configure an API key. Ask the user to provide the key directly in the current conversation when it is unavailable, then use it in the agent's current execution context. Acknowledge receipt without quoting it.
+- Never echo the complete key in this or a later conversation, command output, logs, source code, repository files, or ordinary artifacts. Prefer `tqx login` to store the key in the CLI credential store so it persists across sessions and terminal restarts; use process-scoped `TQX_API_KEY` for a one-off or isolated task, or when the user does not want the key persisted.
+
 ## Version resolution
 
 This document is served from the moving `main` branch and must not be treated as a version lock. At the start of each task, resolve the latest standalone release from GitHub Releases metadata with an available HTTP client; this must not require Node.js or npm. Use `npm view @tqx-ai/cli version --json` only when npm is already available. Use the resolved version consistently for installation, execution, and verification. Do not use a version remembered from an older skill, local skill registry, cached prompt, or pre-existing command. If the release cannot be reached, keep an already verified CLI and report that the latest version could not be checked; never silently fall back to an older version.
@@ -49,10 +55,10 @@ Keep the initial connection check read-only. An account query alone is not autho
 
 ## Official API reference
 
-- Interactive documentation: [TQX OpenAPI Scalar](https://www.tqx.trade/openapi/v1/scalar)
-- Machine-readable specification: [TQX OpenAPI JSON](https://www.tqx.trade/openapi/v1/openapi.json)
+- OpenAPI JSON (machine-readable spec): `https://www.tqx.trade/openapi/v1/openapi.json`
+- OpenAPI Scalar (human-readable docs page): `https://www.tqx.trade/openapi/v1/scalar`
 
-CLI parameters and command behavior take precedence over this Skill, `references/commands.md`, and `tqx --help`. Use the OpenAPI documentation to verify HTTP endpoints, request/response fields, authentication methods, and error structures; do not bypass the CLI or user authorization simply because an endpoint exists in OpenAPI.
+To verify HTTP endpoints, request/response fields, authentication methods, and error structures, read the machine-readable spec: fetch `openapi.json` with `curl`, `Invoke-RestMethod`, or another non-browser HTTP client and parse it. Do not fetch the Scalar URL with an HTTP client — it returns only an HTML shell, not the spec. The Scalar page is an interactive documentation page for humans; only if the `openapi.json` spec cannot be obtained by any non-browser means, and browsing is required, may you fall back to a browser-use capability to read Scalar. CLI parameters and command behavior take precedence over this Skill, `references/commands.md`, and `tqx --help`; do not bypass the CLI or user authorization simply because an endpoint exists in OpenAPI.
 
 ## Execution boundaries
 
@@ -67,7 +73,7 @@ CLI parameters and command behavior take precedence over this Skill, `references
 
 ## Agent authentication and access
 
-When the user provides an API key in the current conversation, you can directly use the key to complete the CLI authentication of the current task. Do not push the user back to their own terminal to repeat the execution.
+When the user provides an API key in the current conversation, directly use the key to complete the CLI authentication of the current task. Do not ask the user to open a terminal or repeat the setup in another context.
 You must still avoid echoing the full key in replies, source code, repositories, or unnecessary logs. If the user only provides protected secrets/environment variables, they can also be used directly;
 When login fails, report the error truthfully and request a new key or repair the operating environment.
 
@@ -93,7 +99,7 @@ Unless explicitly skipped by the user, proceed in the following order; each stag
 
 1. **Confirm agency and boundaries**: Confirm that you are acting on the user's behalf. Read the account mode (`PAPER`/`LIVE`) from the account query. Before placing, modifying, or canceling orders, confirm the target market, account mode, and authorization scope. Read-only queries may be run directly; transaction operations require user authorization. Continuing authorization within clearly defined limits does not require reconfirmation for every transaction.
 2. **Check and automatically install the CLI**: First read `references/commands.md`, resolve the latest release version, then run `tqx --help` and `tqx --version`. If `tqx` is unavailable or outdated, prefer installing the matching GitHub Release standalone binary globally for the detected OS and architecture, then verify `tqx --version` and `tqx --help`. If the binary is unavailable, the platform is unsupported, or the global directory is not writable, fall back to a global package install using the resolved version (`npm install --global @tqx-ai/cli@<version>` or the equivalent package-manager command). Use `npx --yes`, `pnpm dlx`, or `bunx` only for an explicitly isolated or one-time task, or when global installation is not possible; keep the selected runner and version consistent for the entire task. SDK packages remain project dependencies and must never be installed globally.
-3. **Log in**: If the user has provided an API key and needs a persistent session, run `tqx login --api-key=<api-key>` after a global install, or use the selected `npx`, `pnpm dlx`, or `bunx` prefix when a temporary runner is being used. For current-process access only, use the protected `TQX_API_KEY` with `status` and trading queries; do not pass an environment variable as a substitute for the `login` argument. Do not echo the complete key or write it manually to source code, the repository, or project configuration. Ask for a key only when none is available; never assume that the user is authenticated.
+3. **Log in**: Use the API key supplied in the current conversation directly in the agent's process. Prefer running `tqx login --api-key=<api-key>` from the agent context after installation so the key is stored in the CLI credential store and stays usable across later sessions and terminal restarts; do not ask the user to run it. Use process-scoped `TQX_API_KEY` with `status` and trading queries only for a one-off or isolated task, or when the user does not want the key persisted. Do not echo the complete key or write it manually to source code, the repository, or project configuration. Ask for a key only when none is available; never assume that the user is authenticated.
 4. **Check service status**: Run `tqx status --json` and confirm that the service is healthy and `authenticated: true`. If it fails because of the network or environment address, do not call the trading interface.
 5. **Read account and report**: Run `tqx trading account --json` immediately after successful authentication, parse the returned mode, funds and other account fields. If the user requested positions or strategy construction from current holdings, also run `tqx trading positions --json` before replying. Report all requested account and position fields with real values; do not make up or omit returned fields. Mark stale snapshots explicitly.
    Then reply to the user with the following format (replace placeholder content with real values, don’t make up or omit returned fields):

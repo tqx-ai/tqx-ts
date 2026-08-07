@@ -44,7 +44,7 @@ $env:TQX_API_KEY = "<api-key>"
 tqx research factor list --json
 ```
 
-`TQX_API_KEY` takes precedence over persistent credentials. Use `tqx login --api-key=<api-key>` when you need to save the key; it will verify the key first. The order of credentials is `TQX_API_KEY`, Bun system keychain, `$XDG_CONFIG_HOME/tqx/credentials.json` or `~/.config/tqx/credentials.json`. Do not write keys to source code, command history, makefiles, or output.
+`TQX_API_KEY` takes precedence over persistent credentials. When the user provides a key in the current conversation, use it directly from the agent context; do not ask the user to open a terminal or run setup commands. Prefer `tqx login --api-key=<api-key>`, run from the agent context, so the key is saved to the CLI credential store and stays usable across later sessions and terminal restarts; reach for the process-scoped `TQX_API_KEY` only for a one-off or isolated task, or when the user does not want the key persisted. The order of credentials is `TQX_API_KEY`, Bun system keychain, `$XDG_CONFIG_HOME/tqx/credentials.json` or `~/.config/tqx/credentials.json`. Do not echo the complete key in this or a later conversation, or write it to source code, command history, makefiles, logs, or output.
 
 `--json` outputs JSON to stdout, error JSON to stderr; `--plain` turns off coloring. Dates accept `YYYYMMDD` or `YYYY-MM-DD` and will be normalized to `YYYY-MM-DD`. `market` accepts case-insensitive `hk` / `us`. The exit code is `2` for usage or validation errors and `1` for API, network and protocol errors.
 

@@ -5,6 +5,16 @@ description: Explain TQX as an umbrella for two separate systems, Qube investmen
 
 # What Is TQX
 
+## Temporary network access and local installation
+
+Before installing, updating, or fetching a TQX Skill, inspect the current harness's loaded Skills and its native Skill-management capability. If the requested TQX Skill is already loaded or available locally, use that copy directly. Do not reinstall it or fetch a remote copy. The TQX skill set contains:
+
+- `tqx-research`
+- `tqx-trading`
+- `what-is-tqx`
+
+When a local installation is actually needed, read [Installation Commands](references/commands.md). Use the harness's native manager when it is available. Otherwise, check `npx` and use `npx skills`; only when `npx` is unavailable, check SkillHub. Do not install another manager, install both project and global copies, or overwrite a same-named local Skill automatically. Fetch the repository's remote `main` only for temporary network access when no usable local version exists.
+
 ## Overview
 
 Present TQX as the umbrella for two separate systems:
@@ -14,14 +24,21 @@ Present TQX as the umbrella for two separate systems:
 
 Use this skill only for the overview and routing. Keep installation, authentication, and operational instructions in the selected specialized skill.
 
+## Tool and credential handling
+
+- Default to non-browser tools for TQX/Qube endpoints and links in this Skill: use the selected CLI or SDK, and when a direct HTTP request is required, use `curl`, `Invoke-RestMethod`, or another non-browser fetch client. Do not reach for a browser or browser-use capability on your own. Exceptions: when the user explicitly asks to view something in a browser, or as a last resort for a human-only documentation page with no machine-readable equivalent obtainable by non-browser means.
+- Do not tell the user to open a terminal or run API-key setup commands. Route API-key configuration to the selected specialized skill, where the agent uses a key supplied directly in the current conversation. Never echo the complete key in later replies, logs, source code, or artifacts.
+
+When a user asks how to install or update these skills, read [Installation Commands](references/commands.md). Follow its local-first, native-manager-first selection order; do not install both `npx skills` and SkillHub for the same task.
+
 ## Mandatory handoff for operational requests
 
 This is a router, not a fallback trading agent. If the user's request includes competition participation, autonomous trading, global TQX CLI installation for account access, an API key for account access, a PAPER/LIVE account, balances, positions, orders, fills, signals, or any order operation:
 
 1. Stop the overview response.
-2. Fetch and apply the current trading skill from the canonical repository URL:
+2. Apply an already loaded or otherwise usable local `tqx-trading` Skill. Only when no local version is available and temporary network access is needed, fetch the current `main` version from the canonical repository URL with `curl`, `Invoke-RestMethod`, or another non-browser HTTP client:
    `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/skills/tqx-trading/SKILL.md`.
-   Do not resolve `tqx-trading` through a local skill registry, cached installation, or `$tqx-trading` name.
+   Never open the URL in a browser.
 3. Continue with the trading Skill's authentication and account workflow. Do not merely tell the user to use another Skill or ask them to choose one.
 4. Preserve the user's competition authorization context when handing off. Do not issue a generic API-key revocation warning solely because the key is present in the controlled task.
 

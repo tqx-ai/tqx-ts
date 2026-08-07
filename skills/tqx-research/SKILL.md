@@ -11,6 +11,12 @@ Treat Qube as TQX's research system, not its trading system. Qube supports inves
 
 If Qube provides a simulation environment, treat it as research and decision support for a local agent. Do not describe it as a trading account or as executing real trades. Keep it distinct from the trading system's `PAPER` simulated account and `LIVE` real-money account; route those account-based workflows to [`tqx-trading`](../tqx-trading/SKILL.md).
 
+## Tool and credential handling
+
+- Default to non-browser tools for Qube/TQX endpoints, API documentation, and links in this Skill: use `@tqx-ai/cli` or `@tqx-ai/sdk`, and when a direct HTTP request is required, use `curl`, `Invoke-RestMethod`, or another non-browser fetch client. Do not reach for a browser or browser-use capability on your own. Exceptions: when the user explicitly asks to view something in a browser, or as a last resort for a human-only documentation page that has no machine-readable equivalent obtainable by non-browser means.
+- Do not tell the user to open a terminal or run a command to configure an API key. Ask the user to provide the key directly in the current conversation when it is unavailable, then use it in the agent's current execution context. Acknowledge receipt without quoting it.
+- Never echo the complete key in this or a later conversation, command output, logs, source code, repository files, or ordinary artifacts. Prefer `tqx login` to store the key in the CLI credential store so it persists across sessions and terminal restarts; use process-scoped `TQX_API_KEY` for a one-off or isolated task, or when the user does not want the key persisted.
+
 TQX Research has two well-defined layers:
 
 - **Resource management and execution**: Use `@tqx-ai/cli` or `@tqx-ai/sdk` published by `tqx-ts` to access the `/pandaApi` gateway with an API key. Do not use the Python `tqx-cli`, account/password login, session tokens, or `workflow_*`.
@@ -35,7 +41,7 @@ This Skill is served from the moving `main` branch and must not be treated as a 
 1. Confirm the market is `hk` or `us`, and distinguish between factor definition, factor analysis, strategy definition, strategy backtesting and local source code generation. Resource ID must be a positive integer.
 2. When only generating source code, research designs or command drafts, no authentication, no remote resources creation, no analysis or backtesting are performed.
 3. `create`, `update`, `run`, `stop`, and `delete` all have remote side effects. Run them only when explicitly requested by the user; deletion requires `--yes`.
-4. Before a remote operation, confirm that an API key is available and that the Research gateway's `TQX_BASE_URL` (or build-time default) ends with `/pandaApi`. Never output API keys, persistent credentials, or environment variable values.
+4. Before a remote operation, confirm that an API key is available and that the Research gateway's `TQX_BASE_URL` (or build-time default) ends with `/pandaApi`. Use a key supplied in the current conversation directly from the agent context; never output API keys, persistent credentials, or environment variable values.
 5. Keep the `factor_id` / `strategy_id` in the create response and the `analysis_id` / `run_id` in the run response. `SUBMITTED`, `PENDING`, `RUNNING`, `FAILED`, `CANCELLED`, `TIMEOUT` are not completed successfully; only `SUCCESS` of CLI corresponds to server `done`.
 6. Use `--json` for machine-readable stdout; error JSON is written to stderr. List commands omit source code by default; use `--includeContent` to request it.
 

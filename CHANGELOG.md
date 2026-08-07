@@ -4,6 +4,13 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.2.1 - 2026-08-07
+
+### Changed
+
+- Enhance tool and credential handling across the TQX skills: default to non-browser tools for API
+  requests and documentation, and manage API keys securely without pushing users back to a terminal.
+
 ## 0.2.0 - 2026-08-06
 
 ### Changed

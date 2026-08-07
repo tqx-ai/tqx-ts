@@ -101,8 +101,8 @@ tqx --help
 Use the equivalent `pnpm add -g @tqx-ai/cli@<version>` or `bun add --global @tqx-ai/cli@<version>` only when that
 package manager is the user's chosen environment. Do not execute multiple installation commands
 consecutively.
-If pnpm reports that the global bin directory cannot be found, run
-`pnpm setup`, restart the terminal and then install.
+If pnpm reports that the global bin directory cannot be found, run `pnpm setup` from the agent
+context and use a fresh agent process if the PATH needs to be reloaded before installing.
 
 Only when the user explicitly requests isolation, the task is one-time, or global installation is
 impossible, use the resolved version with a temporary runner such as `npx --yes @tqx-ai/cli@<version>`,
@@ -154,7 +154,7 @@ pnpm config get registry
 bun pm whoami
 ```
 
-If Bun reports `missing authentication`, let the user log in on his own terminal and verify again; do not ask for his npm password or OTP:
+If Bun reports `missing authentication`, do not ask the user to open a terminal or provide an npm password or OTP in chat. Use an already authenticated package-manager context if available; otherwise report that the package registry authentication is the environment blocker.
 
 ```powershell
 bunx npm login
@@ -198,12 +198,13 @@ tqx status --json
 
 A successful response contains `status`, `service`, `backend_version` and `authenticated`.
 
-CLI login currently only accepts command line parameters and may enter shell history. When the user explicitly provides the API key in the current conversation, the agent can
-use it directly for login, but do not echo the complete key in the reply or write it to source code, the repository, or unnecessary logs. When a persistent login is required:
+CLI login currently only accepts command line parameters and may enter shell history. Do not instruct the user to run it. When the user explicitly provides the API key in the current conversation, the agent can use it directly for login from its own execution context. Do not echo the complete key in this or a later reply, or write it to source code, the repository, or unnecessary logs. Prefer `tqx login` so the key is saved to the CLI credential store and stays usable across later sessions and terminal restarts:
 
 ```powershell
 tqx login --api-key=<api-key>
 ```
+
+Reach for the process-scoped `TQX_API_KEY` instead only for a one-off or isolated task, or when the user does not want the key persisted.
 
 Delete persistent credentials:
 
