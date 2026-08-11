@@ -51,6 +51,40 @@ export class ResearchApiClient implements ResearchApi {
     return this.#factors.cancelFactorAnalysis(...args)
   }
 
+  listFactorAnalyses(...args: Parameters<FactorApi['listFactorAnalyses']>) {
+    return this.#factors.listFactorAnalyses(...args)
+  }
+
+  listAnalyses(...args: Parameters<FactorApi['listAnalyses']>) {
+    return this.#factors.listAnalyses(...args)
+  }
+
+  createStrategyFromFactor(...args: Parameters<FactorApi['createStrategyFromFactor']>) {
+    return this.#factors.createStrategyFromFactor(...args)
+  }
+
+  createStrategyAndBacktestFromFactor(
+    ...args: Parameters<FactorApi['createStrategyAndBacktestFromFactor']>
+  ) {
+    return this.#factors.createStrategyAndBacktestFromFactor(...args)
+  }
+
+  saveFactor(...args: Parameters<FactorApi['saveFactor']>) {
+    return this.#factors.saveFactor(...args)
+  }
+
+  listFactorVersions(...args: Parameters<FactorApi['listFactorVersions']>) {
+    return this.#factors.listFactorVersions(...args)
+  }
+
+  updateFactorVersion(...args: Parameters<FactorApi['updateFactorVersion']>) {
+    return this.#factors.updateFactorVersion(...args)
+  }
+
+  revertFactorVersion(...args: Parameters<FactorApi['revertFactorVersion']>) {
+    return this.#factors.revertFactorVersion(...args)
+  }
+
   pollFactorAnalysis(...args: Parameters<FactorApi['pollFactorAnalysis']>) {
     return this.#factors.pollFactorAnalysis(...args)
   }
@@ -79,6 +113,40 @@ export class ResearchApiClient implements ResearchApi {
     return this.#strategies.runStrategyBacktest(...args)
   }
 
+  getStrategyBacktestParameters(...args: Parameters<StrategyApi['getStrategyBacktestParameters']>) {
+    return this.#strategies.getStrategyBacktestParameters(...args)
+  }
+
+  saveStrategyBacktestParameters(
+    ...args: Parameters<StrategyApi['saveStrategyBacktestParameters']>
+  ) {
+    return this.#strategies.saveStrategyBacktestParameters(...args)
+  }
+
+  saveStrategy(...args: Parameters<StrategyApi['saveStrategy']>) {
+    return this.#strategies.saveStrategy(...args)
+  }
+
+  listStrategyVersions(...args: Parameters<StrategyApi['listStrategyVersions']>) {
+    return this.#strategies.listStrategyVersions(...args)
+  }
+
+  getStrategyVersion(...args: Parameters<StrategyApi['getStrategyVersion']>) {
+    return this.#strategies.getStrategyVersion(...args)
+  }
+
+  updateStrategyVersion(...args: Parameters<StrategyApi['updateStrategyVersion']>) {
+    return this.#strategies.updateStrategyVersion(...args)
+  }
+
+  revertStrategyVersion(...args: Parameters<StrategyApi['revertStrategyVersion']>) {
+    return this.#strategies.revertStrategyVersion(...args)
+  }
+
+  runStrategyVersionBacktest(...args: Parameters<StrategyApi['runStrategyVersionBacktest']>) {
+    return this.#strategies.runStrategyVersionBacktest(...args)
+  }
+
   getBacktest(...args: Parameters<BacktestApi['getBacktest']>) {
     return this.#backtests.getBacktest(...args)
   }
@@ -89,6 +157,14 @@ export class ResearchApiClient implements ResearchApi {
 
   listBacktests(...args: Parameters<BacktestApi['listBacktests']>) {
     return this.#backtests.listBacktests(...args)
+  }
+
+  listBacktestPage(...args: Parameters<BacktestApi['listBacktestPage']>) {
+    return this.#backtests.listBacktestPage(...args)
+  }
+
+  listBacktestVersionPage(...args: Parameters<BacktestApi['listBacktestVersionPage']>) {
+    return this.#backtests.listBacktestVersionPage(...args)
   }
 
   pollBacktest(...args: Parameters<BacktestApi['pollBacktest']>) {

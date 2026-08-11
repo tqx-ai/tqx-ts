@@ -16,6 +16,7 @@ const APIs = {
   RESEARCH_FACTOR_ANALYSES: 'agent_quant/api/factor-analyses',
   RESEARCH_STRATEGIES: 'agent_quant/api/strategies',
   RESEARCH_BACKTESTS: 'agent_quant/api/backtests',
+  RESEARCH_STRATEGY_VERSIONS: 'agent_quant/api/strategy-versions',
 } as const
 
 export default APIs

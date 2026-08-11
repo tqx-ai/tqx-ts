@@ -248,55 +248,22 @@ describe('research CLI', () => {
     expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({ name: 'renamed' })
   })
 
-  it('lists strategies across HK and US by default with newest strategies first', async () => {
+  it('lists strategies across all markets by default', async () => {
     const store = new MemoryStore()
     store.value = 'stored-key'
     const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(
-        gatewayResponse({
-          items: [
-            {
-              id: 1,
-              name: 'older hk',
-              description: null,
-              market: 'hk',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-01-10T00:00:00Z',
-              code: 'hk source',
-            },
-            { id: 5, name: 'undated hk', market: 'hk', code: 'undated hk source' },
-          ],
-          has_more: false,
-          next_offset: null,
-        }),
-      )
-      .mockResolvedValueOnce(
-        gatewayResponse({
-          items: [
-            {
-              id: 2,
-              name: 'created us',
-              market: 'us',
-              created_at: '2026-02-01T00:00:00Z',
-              code: 'created us source',
-            },
-            {
-              id: 3,
-              name: 'newest us',
-              market: 'us',
-              created_at: '2026-01-01T00:00:00Z',
-              updated_at: '2026-03-01T00:00:00Z',
-              code: 'newest us source',
-            },
-            { id: 4, name: 'undated us', market: 'us', code: 'undated us source' },
-            { id: 1, name: 'duplicate hk', market: 'us', code: 'duplicate hk source' },
-          ],
-          has_more: true,
-          next_offset: 100,
-        }),
-      )
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(
+      gatewayResponse({
+        items: [
+          { id: 1, name: 'stock strategy', market: 'stock', code: 'stock source' },
+          { id: 2, name: 'future strategy', market: 'future', code: 'future source' },
+          { id: 3, name: 'hk strategy', market: 'hk', code: 'hk source' },
+          { id: 4, name: 'us strategy', market: 'us', code: 'us source' },
+        ],
+        has_more: true,
+        next_offset: 100,
+      }),
+    )
 
     await runCli(['research', 'strategy', 'list', '--keyword=demo', '--json'], {
       environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
@@ -315,24 +282,81 @@ describe('research CLI', () => {
     expect(requests).toEqual([
       {
         path: '/pandaApi/agent_quant/api/strategies/page',
-        query: { offset: '0', limit: '100', market: 'hk', keyword: 'demo' },
-      },
-      {
-        path: '/pandaApi/agent_quant/api/strategies/page',
-        query: { offset: '0', limit: '100', market: 'us', keyword: 'demo' },
+        query: { offset: '0', limit: '100', keyword: 'demo' },
       },
     ])
     const output = JSON.parse(stdout.value)
-    expect(output).toMatchObject({ success: true, count: 5, has_more: true, next_offset: 100 })
-    expect(output.strategies.map((strategy: { id: number }) => strategy.id)).toEqual([
-      3, 2, 1, 5, 4,
-    ])
-    expect(
-      output.strategies.find((strategy: { id: number }) => strategy.id === 1)?.description,
-    ).toBeNull()
+    expect(output).toMatchObject({ success: true, count: 4, has_more: true, next_offset: 100 })
+    expect(output.strategies.map((strategy: { id: number }) => strategy.id)).toEqual([1, 2, 3, 4])
     expect(
       output.strategies.every((strategy: { code?: string }) => strategy.code === undefined),
     ).toBe(true)
+  })
+
+  it('inherits factor analysis parameters when saving code only', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stdout = new BufferOutput()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        gatewayResponse({
+          id: 42,
+          market: 'stock',
+          latest_version: {
+            id: 7,
+            factor_id: 42,
+            version_number: 3,
+            code: 'old',
+            code_type: 'python',
+            market: 'stock',
+            params: {
+              period_start: '2026-01-01',
+              period_end: '2026-03-31',
+              adjustment_cycle: 10,
+              group_number: 10,
+              factor_direction: 0,
+              stock_pool: 'large-cap',
+              market_type: 'main',
+            },
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        gatewayResponse({
+          id: 42,
+          version: {
+            id: 8,
+            factor_id: 42,
+            version_number: 4,
+            code: 'factors["close"]',
+            code_type: 'python',
+            market: 'stock',
+          },
+          version_created: true,
+        }),
+      )
+
+    await runCli(['research', 'factor', 'save', '42', '--code=factors["close"]', '--json'], {
+      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+      credentialStore: store,
+      fetch,
+      stdout,
+    })
+
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toMatchObject({
+      market: 'stock',
+      analysis_params: {
+        period_start: '2026-01-01',
+        period_end: '2026-03-31',
+        adjustment_cycle: 10,
+        group_number: 10,
+        factor_direction: 0,
+        stock_pool: 'large-cap',
+        market_type: 'main',
+      },
+    })
   })
 
   it('keeps explicit strategy list market queries focused and preserves code with includeContent', async () => {

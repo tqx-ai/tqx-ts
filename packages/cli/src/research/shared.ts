@@ -54,7 +54,7 @@ interface ResearchMarketClient {
 export const listArgs = {
   market: {
     type: 'enum' as const,
-    options: ['all', 'hk', 'us', 'HK', 'US'],
+    options: ['all', 'stock', 'future', 'hk', 'us', 'STOCK', 'FUTURE', 'HK', 'US'],
     default: 'all',
   },
   limit: {
@@ -162,14 +162,22 @@ export function strategyWarnings(code: string, market: QubeMarket, strict: boole
       `strategy code safety check failed: forbidden function ${forbidden[1]}()`,
     )
   }
-  const expected = market === 'hk' ? 'stock_hk_api' : 'stock_us_api'
-  const other = market === 'hk' ? 'stock_us_api' : 'stock_hk_api'
+  const expected =
+    market === 'hk'
+      ? 'stock_hk_api'
+      : market === 'us'
+        ? 'stock_us_api'
+        : market === 'future'
+          ? 'future_api'
+          : 'api.api'
+  const other = market === 'hk' ? 'stock_us_api' : market === 'us' ? 'stock_hk_api' : undefined
   const warnings: string[] = []
-  if (code.includes('panda_backtest.api.stock_api')) {
+  if ((market === 'hk' || market === 'us') && code.includes('panda_backtest.api.stock_api')) {
     warnings.push('detected mainland stock_api import; use the market-specific API')
   }
-  if (code.includes(other)) warnings.push(`detected wrong market API: ${other}`)
-  if (!code.includes(expected))
+  if (other !== undefined && code.includes(other))
+    warnings.push(`detected wrong market API: ${other}`)
+  if (expected !== undefined && !code.includes(expected))
     warnings.push(`did not detect panda_backtest.api.${expected} import`)
   if (strict && warnings.length > 0) throw new CliUsageError(warnings.join('; '))
   return warnings
@@ -183,6 +191,8 @@ function sanitiseStrategyCode(code: string): string {
 }
 
 export function toMarket(value: string): QubeMarket {
+  if (value.toUpperCase() === 'STOCK') return 'stock'
+  if (value.toUpperCase() === 'FUTURE') return 'future'
   if (value.toUpperCase() === 'HK') return 'hk'
   if (value.toUpperCase() === 'US') return 'us'
   throw new CliUsageError(`unsupported market: ${value}`)
@@ -226,7 +236,8 @@ export function boundedInteger(
   return number
 }
 
-export function factorDirection(value: string | undefined): FactorDirection {
+export function factorDirection(value: string | undefined): FactorDirection | undefined {
+  if (value === undefined) return undefined
   const normalized = value?.trim().toLowerCase()
   if (normalized === '1' || normalized === 'positive') return 1
   if (normalized === '0' || normalized === 'negative') return 0

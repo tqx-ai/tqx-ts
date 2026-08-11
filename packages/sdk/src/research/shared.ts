@@ -19,7 +19,7 @@ export interface ResearchRequestOptions<
   TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>,
 > {
   schema: TSchema
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
   query?: Record<string, string | number | undefined>
   body?: unknown
   headers?: Record<string, string>

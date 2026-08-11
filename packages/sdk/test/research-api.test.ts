@@ -11,6 +11,87 @@ function gatewayResponse(
 }
 
 describe('Qube research API', () => {
+  it('maps versioned strategy and factor research endpoints to the Qube contract', async () => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        gatewayResponse({
+          strategy: { id: 8, name: 's', market: 'future', params: {} },
+          version: { id: 81, strategy_id: 8, version_number: 2, code: 'code' },
+          version_created: true,
+        }),
+      )
+      .mockResolvedValueOnce(
+        gatewayResponse({
+          id: 91,
+          factor_id: 4,
+          factor_version_id: 42,
+          version_number: 3,
+          code: 'close',
+          code_type: 'formula',
+          market: 'stock',
+        }),
+      )
+      .mockResolvedValueOnce(
+        gatewayResponse({ id: 91, strategy_id: 8, strategy_version_id: 81, status: 'pending' }),
+      )
+    const client = new TqxClient({
+      baseUrl: 'https://api.example.test/pandaApi',
+      apiKey: 'key',
+      fetch,
+    })
+
+    await client.research.saveStrategy(8, {
+      code: 'code',
+      baseVersionId: 80,
+      backtest: { marginRate: 2, standardSymbol: '沪深300' },
+    })
+    await client.research.revertFactorVersion(4, 2)
+    await client.research.runStrategyVersionBacktest(81)
+
+    expect(String(fetch.mock.calls[0]?.[0])).toBe(
+      'https://api.example.test/pandaApi/agent_quant/api/strategies/8/save',
+    )
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('PUT')
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+      code: 'code',
+      base_version_id: 80,
+      backtest_params: { margin_rate: 2, standard_symbol: '沪深300' },
+    })
+    expect(String(fetch.mock.calls[1]?.[0])).toBe(
+      'https://api.example.test/pandaApi/agent_quant/api/factors/4/versions/2/revert',
+    )
+    expect(String(fetch.mock.calls[2]?.[0])).toBe(
+      'https://api.example.test/pandaApi/agent_quant/api/strategy-versions/81/backtests',
+    )
+  })
+
+  it('maps factor analysis market-specific parameters', async () => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(gatewayResponse({ id: 7, factor_id: 4, status: 'pending' }))
+    const client = new TqxClient({
+      baseUrl: 'https://api.example.test/pandaApi',
+      apiKey: 'key',
+      fetch,
+    })
+
+    await client.research.createFactorAnalysis(4, {
+      factorVersionId: 12,
+      factorDirection: 0,
+      stockPool: 'pool',
+      marketType: 'main',
+    })
+
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+      factor_id: 4,
+      factor_version_id: 12,
+      factor_direction: 0,
+      stock_pool: 'pool',
+      market_type: 'main',
+    })
+  })
+
   it('maps factor creation and list filters to Qube gateway requests', async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
@@ -137,6 +218,30 @@ describe('Qube research API', () => {
     )
   })
 
+  it('converts saved strategy backtest parameters to SDK casing', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      gatewayResponse({
+        source: 'saved',
+        params: {
+          period_start: '2026-01-01',
+          init_balance: 1000,
+          standard_symbol: '沪深300',
+          symbols: null,
+        },
+      }),
+    )
+    const client = new TqxClient({
+      baseUrl: 'https://api.example.test/pandaApi',
+      apiKey: 'key',
+      fetch,
+    })
+
+    await expect(client.research.getStrategyBacktestParameters(8)).resolves.toEqual({
+      source: 'saved',
+      params: { periodStart: '2026-01-01', initBalance: 1000, standardSymbol: '沪深300' },
+    })
+  })
+
   it('accepts raw Qube resource responses whose code is source content', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
       Response.json({
@@ -181,6 +286,16 @@ describe('Qube research API', () => {
     expect(() => client.research.getFactor(0)).toThrow(TqxValidationError)
     await expect(
       client.research.createFactor({ name: '', code: 'close', codeType: 'formula', market: 'hk' }),
+    ).rejects.toBeInstanceOf(TqxValidationError)
+    await expect(
+      client.research.runStrategyBacktest(1, {
+        standardSymbol: 'benchmark' as never,
+      }),
+    ).rejects.toBeInstanceOf(TqxValidationError)
+    await expect(
+      client.research.createStrategyFromFactor(1, {
+        rebalanceThresholdBuffer: 1.5,
+      }),
     ).rejects.toBeInstanceOf(TqxValidationError)
     expect(fetch).not.toHaveBeenCalled()
   })

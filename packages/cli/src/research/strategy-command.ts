@@ -1,11 +1,9 @@
 import { defineCommand } from 'citty'
 
-import type { QubeMarket, QubePage, Strategy, TqxClient } from '@tqx-ai/sdk'
+import type { QubePage, TqxClient } from '@tqx-ai/sdk'
 
 import type { CommandRuntime } from '../runtime/command-runtime'
-import { isNumber } from '../utils/basic/type-guard'
 import { CliUsageError } from '../utils/errors'
-import { compareDescending, uniqueById } from '../utils/useful-tool'
 import {
   addDownload,
   backtestArgs,
@@ -39,7 +37,11 @@ export function createStrategyCommand(runtime: CommandRuntime) {
       create: defineCommand({
         meta: { name: 'create', description: 'Create a strategy definition' },
         args: {
-          market: { type: 'enum', options: ['hk', 'us', 'HK', 'US'], required: true },
+          market: {
+            type: 'enum',
+            options: ['stock', 'future', 'hk', 'us', 'STOCK', 'FUTURE', 'HK', 'US'],
+            required: true,
+          },
           code: { type: 'string', description: 'Python strategy source' },
           file: { type: 'string', description: 'Load strategy source from a file' },
           name: { type: 'string', default: 'TQX Strategy', description: 'Strategy name' },
@@ -74,6 +76,47 @@ export function createStrategyCommand(runtime: CommandRuntime) {
             }
           }),
       }),
+      save: defineCommand({
+        meta: { name: 'save', description: 'Save a strategy code version' },
+        args: {
+          strategyId: resourceIdArg('Strategy ID'),
+          code: { type: 'string', description: 'Python strategy source' },
+          file: { type: 'string', description: 'Load strategy source from a file' },
+          name: { type: 'string', description: 'Strategy name' },
+          description: { type: 'string', description: 'Strategy description' },
+          baseVersionId: { type: 'string', description: 'Expected current version ID' },
+          confirmRebase: { type: 'boolean', description: 'Rebase on the latest version' },
+          ...backtestArgs,
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => {
+            const content = selectContent(args as unknown as ContentArgs, false)
+            const saved = await client.research.saveStrategy(
+              resourceId(args.strategyId, 'strategy ID'),
+              {
+                code: content.value,
+                name: args.name,
+                description: args.description,
+                baseVersionId:
+                  args.baseVersionId === undefined
+                    ? undefined
+                    : resourceId(args.baseVersionId, 'base version ID'),
+                confirmRebase: Boolean(args.confirmRebase),
+                backtest: hasBacktestInput(args as unknown as BacktestArgs)
+                  ? backtestParameters(args as unknown as BacktestArgs, false)
+                  : undefined,
+              },
+            )
+            return {
+              success: true,
+              strategy_id: saved.strategy.id,
+              version_id: saved.version.id,
+              version_created: saved.version_created,
+              strategy: saved.strategy,
+              version: saved.version,
+            }
+          }),
+      }),
       info: defineCommand({
         meta: { name: 'info', description: 'Get a strategy definition' },
         args: { strategyId: resourceIdArg('Strategy ID') },
@@ -85,16 +128,46 @@ export function createStrategyCommand(runtime: CommandRuntime) {
             return { success: true, strategy: fetchedStrategy }
           }),
       }),
+      versions: defineCommand({
+        meta: { name: 'versions', description: 'List strategy code versions' },
+        args: { strategyId: resourceIdArg('Strategy ID') },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            strategy_id: resourceId(args.strategyId, 'strategy ID'),
+            versions: await client.research.listStrategyVersions(
+              resourceId(args.strategyId, 'strategy ID'),
+            ),
+          })),
+      }),
+      revert: defineCommand({
+        meta: { name: 'revert', description: 'Revert a strategy version as a new version' },
+        args: {
+          strategyId: resourceIdArg('Strategy ID'),
+          versionNumber: resourceIdArg('Version number'),
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => {
+            const strategyId = resourceId(args.strategyId, 'strategy ID')
+            const version = await client.research.revertStrategyVersion(
+              strategyId,
+              resourceId(args.versionNumber, 'version number'),
+            )
+            return { success: true, strategy_id: strategyId, version }
+          }),
+      }),
       update: defineCommand({
         meta: { name: 'update', description: 'Update a strategy definition' },
         args: {
           strategyId: resourceIdArg('Strategy ID'),
-          market: { type: 'enum', options: ['hk', 'us', 'HK', 'US'] },
+          market: {
+            type: 'enum',
+            options: ['stock', 'future', 'hk', 'us', 'STOCK', 'FUTURE', 'HK', 'US'],
+          },
           code: { type: 'string', description: 'Python strategy source' },
           file: { type: 'string', description: 'Load strategy source from a file' },
           name: { type: 'string', description: 'Strategy name' },
           description: { type: 'string', description: 'Strategy description' },
-          versionSummary: { type: 'string', description: 'Version summary' },
           strictMarketApi: { type: 'boolean', description: 'Reject invalid market API usage' },
           ...backtestArgs,
         },
@@ -121,7 +194,6 @@ export function createStrategyCommand(runtime: CommandRuntime) {
               description: args.description,
               code: content?.value,
               market,
-              versionSummary: args.versionSummary,
               backtest: hasBacktestUpdates
                 ? backtestParameters(args as unknown as BacktestArgs, false, current?.params)
                 : undefined,
@@ -243,54 +315,5 @@ async function listStrategiesForDisplay(
   args: ListArgs,
 ): Promise<QubePage<Record<string, unknown>>> {
   const input = listInput(args)
-  if (input.market !== undefined) {
-    return client.research.listStrategies(input) as Promise<QubePage<Record<string, unknown>>>
-  }
-
-  const pages = await Promise.all(
-    (['hk', 'us'] satisfies QubeMarket[]).map((market) =>
-      client.research.listStrategies({ ...input, market }),
-    ),
-  )
-  const items = pages
-    .flatMap((page) => page.items)
-    .map((item) => item as Strategy & Record<string, unknown>)
-    .toSorted(compareStrategiesByRecency)
-  const uniqueItems = uniqueById(items)
-
-  return {
-    items: uniqueItems,
-    hasMore: pages.some((page) => page.hasMore),
-    nextOffset: nextCombinedOffset(pages),
-  }
-}
-
-function compareStrategiesByRecency(
-  left: Strategy & Record<string, unknown>,
-  right: Strategy & Record<string, unknown>,
-): number {
-  return (
-    compareDescending(strategyRecency(left), strategyRecency(right)) ||
-    compareDescending(numericValue(left.id), numericValue(right.id))
-  )
-}
-
-function strategyRecency(strategy: Record<string, unknown>): number {
-  return timestampValue(strategy.updated_at) ?? timestampValue(strategy.created_at) ?? 0
-}
-
-function timestampValue(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
-  if (typeof value !== 'string') return undefined
-  const parsed = Date.parse(value)
-  return Number.isNaN(parsed) ? undefined : parsed
-}
-
-function numericValue(value: unknown): number {
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0
-}
-
-function nextCombinedOffset(pages: readonly QubePage<Strategy>[]): number | null {
-  const offsets = pages.map((page) => page.nextOffset).filter(isNumber)
-  return offsets.length === 0 ? null : Math.min(...offsets)
+  return client.research.listStrategies(input) as Promise<QubePage<Record<string, unknown>>>
 }

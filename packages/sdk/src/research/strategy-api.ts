@@ -12,9 +12,19 @@ import {
   type ListQubeResourcesInput,
   type QubePage,
   type Strategy,
+  type StrategyBacktestParams,
+  type StrategySave,
+  type StrategySaveInput,
+  type StrategyVersion,
   StrategySchema,
+  StrategyBacktestParamsSchema,
+  StrategySaveInputSchema,
+  StrategySaveSchema,
+  StrategyVersionSchema,
   type UpdateStrategyInput,
   UpdateStrategyInputSchema,
+  type VersionPatchInput,
+  VersionPatchInputSchema,
 } from './schemas'
 import { listResources, resourceId, type ResearchRequest } from './shared'
 
@@ -35,8 +45,7 @@ export class StrategyApi {
         description: parsed.description,
         code: parsed.code,
         market: parsed.market,
-        params:
-          parsed.backtest === undefined ? undefined : { backtest: toBacktestBody(parsed.backtest) },
+        params: mergeBacktestParams(parsed.params, parsed.backtest),
       },
     })
   }
@@ -57,9 +66,7 @@ export class StrategyApi {
         description: parsed.description,
         code: parsed.code,
         market: parsed.market,
-        version_summary: parsed.versionSummary,
-        params:
-          parsed.backtest === undefined ? undefined : { backtest: toBacktestBody(parsed.backtest) },
+        params: mergeBacktestParams(parsed.params, parsed.backtest),
       },
     })
   }
@@ -83,6 +90,80 @@ export class StrategyApi {
       body: toBacktestBody(parsed),
     })
   }
+
+  getStrategyBacktestParameters(strategyId: number): Promise<StrategyBacktestParams> {
+    return this.#request(`${APIs.RESEARCH_STRATEGIES}/${resourceId(strategyId)}/backtest-params`, {
+      schema: StrategyBacktestParamsSchema,
+    })
+  }
+
+  async saveStrategyBacktestParameters(
+    strategyId: number,
+    input: BacktestParameters,
+  ): Promise<StrategyBacktestParams> {
+    const parsed = parseResearchInput(BacktestParametersSchema, input)
+    return this.#request(`${APIs.RESEARCH_STRATEGIES}/${resourceId(strategyId)}/backtest-params`, {
+      schema: StrategyBacktestParamsSchema,
+      method: 'PUT',
+      body: toBacktestBody(parsed),
+    })
+  }
+
+  async saveStrategy(strategyId: number, input: StrategySaveInput): Promise<StrategySave> {
+    const parsed = parseResearchInput(StrategySaveInputSchema, input)
+    return this.#request(`${APIs.RESEARCH_STRATEGIES}/${resourceId(strategyId)}/save`, {
+      schema: StrategySaveSchema,
+      method: 'PUT',
+      body: {
+        code: parsed.code,
+        name: parsed.name,
+        description: parsed.description,
+        base_version_id: parsed.baseVersionId,
+        confirm_rebase: parsed.confirmRebase,
+        backtest_params:
+          parsed.backtest === undefined ? undefined : toBacktestBody(parsed.backtest),
+      },
+    })
+  }
+
+  listStrategyVersions(strategyId: number): Promise<StrategyVersion[]> {
+    return this.#request(`${APIs.RESEARCH_STRATEGIES}/${resourceId(strategyId)}/versions`, {
+      schema: v.array(StrategyVersionSchema),
+    })
+  }
+
+  getStrategyVersion(strategyId: number, versionNumber: number): Promise<StrategyVersion> {
+    return this.#request(
+      `${APIs.RESEARCH_STRATEGIES}/${resourceId(strategyId)}/versions/${resourceId(versionNumber)}`,
+      { schema: StrategyVersionSchema },
+    )
+  }
+
+  revertStrategyVersion(strategyId: number, versionNumber: number): Promise<StrategyVersion> {
+    return this.#request(
+      `${APIs.RESEARCH_STRATEGIES}/${resourceId(strategyId)}/versions/${resourceId(versionNumber)}/revert`,
+      { schema: StrategyVersionSchema, method: 'POST' },
+    )
+  }
+
+  async updateStrategyVersion(
+    strategyId: number,
+    versionNumber: number,
+    input: VersionPatchInput,
+  ): Promise<StrategyVersion> {
+    const parsed = parseResearchInput(VersionPatchInputSchema, input)
+    return this.#request(
+      `${APIs.RESEARCH_STRATEGIES}/${resourceId(strategyId)}/versions/${resourceId(versionNumber)}`,
+      { schema: StrategyVersionSchema, method: 'PATCH', body: parsed },
+    )
+  }
+
+  runStrategyVersionBacktest(versionId: number): Promise<Backtest> {
+    return this.#request(`${APIs.RESEARCH_STRATEGY_VERSIONS}/${resourceId(versionId)}/backtests`, {
+      schema: BacktestSchema,
+      method: 'POST',
+    })
+  }
 }
 
 function toBacktestBody(input: BacktestParameters): Record<string, unknown> {
@@ -94,5 +175,19 @@ function toBacktestBody(input: BacktestParameters): Record<string, unknown> {
     slippage: input.slippage,
     frequency: input.frequency,
     symbols: input.symbols,
+    standard_symbol: input.standardSymbol,
+    margin_rate: input.marginRate,
+    matching_type: input.matchingType,
+  }
+}
+
+function mergeBacktestParams(
+  params: Record<string, unknown> | undefined,
+  backtest: BacktestParameters | undefined,
+): Record<string, unknown> | undefined {
+  if (params === undefined && backtest === undefined) return undefined
+  return {
+    ...params,
+    ...(backtest === undefined ? {} : { backtest: toBacktestBody(backtest) }),
   }
 }
