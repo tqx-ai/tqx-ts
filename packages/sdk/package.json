@@ -42,6 +42,8 @@
     "dev": "tsdown --watch"
   },
   "dependencies": {
+    "@lezer/common": "1.5.2",
+    "@lezer/python": "1.1.19",
     "valibot": "^1.4.2"
   },
   "engines": {
