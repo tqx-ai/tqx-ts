@@ -11,6 +11,7 @@ import {
   type CreateStrategyInput,
   type ListQubeResourcesInput,
   type QubePage,
+  type QubeMarket,
   type Strategy,
   type StrategyBacktestParams,
   type StrategySave,
@@ -26,6 +27,10 @@ import {
   type VersionPatchInput,
   VersionPatchInputSchema,
 } from './schemas'
+import {
+  type StrategyValidationOptions,
+  validateStrategyCode,
+} from './strategy-validation/validate'
 import { listResources, resourceId, type ResearchRequest } from './shared'
 
 export class StrategyApi {
@@ -48,6 +53,14 @@ export class StrategyApi {
         params: mergeBacktestParams(parsed.params, parsed.backtest),
       },
     })
+  }
+
+  async validateStrategyCode(
+    code: string,
+    market: QubeMarket | string,
+    options?: StrategyValidationOptions,
+  ): Promise<void> {
+    validateStrategyCode(code, market, options)
   }
 
   getStrategy(strategyId: number): Promise<Strategy> {

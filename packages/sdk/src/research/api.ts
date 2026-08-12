@@ -93,6 +93,10 @@ export class ResearchApiClient implements ResearchApi {
     return this.#strategies.createStrategy(...args)
   }
 
+  validateStrategyCode(...args: Parameters<StrategyApi['validateStrategyCode']>) {
+    return this.#strategies.validateStrategyCode(...args)
+  }
+
   getStrategy(...args: Parameters<StrategyApi['getStrategy']>) {
     return this.#strategies.getStrategy(...args)
   }

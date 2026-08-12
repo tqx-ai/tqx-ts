@@ -25,7 +25,6 @@ import {
   resultStatus,
   selectContent,
   selectOptionalContent,
-  strategyWarnings,
   toMarket,
   waitArgs,
 } from './shared'
@@ -51,9 +50,9 @@ export function createStrategyCommand(runtime: CommandRuntime) {
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
-            const market = toMarket(args.market!)
             const content = selectContent(args as unknown as ContentArgs, false)
-            const warnings = strategyWarnings(content.value, market, Boolean(args.strictMarketApi))
+            const market = toMarket(args.market!)
+            await client.research.validateStrategyCode(content.value, market)
             const createdStrategy = await client.research.createStrategy({
               name: args.name!,
               description: args.description,
@@ -72,7 +71,7 @@ export function createStrategyCommand(runtime: CommandRuntime) {
               success: true,
               strategy_id: createdStrategy.id,
               strategy: createdStrategy,
-              warnings,
+              warnings: [],
             }
           }),
       }),
@@ -91,22 +90,25 @@ export function createStrategyCommand(runtime: CommandRuntime) {
         run: ({ args }) =>
           runtime.research(async (client) => {
             const content = selectContent(args as unknown as ContentArgs, false)
-            const saved = await client.research.saveStrategy(
-              resourceId(args.strategyId, 'strategy ID'),
-              {
-                code: content.value,
-                name: args.name,
-                description: args.description,
-                baseVersionId:
-                  args.baseVersionId === undefined
-                    ? undefined
-                    : resourceId(args.baseVersionId, 'base version ID'),
-                confirmRebase: Boolean(args.confirmRebase),
-                backtest: hasBacktestInput(args as unknown as BacktestArgs)
-                  ? backtestParameters(args as unknown as BacktestArgs, false)
-                  : undefined,
-              },
+            const strategyId = resourceId(args.strategyId, 'strategy ID')
+            const currentStrategy = await client.research.getStrategy(strategyId)
+            await client.research.validateStrategyCode(
+              content.value,
+              currentStrategy.market ?? 'stock',
             )
+            const saved = await client.research.saveStrategy(strategyId, {
+              code: content.value,
+              name: args.name,
+              description: args.description,
+              baseVersionId:
+                args.baseVersionId === undefined
+                  ? undefined
+                  : resourceId(args.baseVersionId, 'base version ID'),
+              confirmRebase: Boolean(args.confirmRebase),
+              backtest: hasBacktestInput(args as unknown as BacktestArgs)
+                ? backtestParameters(args as unknown as BacktestArgs, false)
+                : undefined,
+            })
             return {
               success: true,
               strategy_id: saved.strategy.id,
@@ -177,17 +179,18 @@ export function createStrategyCommand(runtime: CommandRuntime) {
             const content = selectOptionalContent(args as unknown as ContentArgs, false)
             const hasBacktestUpdates = hasBacktestInput(args as unknown as BacktestArgs)
             const current =
-              content !== undefined || hasBacktestUpdates || args.strictMarketApi
+              args.market === undefined ||
+              content !== undefined ||
+              hasBacktestUpdates ||
+              args.strictMarketApi
                 ? await client.research.getStrategy(strategyId)
                 : undefined
             const market = args.market === undefined ? current?.market : toMarket(args.market)
             if (content !== undefined) {
-              const warnings = strategyWarnings(
+              await client.research.validateStrategyCode(
                 content.value,
-                market ?? 'us',
-                Boolean(args.strictMarketApi),
+                market ?? current?.market ?? 'stock',
               )
-              void warnings
             }
             const updated = await client.research.updateStrategy(strategyId, {
               name: args.name,

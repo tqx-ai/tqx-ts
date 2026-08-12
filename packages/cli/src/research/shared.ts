@@ -122,8 +122,6 @@ export function selectOptionalContent(
   const selected = candidates[0]
   if (selected === undefined) return undefined
   if (!selected.value.trim()) throw new CliUsageError('source code or formula cannot be empty')
-  if (selected.type === 'python' && !allowFormula)
-    void strategyWarnings(selected.value, 'us', false)
   if (selected.type === 'python' && allowFormula) validateFactorCode(selected.value)
   return selected
 }
@@ -144,50 +142,10 @@ function validateFactorCode(code: string): void {
 }
 
 export function strategyWarnings(code: string, market: QubeMarket, strict: boolean): string[] {
-  const sanitised = sanitiseStrategyCode(code)
-  const nestedStarImport = sanitised
-    .split(/\r?\n/)
-    .find((line) => /^[\t ]+from\s+[\w.]+\s+import\s+\*\s*$/.test(line))
-  if (nestedStarImport !== undefined) {
-    throw new CliUsageError('strategy code safety check failed: star imports must be top-level')
-  }
-  if (/\bdata\s*\.\s*get\s*\(/.test(sanitised)) {
-    throw new CliUsageError('strategy code safety check failed: use data[symbol], not data.get()')
-  }
-  const forbidden = sanitised.match(
-    /\b(eval|exec|open|__import__|compile|input|globals|locals|vars|dir)\s*\(/,
-  )
-  if (forbidden?.[1]) {
-    throw new CliUsageError(
-      `strategy code safety check failed: forbidden function ${forbidden[1]}()`,
-    )
-  }
-  const expected =
-    market === 'hk'
-      ? 'stock_hk_api'
-      : market === 'us'
-        ? 'stock_us_api'
-        : market === 'future'
-          ? 'future_api'
-          : 'api.api'
-  const other = market === 'hk' ? 'stock_us_api' : market === 'us' ? 'stock_hk_api' : undefined
-  const warnings: string[] = []
-  if ((market === 'hk' || market === 'us') && code.includes('panda_backtest.api.stock_api')) {
-    warnings.push('detected mainland stock_api import; use the market-specific API')
-  }
-  if (other !== undefined && code.includes(other))
-    warnings.push(`detected wrong market API: ${other}`)
-  if (expected !== undefined && !code.includes(expected))
-    warnings.push(`did not detect panda_backtest.api.${expected} import`)
-  if (strict && warnings.length > 0) throw new CliUsageError(warnings.join('; '))
-  return warnings
-}
-
-function sanitiseStrategyCode(code: string): string {
-  return code.replace(
-    /(?:'''[\s\S]*?'''|"""[\s\S]*?""")|(?:"(?:\\.|[^"\\\r\n])*")|(?:'(?:\\.|[^'\\\r\n])*')|(?:#.*$)/gm,
-    (matched) => matched.replace(/[^\r\n]/g, ' '),
-  )
+  void code
+  void market
+  void strict
+  return []
 }
 
 export function toMarket(value: string): QubeMarket {

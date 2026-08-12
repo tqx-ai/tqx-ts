@@ -46,7 +46,7 @@ function apiResponse(data: unknown): Response {
 afterEach(() => {
   process.exitCode = undefined
   vi.restoreAllMocks()
-  vi.unstubAllEnvs()
+  vi.unstubAllEnvs?.()
 })
 
 describe('CLI', () => {

@@ -34,7 +34,7 @@ function response(data: unknown, init: ResponseInit = {}): Response {
 }
 
 afterEach(() => {
-  vi.unstubAllEnvs()
+  vi.unstubAllEnvs?.()
 })
 
 describe('TqxClient', () => {

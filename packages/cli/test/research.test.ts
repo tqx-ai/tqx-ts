@@ -34,10 +34,47 @@ function gatewayResponse(data: unknown, init: ResponseInit = {}): Response {
   return Response.json({ code: 0, message: 'success', data, request_id: 'qube-cli' }, init)
 }
 
+const STOCK_STRATEGY = `
+import panda_data as pd
+from panda_backtest.api.api import *
+
+def init_market_data(context):
+    context.history = pd.get_market_data(
+        start_date='2026-01-01',
+        end_date='2026-02-01',
+    )
+
+def initialize(context):
+    init_market_data(context)
+
+def handle_data(context, data):
+    pass
+`
+
+const US_STRATEGY = `
+from tqx_data import get_us_daily as daily
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import *
+
+def init_market_data(context):
+    context.history = daily(
+        symbol='AAPL.US',
+        start_date='2026-01-01',
+        end_date='2026-02-01',
+        market='nb',
+    )
+
+def initialize(context):
+    init_market_data(context)
+
+def handle_data(context, data):
+    context.us_symbol = 'AAPL.NY'
+`
+
 afterEach(() => {
   process.exitCode = undefined
   vi.restoreAllMocks()
-  vi.unstubAllEnvs()
+  vi.unstubAllEnvs?.()
 })
 
 describe('research CLI', () => {
@@ -234,7 +271,8 @@ describe('research CLI', () => {
     const stdout = new BufferOutput()
     const fetch = vi
       .fn<typeof globalThis.fetch>()
-      .mockResolvedValue(gatewayResponse({ id: 8, name: 'renamed', market: 'us' }))
+      .mockResolvedValueOnce(gatewayResponse({ id: 8, market: 'us' }))
+      .mockResolvedValueOnce(gatewayResponse({ id: 8, name: 'renamed', market: 'us' }))
 
     await runCli(['research', 'strategy', 'update', '8', '--name=renamed', '--json'], {
       environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
@@ -244,8 +282,71 @@ describe('research CLI', () => {
     })
 
     expect(JSON.parse(stdout.value)).toMatchObject({ success: true, strategy_id: 8 })
+    expect(fetch).toHaveBeenCalledTimes(2)
+    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
+      name: 'renamed',
+      market: 'us',
+    })
+  })
+
+  it('loads the current strategy market before validating save', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stderr = new BufferOutput()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(gatewayResponse({ id: 8, market: 'us' }))
+
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'save',
+        '8',
+        `--code=${US_STRATEGY.replace("market='nb'", "market='sg'")}`,
+        '--json',
+      ],
+      {
+        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+        credentialStore: store,
+        fetch,
+        stderr,
+      },
+    )
+
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('market')
     expect(fetch).toHaveBeenCalledTimes(1)
-    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toEqual({ name: 'renamed' })
+    expect(String(fetch.mock.calls[0]?.[0])).toContain('/agent_quant/api/strategies/8')
+  })
+
+  it('loads the current strategy market before validating update', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stderr = new BufferOutput()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(gatewayResponse({ id: 8, market: 'us' }))
+
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'update',
+        '8',
+        `--code=${US_STRATEGY.replace("market='nb'", "market='sg'")}`,
+        '--json',
+      ],
+      {
+        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+        credentialStore: store,
+        fetch,
+        stderr,
+      },
+    )
+
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('market')
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(String(fetch.mock.calls[0]?.[0])).toContain('/agent_quant/api/strategies/8')
   })
 
   it('lists strategies across all markets by default', async () => {
@@ -405,48 +506,77 @@ describe('research CLI', () => {
     ])
   })
 
-  it('rejects Qube-incompatible strategy source before requesting Qube', async () => {
+  it('creates a strategy after local preflight validation', async () => {
     const store = new MemoryStore()
     store.value = 'stored-key'
-    const expectRejected = async (code: string, message: string) => {
-      const stderr = new BufferOutput()
-      const fetch = vi.fn<typeof globalThis.fetch>()
+    const stdout = new BufferOutput()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(
+        gatewayResponse({ id: 8, name: 'TQX Strategy', market: 'us', code: 'saved' }),
+      )
 
-      await runCli(['research', 'strategy', 'create', '--market=US', `--code=${code}`, '--json'], {
+    await runCli(
+      ['research', 'strategy', 'create', '--market=US', `--code=${US_STRATEGY}`, '--json'],
+      {
+        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+        credentialStore: store,
+        fetch,
+        stdout,
+      },
+    )
+
+    expect(JSON.parse(stdout.value)).toMatchObject({
+      success: true,
+      strategy_id: 8,
+      warnings: [],
+    })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+      name: 'TQX Strategy',
+      code: US_STRATEGY.trim(),
+      market: 'us',
+      params: {
+        backtest: {
+          init_balance: 10000000,
+          commission_rate: 1,
+          slippage: 0,
+          frequency: '1d',
+        },
+      },
+    })
+  })
+
+  it('rejects invalid strategy source before requesting Qube', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stderr = new BufferOutput()
+    const fetch = vi.fn<typeof globalThis.fetch>()
+
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'create',
+        '--market=stock',
+        `--code=${STOCK_STRATEGY.replace('    pass', '    data.get("close")')}`,
+        '--json',
+      ],
+      {
         environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
         credentialStore: store,
         fetch,
         stderr,
-      })
-
-      expect(JSON.parse(stderr.value).error.message).toContain(message)
-      expect(fetch).not.toHaveBeenCalled()
-    }
-
-    await expectRejected(
-      'def handle_data(context, data):\n    from panda_backtest.api.api import *',
-      'star imports must be top-level',
+      },
     )
-    await expectRejected(
-      'def handle_data(context, data):\n    return data.get("AAPL.NB")',
-      'use data[symbol], not data.get()',
-    )
+
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('data.get')
+    expect(fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
   })
 
-  it('allows top-level star imports and ignores comments or strings during source checks', () => {
-    const source = [
-      'from panda_backtest.api.api import *',
-      'from panda_backtest.api.stock_us_api import *',
-      '# data.get("AAPL.NB")',
-      'description = "data.get() is not executable here"',
-      'def handle_data(context, data):',
-      '    try:',
-      '        return data["AAPL.NB"]',
-      '    except KeyError:',
-      '        return None',
-    ].join('\n')
-
-    expect(() => strategyWarnings(source, 'us', true)).not.toThrow()
+  it('returns an empty compatibility warning shell', () => {
+    expect(strategyWarnings(STOCK_STRATEGY, 'us', true)).toEqual([])
   })
 
   it('rejects invalid factor Python before requesting Qube', async () => {
