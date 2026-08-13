@@ -92,6 +92,23 @@ describe('strategy validation', () => {
     expect(() => validateStrategyCode(US_VALID, 'us')).not.toThrow()
   })
 
+  it('rejects try/except blocks in strategy code', () => {
+    const error = expectValidationError(
+      STOCK_VALID.replace(
+        'def handle_data(context, data):\n    pass',
+        `def handle_data(context, data):
+    try:
+        print(data)
+    except Exception:
+        return`,
+      ),
+      'stock',
+    )
+
+    expect(error.issues[0]?.message).toContain('try')
+    expect(error.issues[0]?.message).toContain('except')
+  })
+
   it('rejects syntax errors with a framed validation issue', () => {
     const error = expectValidationError(
       `

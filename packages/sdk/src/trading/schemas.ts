@@ -97,6 +97,7 @@ export const TradeDataSchema = v.looseObject({
   amount: v.string(),
   commission: nullableString,
   executed_at: v.string(),
+  client_order_id: optionalNullableString,
 })
 
 /**
@@ -114,6 +115,8 @@ export const SignalDataSchema = v.looseObject({
   updated_at: v.string(),
   error_code: optionalNullableString,
   broker_error_id: v.optional(v.nullable(v.number())),
+  rejection_reason: optionalNullableString,
+  parent_request_id: optionalNullableString,
 })
 
 /** `accepted` acknowledges the operation request, not the order's final state. */

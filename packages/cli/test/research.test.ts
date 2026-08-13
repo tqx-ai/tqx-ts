@@ -575,6 +575,36 @@ describe('research CLI', () => {
     expect(process.exitCode).toBe(2)
   })
 
+  it('rejects try/except strategy source before requesting Qube', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stderr = new BufferOutput()
+    const fetch = vi.fn<typeof globalThis.fetch>()
+    const strategyWithTry = STOCK_STRATEGY.replace(
+      'def handle_data(context, data):\n    pass',
+      `def handle_data(context, data):
+    try:
+        print(data)
+    except Exception:
+        return`,
+    )
+
+    await runCli(
+      ['research', 'strategy', 'create', '--market=stock', `--code=${strategyWithTry}`, '--json'],
+      {
+        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+        credentialStore: store,
+        fetch,
+        stderr,
+      },
+    )
+
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('try')
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('except')
+    expect(fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
+  })
+
   it('returns an empty compatibility warning shell', () => {
     expect(strategyWarnings(STOCK_STRATEGY, 'us', true)).toEqual([])
   })

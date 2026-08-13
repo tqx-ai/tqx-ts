@@ -241,8 +241,44 @@ The JSON shape of stderr on failure is:
 }
 ```
 
-Among them, `code`, `status`, `request_id` and `data` may be missing. When `data` exists in the rejection response, it should be retained
-For `signal_id`, status and structured error fields, use the original `signal_id` to continue querying; do not treat the error response as unsubmitted and generate a new idempotent key and download again.
+Among them, `code`, `status`, `request_id` and `data` may be missing. When `data` exists in the rejection response, it should be retained. The trading API uses this status/code contract:
+
+| HTTP | `error.code` | Meaning |
+| ---: | --- | --- |
+| 400 | `invalid_request` | Request or order parameters are invalid |
+| 403 | `market_not_permitted` | The account is not permitted to trade this market |
+| 404 | `order_not_found` | The order cannot be resolved for this account |
+| 404 | `signal_not_found` | The trading signal cannot be resolved for this account |
+| 409 | `idempotency_conflict` | The key was reused for a different order request |
+| 409 | `order_not_cancellable` | The order exists but its state cannot be cancelled |
+| 409 | `order_not_modifiable` | The order exists but its state cannot be modified |
+| 409 | `insufficient_funds` | Buying power or available funds are insufficient |
+| 409 | `insufficient_position` | Available position is insufficient for the sell |
+| 409 | `position_direction_conflict` | The request conflicts with the current position direction |
+| 409 | `market_closed` | The market or trading session does not currently accept this operation |
+| 409 | `account_locked` | The trading account is temporarily locked |
+| 409 | `invalid_trade_date` | The order belongs to a different trading day and can no longer be acted on |
+| 422 | `invalid_lot_size` | Quantity does not satisfy the market lot rule |
+| 422 | `invalid_order_price` | Price is invalid for the market or order rules |
+| 422 | `invalid_symbol` | The symbol is unknown or not tradable |
+| 422 | `risk_control_blocked` | A broker risk-control rule blocked the order |
+| 422 | `order_rejected` | The broker rejected the order without a narrower code |
+| 500 | `trading_data_mapping_error` | The upstream trading payload could not be interpreted safely |
+| 502 | `upstream_rejected` | Legacy compatibility code; current unclassified order rejections use `422 order_rejected` |
+| 503 | `trading_service_unavailable` | Trading channel unavailable, or no broker verdict could be obtained |
+| 504 | `trading_timeout` | The trading operation timed out; query the original signal/order before retrying |
+
+The status class tells you what to do next:
+
+- **409** — the order conflicts with current state. The same order may succeed later once the state
+  changes (market opens, funds settle, the lock clears). Do not change the order to "work around" it.
+- **422** — the order content itself is not acceptable. Resubmitting it unchanged will fail again;
+  fix the quantity, price, or symbol first.
+- **403 / 400** — the account or the request is not eligible at all; do not retry.
+- **500 / 502 / 503 / 504** — the failure is on the service or broker side, not with your order.
+  Before retrying, query the original `signal_id` or order to confirm whether it was actually placed.
+
+For rejection responses, preserve and inspect the envelope `message`, `code`, `status`, `request_id`, and `data`. The `data` object may include `signal_id`, `state`, `order_id`, `order_status`, `message`, `rejection_reason`, `error_code`, and `broker_error_id`. `message` is the stable API explanation; `rejection_reason` is the original broker detail when available. Use the original `signal_id` to continue querying; do not treat the error response as unsubmitted and generate a new idempotent key.
 
 ## Read-only transaction commands
 

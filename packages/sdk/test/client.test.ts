@@ -349,6 +349,7 @@ describe('TqxClient', () => {
       message: 'insufficient funds or buying power',
       error_code: 'ORDER_INSERT_ERROR_20001',
       broker_error_id: 20001,
+      rejection_reason: 'broker says buying power is insufficient',
       created_at: now,
       updated_at: now,
     }
@@ -381,6 +382,53 @@ describe('TqxClient', () => {
       code: 'insufficient_funds',
       status: 409,
       data: rejection,
+    })
+  })
+
+  it('preserves classified 422 rejection details without reclassifying them', async () => {
+    const rejection = {
+      signal_id: 'signal-lot-size',
+      state: 'REJECTED',
+      order_id: null,
+      order_status: 'REJECTED',
+      message: 'order quantity does not match the market lot size',
+      error_code: 'ORDER_INSERT_ERROR_5001',
+      broker_error_id: -110045,
+      rejection_reason: 'Huatai rejected the quantity: invalid lot size',
+      created_at: now,
+      updated_at: now,
+    }
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      Response.json(
+        {
+          code: 'invalid_lot_size',
+          message: rejection.message,
+          data: rejection,
+          request_id: 'request-lot-size',
+          timestamp: 1,
+        },
+        { status: 422 },
+      ),
+    )
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    const error = await client.trading
+      .placeOrder({
+        symbol: '00700.HK',
+        side: 'SELL',
+        orderType: 'LIMIT',
+        quantity: '100',
+        price: '350',
+        idempotencyKey: 'signal-lot-size',
+      })
+      .catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(TqxApiError)
+    expect(error).toMatchObject({
+      status: 422,
+      code: 'invalid_lot_size',
+      requestId: 'request-lot-size',
+      data: { rejection_reason: rejection.rejection_reason, broker_error_id: -110045 },
     })
   })
 
