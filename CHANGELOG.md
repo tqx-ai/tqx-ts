@@ -4,6 +4,13 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.2.2-beta.0 - 2026-08-13
+
+### Changed
+
+- Add enhanced trading API error handling and validation.
+- Add Strategy Code Gateway support.
+
 ## 0.2.1 - 2026-08-07
 
 ### Changed
