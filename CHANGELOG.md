@@ -9,6 +9,10 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 ### Changed
 
 - Add enhanced trading API error handling and validation.
+- Add the new Qube strategy workflow, including create, save, and update support across stock,
+  futures, Hong Kong, and US markets.
+- Add Qube Python strategy validation for syntax, lifecycle rules, market-specific APIs, data API
+  arguments, and context state before requests are submitted.
 - Add Strategy Code Gateway support.
 
 ## 0.2.1 - 2026-08-07
