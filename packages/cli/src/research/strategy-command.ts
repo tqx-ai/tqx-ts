@@ -21,6 +21,7 @@ import {
   resourceId,
   resourceIdArg,
   resourceIds,
+  normalizeBacktestDisplay,
   resultResponse,
   resultStatus,
   selectContent,
@@ -240,11 +241,12 @@ export function createStrategyCommand(runtime: CommandRuntime) {
               submitted.id,
               pollOptions(args as unknown as WaitArgs),
             )
+            const displayResult = normalizeBacktestDisplay(result)
             const output: Record<string, unknown> = {
-              ...resultResponse(result, 'run_id'),
+              ...resultResponse(displayResult, 'run_id'),
               strategy_id: strategyId,
             }
-            if (resultStatus(result) === 'TIMEOUT')
+            if (resultStatus(displayResult) === 'TIMEOUT')
               output.stop_command = `tqx research strategy stop ${submitted.id}`
             addDownload(output, result, args.download, `backtest-${submitted.id}.json`)
             return output
@@ -260,7 +262,8 @@ export function createStrategyCommand(runtime: CommandRuntime) {
             return {
               success: result.cancelled === true,
               run_id: runId,
-              status: resultStatus(result),
+              status: result.cancelled === true ? 'CANCELLED' : resultStatus(result),
+              ...(result.reason !== undefined ? { cancel_reason: result.reason } : {}),
               result,
             }
           }),
@@ -278,7 +281,8 @@ export function createStrategyCommand(runtime: CommandRuntime) {
           runtime.research(async (client) => {
             const runId = resourceId(args.runId, 'backtest run ID')
             const result = await client.research.getBacktest(runId)
-            const output: Record<string, unknown> = resultResponse(result, 'run_id')
+            const displayResult = normalizeBacktestDisplay(result)
+            const output: Record<string, unknown> = resultResponse(displayResult, 'run_id')
             addDownload(output, result, args.download, `backtest-${runId}.json`)
             return output
           }),

@@ -2,19 +2,24 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import { homedir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 
-import type {
-  Backtest,
-  BacktestParameters,
-  FactorAnalysis,
-  QubeMarket,
-  QubePage,
-} from '@tqx-ai/sdk'
+import type { Backtest, BacktestParameters, QubeMarket, QubePage } from '@tqx-ai/sdk'
 
 import { CliUsageError } from '../utils/errors'
 import { optionalFloat, optionalNumber } from '../utils/numbers'
 import { isRecord } from '../utils/basic/type-guard'
 
 type FactorDirection = 0 | 1
+
+type StatusLike = {
+  status?: string
+  progress?: unknown
+  cancelled?: boolean
+  cli_status?: string
+} & Record<string, unknown>
+
+type StatusResult = StatusLike & { id: number }
+
+type BacktestDisplayResult = StatusResult & { partial_result?: true }
 
 export interface ContentArgs {
   code?: string
@@ -312,7 +317,25 @@ export function pollOptions(args: { pollInterval?: string; timeout?: string }): 
   return { interval, timeout }
 }
 
-export function resultStatus(result: { status?: string }): string {
+function isCancelledBacktest(result: StatusLike): boolean {
+  const progress = isRecord(result.progress) ? result.progress : undefined
+  return (
+    result.cancelled === true ||
+    String(result.status ?? '').toLowerCase() === 'cancelled' ||
+    (typeof progress?.terminal === 'string' && progress.terminal.toLowerCase() === 'cancelled')
+  )
+}
+
+export function normalizeBacktestDisplay(result: Backtest): BacktestDisplayResult {
+  const display: BacktestDisplayResult = { ...result } as BacktestDisplayResult
+  if (!isCancelledBacktest(display)) return display
+  display.status = 'cancelled'
+  display.cancelled = true
+  display.partial_result = true
+  return display
+}
+
+export function resultStatus(result: StatusLike): string {
   const record = result as Record<string, unknown>
   if (record.cli_status === 'TIMEOUT') return 'TIMEOUT'
   const progress = isRecord(record.progress) ? record.progress : undefined
@@ -334,8 +357,8 @@ export function resultStatus(result: { status?: string }): string {
   }
 }
 
-export function resultResponse(
-  result: FactorAnalysis | Backtest,
+export function resultResponse<T extends StatusResult>(
+  result: T,
   idName: 'analysis_id' | 'run_id',
 ): Record<string, unknown> {
   const status = resultStatus(result)

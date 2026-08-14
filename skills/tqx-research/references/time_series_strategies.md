@@ -21,11 +21,11 @@ Read `cross_sectional_strategies.md` for the time-point and panel rules for cros
 | market | example file | target | window | QUBE market |
 |---|---|---|---|---|
 | Hong Kong stocks | `tqx_cli/tests/hk_ma.py` | `0700.HK` | 5/20 root bar | `hk` |
-| US stocks | `tqx_cli/tests/us_ma.py` | `TSLA.NB` | 4/12 root bar | `us` |
+| US stocks | `packages/sdk/test/fixtures/us_ma.py` | `TSLA.NB` | 4/12 root bar | `us` |
 
-Both templates have been verified by Qube backtesting, can be managed through `tqx research`, and can be used as a timing strategy code skeleton. The template implements the state rule: the fast moving average is higher than
-Buy when the slow moving average is moving and the position is short, and clear the position when the fast moving average is lower than the slow moving average and there are sellable positions; they are not strictly required to preserve the relationship between the previous moving average.
-Top/under events. "1-day fast MA" appears in the comments of the US stock template, and the actual execution parameters are in the code
+Both templates have been verified by Qube backtesting, can be managed through `tqx research`, and can be used as a timing strategy code skeleton. The US row points to the canonical fixture used by SDK/CLI validation.
+The template implements the state rule: it buys when the fast moving average is above the slow moving average and the position is short, and clears the position when the fast moving average is below the slow moving average and there are sellable positions; it is not a strict upper/lower crossing strategy.
+"1-day fast MA" appears in the comments of the US stock template, and the actual execution parameters are in the code
 `context.fast_window = 4` shall prevail.
 
 Window units are always bars. The 5/20 of daily `1d` means 5/20 daily bars; if it is changed to a minute strategy, it cannot be interpreted as
@@ -91,8 +91,8 @@ context.close_history = {
 }
 ```
 
-Read `data[symbol]` in `handle_data` one by one, and use `try/except` to handle that the target does not exist; each stock independently calculates signals, checks positions and places orders. prohibit all
-Stocks share a price history list, and do not sort them horizontally by income; once compared horizontally, it becomes a cross-sectional strategy.
+Read each `data[symbol]` in `handle_data` independently, preferably with `if symbol not in data: continue` before access, then each stock independently calculates signals, checks positions and places orders. Keep the price history cache per symbol and bounded.
+Do not share a price history list, and do not sort them horizontally by income; once compared horizontally, it becomes a cross-sectional strategy.
 
 ## 6. Use TQX data pre-screening
 
@@ -110,9 +110,9 @@ When pre-screening you must observe:
 4. To get only the latest financial report per share as of the cross-section date, you can use `get_financial_statement(..., is_latest=True,
    date=<cross-section date>)`; `is_latest=False` must be used when calculating year-on-year, trend or dynamic qualifications that require multiple period financial reports, press
    `(symbol, fy_period)` selects the latest disclosure version before the deadline. Historical strategies must not omit `date`.
-5. The query is generated offline, `initialize` or low-frequency `before_trading` and cached, prohibiting repeated querying in each bar.
-6. Currently `tqx research strategy create` does not upload independent local DataFrame, and the strategy cannot use `open()` to read the user's local path. small screening
-   Results are written into policy code; large or dynamic data is constructed using documented interfaces accessible at computing nodes.
+5. The query is generated offline, `initialize` or low-frequency `before_trading` and cached, with each history cache explicitly bounded; do not repeat the query in each bar.
+6. Currently `tqx research strategy create` does not upload independent local DataFrame, and the strategy cannot use `open()` to read the user's local path. Small screening
+   results are written into policy code; large or dynamic data is constructed using documented interfaces accessible at computing nodes.
 7. If fundamental conditions determine whether a stock continues to implement the timing rules, and the one-year backtest spans the new financial disclosure period, the qualifications must also be dynamic
    renew. Only the data announced at that time can be used on each signal day or reservation qualification update day; the backtest starting point list cannot be used to cover the whole year.
 8. If the qualifying symbols are different for each date, generate the `(date, symbol)` qualification panel and press
@@ -128,8 +128,7 @@ Data pre-screening only determines which targets run the rules, and does not cha
 - `after_trading(context)`: Record account, order intention and diagnostic log.
 
 The code must check bar, price, account, cash, position, `sellable` and history length. The price must be a finite positive number, and all ratios must be
-Protect the denominator. The length of the history cache is limited to avoid unlimited growth with backtesting. Currently bar must use `data[symbol]` and handle
-`KeyError`; Don't rely on unacknowledged `bar.close_array`.
+Protect the denominator. The length of the history cache is limited to avoid unlimited growth with backtesting. Currently bar must use an explicit guard before `data[symbol]`, or `data[symbol]` with `KeyError` handling; don't rely on unacknowledged `bar.close_array`.
 
 The buying quantity of Hong Kong stocks is processed according to the trading unit of each stock in `stock_hk_api.md`; the order for US stocks is processed as an integer number of shares. sell for use
 `position.sellable`, order submission does not mean the transaction is completed, and the transaction record must be checked eventually.

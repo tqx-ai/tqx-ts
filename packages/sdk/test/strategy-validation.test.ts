@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { TqxClient, TqxValidationError, validateStrategyCode } from '../src/index'
 import { catalogForMarket } from '../src/research/strategy-validation/data-api-catalog'
+import { US_DAILY_MOVING_AVERAGE_FIXTURE } from './strategy-fixtures'
 
 const STOCK_VALID = `
 import panda_data as pd
@@ -48,26 +49,6 @@ def handle_data(context, data):
     pass
 `
 
-const US_VALID = `
-from tqx_data import get_us_daily as daily
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
-
-def init_market_data(context):
-    context.history = daily(
-        symbol='AAPL.US',
-        start_date='2026-01-01',
-        end_date='2026-02-01',
-        market='nb',
-    )
-
-def initialize(context):
-    init_market_data(context)
-
-def handle_data(context, data):
-    context.us_symbol = 'AAPL.NY'
-`
-
 function expectValidationError(code: string, market: string): TqxValidationError {
   try {
     validateStrategyCode(code, market, { locale: 'en' })
@@ -83,13 +64,13 @@ describe('strategy validation', () => {
     ['stock', STOCK_VALID],
     ['future', FUTURE_VALID],
     ['hk', HK_VALID],
-    ['us', US_VALID],
+    ['us', US_DAILY_MOVING_AVERAGE_FIXTURE],
   ] as const)('accepts valid %s strategy code', (market, code) => {
     expect(() => validateStrategyCode(code, market)).not.toThrow()
   })
 
   it('normalizes US ticker suffixes before symbol checks', () => {
-    expect(() => validateStrategyCode(US_VALID, 'us')).not.toThrow()
+    expect(() => validateStrategyCode(US_DAILY_MOVING_AVERAGE_FIXTURE, 'us')).not.toThrow()
   })
 
   it('rejects try/except blocks in strategy code', () => {
@@ -107,6 +88,72 @@ describe('strategy validation', () => {
 
     expect(error.issues[0]?.message).toContain('try')
     expect(error.issues[0]?.message).toContain('except')
+  })
+
+  it('rejects the legacy US try/except access pattern', () => {
+    const legacyUsTemplate = US_DAILY_MOVING_AVERAGE_FIXTURE.replace(
+      '        if symbol not in data:\n            continue\n\n        bar = data[symbol]\n',
+      `        try:
+            bar = data[symbol]
+        except Exception:
+            continue
+`,
+    )
+    const error = expectValidationError(legacyUsTemplate, 'us')
+
+    expect(error.issues[0]?.message).toContain('try')
+    expect(error.issues[0]?.message).toContain('data[symbol]')
+  })
+
+  it('rejects US strategies that skip init_market_data', () => {
+    const error = expectValidationError(
+      `
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import *
+
+def initialize(context):
+    context.account = "15032863"
+    context.stock_universe = ["TSLA.NB"]
+    context.fast_window = 4
+    context.slow_window = 12
+    context.max_position_ratio = 0.9
+    context.today_trades = []
+    context.close_history = {symbol: [] for symbol in context.stock_universe}
+
+def handle_data(context, data):
+    pass
+`,
+      'us',
+    )
+
+    expect(error.issues[0]?.message).toContain('init_market_data')
+    expect(error.issues[0]?.message).toContain('initialize')
+  })
+
+  it('rejects rolling-window lookbacks that start at the backtest boundary', () => {
+    const error = expectValidationError(
+      `
+import pandas as pd
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import *
+
+def init_market_data(context):
+    context.lookback = 30
+    context.history = pd.DataFrame({"close": [1.0] * 60})
+    context.requested_range = dict(start_date=context.run_info.start_date)
+
+def initialize(context):
+    init_market_data(context)
+
+def handle_data(context, data):
+    context.history["close"].rolling(context.lookback).mean()
+`,
+      'us',
+    )
+
+    expect(error.issues[0]?.message).toContain('30')
+    expect(error.issues[0]?.message).toContain('60')
+    expect(error.issues[0]?.message).toContain('calendar days')
   })
 
   it('rejects syntax errors with a framed validation issue', () => {

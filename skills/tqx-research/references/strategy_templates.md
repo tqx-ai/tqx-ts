@@ -1,7 +1,6 @@
 #TQX Hong Kong and US stock strategy reference templates
 
-This file is a reference template for Agent to quickly generate strategies for Hong Kong and US stocks. It comes from the already run `tqx_cli/tests/hk_ma.py` and
-`tqx_cli/tests/us_ma.py`. After the customer puts forward strategic requirements, the Agent should select the corresponding market template and reuse its life cycle, data reading,
+This file is a reference template for Agent to quickly generate strategies for Hong Kong and US stocks. It comes from the already run `tqx_cli/tests/hk_ma.py` and the canonical US fixture used by validation (`packages/sdk/test/fixtures/us_ma.py`). After the customer puts forward strategic requirements, the Agent should select the corresponding market template and reuse its life cycle, data reading,
 The account holding and order framework only replaces the stock pool, strategy parameters, signals, positions and risk control. Do not re-guess the back-end interface from a blank perspective.
 Before generating or modifying a strategy, first determine whether it is a time series strategy or a cross-sectional strategy, and read the `stock_hk_api.md` or
 `stock_us_api.md`. Time-series strategies must also read `time_series_strategies.md`; cross-sectional strategies and dynamic universes must also read
@@ -12,7 +11,7 @@ Quick selection:
 | User requirements | Start template | Simultaneous reading |
 |---|---|---|
 | Hong Kong stock time series strategy, `.HK` target | `tqx_cli/tests/hk_ma.py` | `stock_hk_api.md`, `time_series_strategies.md` |
-| US stock time series strategy, `.NB` target | `tqx_cli/tests/us_ma.py` | `stock_us_api.md`, `time_series_strategies.md` |
+| US stock time series strategy, `.NB` target | `packages/sdk/test/fixtures/us_ma.py` | `stock_us_api.md`, `time_series_strategies.md` |
 | Hong Kong stock cross-sectional strategies | `tqx_cli/tests/hsi_cs_st.py` | `stock_hk_api.md`, `cross_sectional_strategies.md` |
 | U.S. stock cross-sectional strategies | `tqx_cli/tests/nasdq100_cs_st.py` | `stock_us_api.md`, `cross_sectional_strategies.md` |
 
@@ -178,16 +177,15 @@ tqx research strategy run <strategy_id> --timeout 1200
 
 ## 4. US stock daily moving average template
 
-This template corresponds to `tqx_cli/tests/us_ma.py`, for QUBE `market=us`. The window unit is bar: the daily line is the trading day,
-The minute frequency becomes minutes, so do not directly switch this template to the minute strategy.
+This template corresponds to the canonical US fixture used by SDK/CLI validation (`packages/sdk/test/fixtures/us_ma.py`), for QUBE `market=us`. The window unit is bar: the daily line is the trading day,
+The minute frequency is measured in minutes, so do not directly switch this template to the minute strategy.
 
 ```python
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_us_api import *
-import tqx_data
 
 
-def initialize(context):
+def init_market_data(context):
     context.account = "15032863"
     context.stock_universe = ["TSLA.NB"]
 
@@ -196,9 +194,11 @@ def initialize(context):
     context.max_position_ratio = 0.9
 
     context.today_trades = []
-    context.close_history = {
-        symbol: [] for symbol in context.stock_universe
-    }
+    context.close_history = {symbol: [] for symbol in context.stock_universe}
+
+
+def initialize(context):
+    init_market_data(context)
 
 
 def before_trading(context):
@@ -214,14 +214,16 @@ def before_trading(context):
 def _compute_ma(series, window):
     if series is None or len(series) < window:
         return None
-    window_vals = series[-window:]
-    window_vals = [
-        value for value in window_vals
-        if value is not None and value > 0
-    ]
+    window_vals = [value for value in series[-window:] if value is not None and value > 0]
     if len(window_vals) < window:
         return None
     return sum(window_vals) / float(window)
+
+
+def _trim_history(history, window):
+    max_len = window * 5
+    if len(history) > max_len:
+        history[:] = history[-max_len:]
 
 
 def handle_data(context, data):
@@ -230,10 +232,10 @@ def handle_data(context, data):
         return
 
     for symbol in context.stock_universe:
-        try:
-            bar = data[symbol]
-        except (KeyError, TypeError, AttributeError):
+        if symbol not in data:
             continue
+
+        bar = data[symbol]
         if bar is None:
             continue
 
@@ -246,9 +248,7 @@ def handle_data(context, data):
 
         history = context.close_history.setdefault(symbol, [])
         history.append(close_price)
-        max_len = max(context.fast_window, context.slow_window) * 5
-        if len(history) > max_len:
-            history[:] = history[-max_len:]
+        _trim_history(history, max(context.fast_window, context.slow_window))
         if len(history) < context.slow_window:
             continue
 
@@ -262,9 +262,7 @@ def handle_data(context, data):
         sellable = 0 if position is None else position.sellable
 
         should_buy = curr_fast > curr_slow and quantity == 0
-        should_sell = (
-            curr_fast < curr_slow and quantity > 0 and sellable > 0
-        )
+        should_sell = curr_fast < curr_slow and quantity > 0 and sellable > 0
 
         if should_buy:
             cash = account.cash
@@ -281,14 +279,16 @@ def handle_data(context, data):
                 buy_qty,
                 style=MarketOrderStyle,
             )
-            context.today_trades.append({
-                "symbol": symbol,
-                "side": "BUY",
-                "qty": buy_qty,
-                "price": close_price,
-                "fast_ma": curr_fast,
-                "slow_ma": curr_slow,
-            })
+            context.today_trades.append(
+                {
+                    "symbol": symbol,
+                    "side": "BUY",
+                    "qty": buy_qty,
+                    "price": close_price,
+                    "fast_ma": curr_fast,
+                    "slow_ma": curr_slow,
+                }
+            )
         elif should_sell:
             order_shares(
                 context.account,
@@ -296,14 +296,16 @@ def handle_data(context, data):
                 -sellable,
                 style=MarketOrderStyle,
             )
-            context.today_trades.append({
-                "symbol": symbol,
-                "side": "SELL",
-                "qty": sellable,
-                "price": close_price,
-                "fast_ma": curr_fast,
-                "slow_ma": curr_slow,
-            })
+            context.today_trades.append(
+                {
+                    "symbol": symbol,
+                    "side": "SELL",
+                    "qty": sellable,
+                    "price": close_price,
+                    "fast_ma": curr_fast,
+                    "slow_ma": curr_slow,
+                }
+            )
 
 
 def after_trading(context):

@@ -1,8 +1,16 @@
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { runCli } from '../src/command'
 import type { CredentialStore } from '../src/credentials'
 import { strategyWarnings } from '../src/research/shared'
+import {
+  US_DAILY_MOVING_AVERAGE_FIXTURE,
+  US_DAILY_MOVING_AVERAGE_FIXTURE_PATH,
+} from '../../sdk/test/strategy-fixtures'
 
 class MemoryStore implements CredentialStore {
   value: string | null = null
@@ -70,6 +78,22 @@ def initialize(context):
 def handle_data(context, data):
     context.us_symbol = 'AAPL.NY'
 `
+
+function cancelledBacktest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: 2977,
+    strategy_id: 573,
+    status: 'failed',
+    progress: { terminal: 'cancelled', percent: 22 },
+    cancelled: false,
+    error: null,
+    equity: [{ value: 1 }, { value: 2 }, { value: 3 }],
+    trades: Array.from({ length: 7 }, (_, index) => ({ trade_id: index + 1 })),
+    log: ['partial result'],
+    metric_views: [{ name: 'sharpe' }],
+    ...overrides,
+  }
+}
 
 afterEach(() => {
   process.exitCode = undefined
@@ -506,7 +530,153 @@ describe('research CLI', () => {
     ])
   })
 
-  it('creates a strategy after local preflight validation', async () => {
+  it('normalizes mixed cancelled strategy results for display', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stdout = new BufferOutput()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(gatewayResponse(cancelledBacktest()))
+
+    await runCli(['research', 'strategy', 'result', '2977', '--json'], {
+      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+      credentialStore: store,
+      fetch,
+      stdout,
+    })
+
+    const output = JSON.parse(stdout.value)
+    expect(output).toMatchObject({
+      success: false,
+      status: 'CANCELLED',
+      run_id: 2977,
+      result: {
+        status: 'cancelled',
+        cancelled: true,
+        partial_result: true,
+        error: null,
+      },
+    })
+    expect(output.result.trades).toHaveLength(7)
+    expect(output.result.equity).toHaveLength(3)
+  })
+
+  it('normalizes cancelled backtests in list output', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stdout = new BufferOutput()
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(
+      gatewayResponse({
+        items: [
+          cancelledBacktest(),
+          {
+            id: 3001,
+            status: 'done',
+            cancelled: false,
+            progress: { terminal: 'done' },
+            equity: [{ value: 1 }],
+            trades: [],
+            log: [],
+            metric_views: [],
+          },
+        ],
+        has_more: true,
+        next_offset: 2,
+      }),
+    )
+
+    await runCli(['research', 'backtest', 'list', '--json'], {
+      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+      credentialStore: store,
+      fetch,
+      stdout,
+    })
+
+    const output = JSON.parse(stdout.value)
+    expect(output).toMatchObject({ success: true, count: 2, has_more: true, next_offset: 2 })
+    expect(output.backtests[0]).toMatchObject({
+      id: 2977,
+      status: 'cancelled',
+      cancelled: true,
+      partial_result: true,
+      error: null,
+      equity_count: 3,
+      trade_count: 7,
+    })
+    expect(output.backtests[0].equity).toBeUndefined()
+    expect(output.backtests[0].trades).toBeUndefined()
+    expect(output.backtests[1]).toMatchObject({
+      id: 3001,
+      status: 'done',
+      cancelled: false,
+      equity_count: 1,
+      trade_count: 0,
+    })
+    expect(output.backtests[1].partial_result).toBeUndefined()
+  })
+
+  it('keeps downloaded backtest JSON raw while stdout is normalized', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stdout = new BufferOutput()
+    const rawResult = cancelledBacktest()
+    const downloadDirectory = mkdtempSync(join(tmpdir(), 'tqx-backtest-download-'))
+    const downloadFile = join(downloadDirectory, 'backtest-2977.json')
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(gatewayResponse(rawResult))
+
+    await runCli(
+      ['research', 'backtest', 'result', '2977', `--download=${downloadDirectory}`, '--json'],
+      {
+        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+        credentialStore: store,
+        fetch,
+        stdout,
+      },
+    )
+
+    const output = JSON.parse(stdout.value)
+    expect(output).toMatchObject({
+      status: 'CANCELLED',
+      downloaded_file: downloadFile,
+      result: { status: 'cancelled', partial_result: true },
+    })
+    expect(JSON.parse(readFileSync(downloadFile, 'utf8'))).toEqual(rawResult)
+  })
+
+  it('surfaces strategy stop reasons at the top level', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stdout = new BufferOutput()
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(
+      gatewayResponse({
+        cancelled: false,
+        run_id: 2977,
+        status: 'done',
+        reason: 'not_running',
+      }),
+    )
+
+    await runCli(['research', 'strategy', 'stop', '2977', '--json'], {
+      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+      credentialStore: store,
+      fetch,
+      stdout,
+    })
+
+    expect(JSON.parse(stdout.value)).toMatchObject({
+      success: false,
+      run_id: 2977,
+      status: 'SUCCESS',
+      cancel_reason: 'not_running',
+      result: {
+        cancelled: false,
+        status: 'done',
+        reason: 'not_running',
+      },
+    })
+  })
+
+  it('creates the canonical US template from the shared fixture file', async () => {
     const store = new MemoryStore()
     store.value = 'stored-key'
     const stdout = new BufferOutput()
@@ -517,7 +687,15 @@ describe('research CLI', () => {
       )
 
     await runCli(
-      ['research', 'strategy', 'create', '--market=US', `--code=${US_STRATEGY}`, '--json'],
+      [
+        'research',
+        'strategy',
+        'create',
+        '--market=US',
+        `--file=${US_DAILY_MOVING_AVERAGE_FIXTURE_PATH}`,
+        '--strictMarketApi',
+        '--json',
+      ],
       {
         environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
         credentialStore: store,
@@ -534,7 +712,7 @@ describe('research CLI', () => {
     expect(fetch).toHaveBeenCalledTimes(1)
     expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
       name: 'TQX Strategy',
-      code: US_STRATEGY.trim(),
+      code: US_DAILY_MOVING_AVERAGE_FIXTURE.trim(),
       market: 'us',
       params: {
         backtest: {
@@ -545,6 +723,57 @@ describe('research CLI', () => {
         },
       },
     })
+  })
+
+  it('rejects US templates that omit init_market_data during create', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stderr = new BufferOutput()
+    const fetch = vi.fn<typeof globalThis.fetch>()
+    const templateDirectory = mkdtempSync(join(tmpdir(), 'tqx-us-template-'))
+    const brokenTemplatePath = join(templateDirectory, 'broken_us_ma.py')
+    writeFileSync(
+      brokenTemplatePath,
+      `
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import *
+
+def initialize(context):
+    context.account = "15032863"
+    context.stock_universe = ["TSLA.NB"]
+    context.fast_window = 4
+    context.slow_window = 12
+    context.max_position_ratio = 0.9
+    context.today_trades = []
+    context.close_history = {symbol: [] for symbol in context.stock_universe}
+
+def handle_data(context, data):
+    pass
+`,
+    )
+
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'create',
+        '--market=us',
+        `--file=${brokenTemplatePath}`,
+        '--strictMarketApi',
+        '--json',
+      ],
+      {
+        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+        credentialStore: store,
+        fetch,
+        stderr,
+      },
+    )
+
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('init_market_data')
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('initialize')
+    expect(fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
   })
 
   it('rejects invalid strategy source before requesting Qube', async () => {

@@ -173,8 +173,8 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
   },
   missing_lookback_for_rolling_window: {
     'zh-CN':
-      '代码用了 {max_window} 日滚动窗口（rolling），但 `start_date=context.run_info.start_date` 仍然直接用了回测起点；请按至少 {buffer_days} 个自然日向前挪。',
-    en: 'The code uses a {max_window}-day rolling window, but `start_date=context.run_info.start_date` still uses the backtest start directly; shift it earlier by at least {buffer_days} calendar days.',
+      '代码用了 {max_window} 日滚动窗口（rolling），但 `start_date=context.run_info.start_date` 仍然直接用了回测起点；请至少向前挪 {buffer_days} 个自然日，并把历史缓存显式截断到有限长度。',
+    en: 'The code uses a {max_window}-day rolling window, but `start_date=context.run_info.start_date` still uses the backtest start directly; shift it earlier by at least {buffer_days} calendar days and cap the history cache explicitly.',
   },
   missing_required_method: {
     'zh-CN': '缺少必需的方法 `{method}`。',
@@ -203,8 +203,8 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
   },
   stock_try_except_forbidden: {
     'zh-CN':
-      '第 {lineno} 行使用了 `try`/`except`；策略禁止吞异常。缺数据请显式判空后 `return`/`print`。',
-    en: 'Line {lineno}: uses `try`/`except`; strategies must not swallow exceptions. On missing data, check explicitly then `return`/`print`.',
+      '第 {lineno} 行使用了 `try`/`except`；请先写 `if symbol not in data: continue`，再访问 `data[symbol]`。策略禁止吞异常。',
+    en: 'Line {lineno}: uses `try`/`except`; write `if symbol not in data: continue` first, then read `data[symbol]`. Strategies must not swallow exceptions.',
   },
   stock_unsupported_lifecycle: {
     'zh-CN': '第 {lineno} 行定义了不支持的生命周期 `{name}`；股票策略不要写该钩子。',
@@ -230,8 +230,8 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
   },
   stock_missing_init_market_data: {
     'zh-CN':
-      '日线策略必须定义 `init_market_data(context)`，并由 `initialize` 直接调用；历史行情只能写在该函数里一次拉取。',
-    en: 'Daily strategies must define `init_market_data(context)` and call it directly from `initialize`; historical fetches must live only in that function.',
+      'US 日频策略必须定义 `init_market_data(context)`，并由 `initialize(context)` 显式调用。示例：`def init_market_data(context): ...`；`def initialize(context): init_market_data(context)`。',
+    en: 'US daily strategies must define `init_market_data(context)` and call it explicitly from `initialize(context)`. Example: `def init_market_data(context): ...`; `def initialize(context): init_market_data(context)`.',
   },
   stock_panda_data_outside_init_market_data: {
     'zh-CN':
