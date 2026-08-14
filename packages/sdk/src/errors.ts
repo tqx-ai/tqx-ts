@@ -59,6 +59,8 @@ export type TradingApiErrorCode =
   | 'market_not_permitted'
   | 'invalid_lot_size'
   | 'invalid_order_price'
+  | 'price_out_of_range'
+  | 'price_validation_unavailable'
   | 'invalid_symbol'
   | 'risk_control_blocked'
   | 'order_rejected'
