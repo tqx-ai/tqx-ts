@@ -63,6 +63,16 @@ tqx research factor delete <factor-id>... --yes
 
 The default name of `create` is `TQX Factor`. You must provide one and only one source code input when creating; provide at most one when updating. `--formula` maps to `code_type: formula`, `--code` / `--file` maps to `python`. Python factors must reference at least one `factors["field"]` or `factors['field']`. Formulas starting with a negative sign use `--formula=-close/ref(close,5)`.
 
+Python factor source is class-based. The minimal runnable shape is:
+
+```python
+class DemoFactor(Factor):
+    def calculate(self, factors):
+        return factors["close"]
+```
+
+Define exactly one subclass of `Factor` in the factor source. Use `calculate(self, factors)` as the entry method, and read fields through `factors["field"]` / `factors['field']`. On Windows, prefer `--file` for multiline code; if you use `--code`, make sure shell escaping preserves the inner double quotes around `factors["field"]`.
+
 `run` defaults to `adjustmentCycle=5`, `groupNumber=5`, `factorDirection=Positive`. `--noWait` returns `SUBMITTED` and `analysis_id`; otherwise poll every 2 seconds, default up to 600 seconds. `stop` polls the cancellation status by default every second, up to 10 seconds; `request_accepted` does not mean that it has been cancelled.
 
 Factor save uses optimistic concurrency. Recommended flow: `factor info` or `factor versions` first, then `factor save --baseVersionId=<latest_version_id>`. If the server returns `409 version_conflict`, retry with the returned `latest_version_id` or pass `--confirmRebase` when you intentionally want to save on the latest HEAD.

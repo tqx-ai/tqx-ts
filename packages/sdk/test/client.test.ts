@@ -5,6 +5,7 @@ import {
   TqxApiError,
   TqxClient,
   TqxConfigurationError,
+  TqxNetworkError,
   TqxProtocolError,
   TqxValidationError,
   type TqxClientOptions,
@@ -20,13 +21,21 @@ const removedResearchBaseUrlOption: TqxClientOptions = {
 }
 void removedResearchBaseUrlOption
 
-function response(data: unknown, init: ResponseInit = {}): Response {
+function response(
+  data: unknown,
+  init: ResponseInit = {},
+  envelope: {
+    requestId?: string
+    code?: string
+    message?: string
+  } = {},
+): Response {
   return Response.json(
     {
-      code: '0',
-      message: 'success',
+      code: envelope.code ?? '0',
+      message: envelope.message ?? 'success',
       data,
-      request_id: 'request-1',
+      request_id: envelope.requestId ?? 'request-1',
       timestamp: 1_753_094_400_000,
     },
     init,
@@ -217,6 +226,73 @@ describe('TqxClient', () => {
     })
   })
 
+  it('retries idempotent GET requests after transient network failures', async () => {
+    vi.useFakeTimers()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockRejectedValueOnce(new TypeError('fetch failed again'))
+      .mockResolvedValueOnce(response({ status: 'ok', service: 'panda_openapi', version: '1.0.0' }))
+    const client = new TqxClient({ tradingBaseUrl: 'https://api.example.test', fetch })
+
+    const promise = client.health()
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(99)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(199)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(fetch).toHaveBeenCalledTimes(3)
+
+    await expect(promise).resolves.toEqual({
+      status: 'ok',
+      service: 'panda_openapi',
+      version: '1.0.0',
+    })
+  })
+
+  it('preserves the latest retryable response metadata when retries exhaust on a network error', async () => {
+    vi.useFakeTimers()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            code: 'service_unavailable',
+            message: 'service unavailable',
+            data: null,
+            request_id: 'request-503',
+            timestamp: 1,
+          },
+          {
+            status: 503,
+            headers: { 'X-Request-ID': 'request-503' },
+          },
+        ),
+      )
+      .mockRejectedValueOnce(new TypeError('network unavailable'))
+      .mockRejectedValueOnce(new TypeError('network unavailable again'))
+    const client = new TqxClient({ tradingBaseUrl: 'https://api.example.test', fetch })
+
+    const error = client.health().catch((caught: unknown) => caught)
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(200)
+    expect(fetch).toHaveBeenCalledTimes(3)
+
+    await expect(error).resolves.toMatchObject({
+      message: 'Unable to reach the TQX API',
+      status: 503,
+      requestId: 'request-503',
+      url: 'https://api.example.test/openapi/v1/health',
+    })
+  })
+
   it('maps place-order input to the OpenAPI request', async () => {
     const signal = {
       signal_id: 'signal-001',
@@ -257,6 +333,72 @@ describe('TqxClient', () => {
       price: '185.50',
       reason: 'breakout',
     })
+  })
+
+  it('does not retry writes without an idempotency key', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockRejectedValue(new TypeError('fetch failed'))
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    await expect(
+      client.trading.modifyOrder({
+        orderId: 'order-1',
+        price: '185.50',
+      }),
+    ).rejects.toBeInstanceOf(TqxNetworkError)
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries idempotent writes that include an idempotency key', async () => {
+    vi.useFakeTimers()
+    const signal = {
+      signal_id: 'signal-retry-001',
+      state: 'ACCEPTED',
+      order_id: 'order-1',
+      order_status: 'SUBMITTED',
+      message: null,
+      created_at: now,
+      updated_at: now,
+      error_code: null,
+      broker_error_id: null,
+    }
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            code: 'service_unavailable',
+            message: 'service unavailable',
+            data: null,
+            request_id: 'request-503',
+            timestamp: 1,
+          },
+          {
+            status: 503,
+            headers: { 'X-Request-ID': 'request-503' },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(response(signal, { status: 202 }, { requestId: 'request-202' }))
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    const promise = client.trading.placeOrder({
+      symbol: 'AAPL.US',
+      side: 'BUY',
+      orderType: 'LIMIT',
+      quantity: '2',
+      price: '185.50',
+      idempotencyKey: 'signal-retry-001',
+    })
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(fetch).toHaveBeenCalledTimes(2)
+
+    await expect(promise).resolves.toEqual(signal)
+    expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get('Idempotency-Key')).toBe(
+      'signal-retry-001',
+    )
   })
 
   it('accepts signal diagnostics when querying a signal', async () => {
@@ -442,7 +584,7 @@ describe('TqxClient', () => {
   it('reports non-JSON response diagnostics', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
       new Response('<html>upstream unavailable</html>', {
-        status: 502,
+        status: 500,
         headers: {
           'Content-Type': 'text/html',
           'X-Request-ID': 'request-non-json',
@@ -459,7 +601,7 @@ describe('TqxClient', () => {
 
     expect(error).toBeInstanceOf(TqxProtocolError)
     expect(error).toMatchObject({
-      status: 502,
+      status: 500,
       requestId: 'request-non-json',
       contentType: 'text/html',
       url: 'https://api.example.test/pandaApi/agent_quant/api/factors/page?offset=0&limit=100',

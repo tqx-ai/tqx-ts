@@ -38,6 +38,10 @@ interface RequestOptions<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIs
   responseType?: 'openapi' | 'gateway'
 }
 
+const MAX_REQUEST_ATTEMPTS = 3
+const INITIAL_RETRY_DELAY_MS = 100
+const RETRYABLE_HTTP_STATUS_CODES = new Set([408, 429, 502, 503, 504])
+
 export class TqxClient {
   readonly auth: AuthApi
   readonly trading: TradingApi
@@ -115,48 +119,64 @@ export class TqxClient {
       if (value !== undefined) url.searchParams.set(name, String(value))
     }
 
+    const method = options.method ?? 'GET'
     const headers = new Headers(options.headers)
     headers.set('Accept', 'application/json')
     if (authenticated) headers.set('X-API-Key', this.#apiKey!)
     if (options.body !== undefined) headers.set('Content-Type', 'application/json')
-
-    let response: Response
-    try {
-      response = await this.#fetch(url, {
-        method: options.method ?? 'GET',
-        headers,
-        body: options.body === undefined ? undefined : JSON.stringify(options.body),
-      })
-    } catch (error) {
-      throw new TqxNetworkError('Unable to reach the TQX API', { cause: error })
+    const requestInit: RequestInit = {
+      method,
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
     }
-
-    if (response.status === 204) {
-      const dataResult = v.safeParse(options.schema, undefined)
-      if (!dataResult.success) {
-        throw protocolError(response, 'The TQX API returned invalid response data', url)
+    const retryableRequest = method === 'GET' || headers.has('Idempotency-Key')
+    const performRequest = async (
+      attempt: number,
+      lastRetryableResponse?: RetryableResponseMetadata,
+    ): Promise<v.InferOutput<TSchema>> => {
+      let response: Response
+      try {
+        response = await this.#fetch(url, requestInit)
+      } catch (error) {
+        if (retryableRequest && attempt < MAX_REQUEST_ATTEMPTS) {
+          await sleep(retryDelay(attempt))
+          return performRequest(attempt + 1, lastRetryableResponse)
+        }
+        throw new TqxNetworkError('Unable to reach the TQX API', {
+          cause: error,
+          status: lastRetryableResponse?.status,
+          requestId: lastRetryableResponse?.requestId,
+          url: lastRetryableResponse?.url ?? url.toString(),
+          attempts: attempt,
+        })
       }
-      return dataResult.output
+
+      if (
+        retryableRequest &&
+        RETRYABLE_HTTP_STATUS_CODES.has(response.status) &&
+        attempt < MAX_REQUEST_ATTEMPTS
+      ) {
+        const nextRetryableResponse: RetryableResponseMetadata = {
+          status: response.status,
+          requestId: response.headers.get('X-Request-ID'),
+          url: response.url || url.toString(),
+        }
+        await discardResponseBody(response)
+        await sleep(retryDelay(attempt))
+        return performRequest(attempt + 1, nextRetryableResponse)
+      }
+
+      return decodeResponse(response, url, options)
     }
 
-    let raw: unknown
-    try {
-      raw = await response.json()
-    } catch {
-      throw protocolError(response, 'The TQX API returned a non-JSON response', url)
-    }
-
-    const data =
-      options.responseType === 'gateway'
-        ? decodeGatewayResponse(raw, response)
-        : decodeOpenApiResponse(raw, response)
-
-    const dataResult = v.safeParse(options.schema, data)
-    if (!dataResult.success) {
-      throw protocolError(response, 'The TQX API returned invalid response data', url)
-    }
-    return dataResult.output
+    return performRequest(1)
   }
+}
+
+interface RetryableResponseMetadata {
+  status: number
+  requestId: string | null
+  url: string | null
 }
 
 function protocolError(response: Response, message: string, requestUrl: URL): TqxProtocolError {
@@ -167,6 +187,57 @@ function protocolError(response: Response, message: string, requestUrl: URL): Tq
     response.headers.get('Content-Type'),
     response.url || requestUrl.toString(),
   )
+}
+
+async function decodeResponse<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIssue<unknown>>>(
+  response: Response,
+  url: URL,
+  options: RequestOptions<TSchema>,
+): Promise<v.InferOutput<TSchema>> {
+  if (response.status === 204) {
+    const dataResult = v.safeParse(options.schema, undefined)
+    if (!dataResult.success) {
+      throw protocolError(response, 'The TQX API returned invalid response data', url)
+    }
+    return dataResult.output
+  }
+
+  let raw: unknown
+  try {
+    raw = await response.json()
+  } catch {
+    throw protocolError(response, 'The TQX API returned a non-JSON response', url)
+  }
+
+  const data =
+    options.responseType === 'gateway'
+      ? decodeGatewayResponse(raw, response)
+      : decodeOpenApiResponse(raw, response)
+
+  const dataResult = v.safeParse(options.schema, data)
+  if (!dataResult.success) {
+    throw protocolError(response, 'The TQX API returned invalid response data', url)
+  }
+  return dataResult.output
+}
+
+function retryDelay(attempt: number): number {
+  return INITIAL_RETRY_DELAY_MS * 2 ** (attempt - 1)
+}
+
+function sleep(delayMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs)
+  })
+}
+
+async function discardResponseBody(response: Response): Promise<void> {
+  if (!response.body) return
+  try {
+    await response.body.cancel()
+  } catch {
+    // Ignore cancellation failures and continue with the retry loop.
+  }
 }
 
 function decodeOpenApiResponse(raw: unknown, response: Response): unknown {

@@ -502,7 +502,7 @@ describe('CLI', () => {
     const store = new MemoryStore()
     store.value = 'stored-key'
     const stderr = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+    const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(async () =>
       Response.json(
         {
           code: 'service_unavailable',
@@ -522,7 +522,7 @@ describe('CLI', () => {
       stderr,
     })
 
-    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch).toHaveBeenCalledTimes(3)
     expect(JSON.parse(stderr.value).error).toMatchObject({
       code: 'service_unavailable',
       status: 503,
