@@ -169,6 +169,7 @@ export function validateStrategyCode(
     detectSyntaxError(root, frame, locale) ??
     detectImportContract(root, normalizedSource, frame, normalizedMarket, locale) ??
     detectTryAndLoggerRules(root, normalizedSource, frame, normalizedMarket, locale) ??
+    detectBarMapMembershipRules(root, normalizedSource, frame, locale) ??
     detectLifecycleContract(functions, normalizedSource, frame, normalizedMarket, locale) ??
     detectInitMarketDataRequirement(
       functions,
@@ -447,6 +448,34 @@ function detectTryAndLoggerRules(
     )
   }
   return undefined
+}
+
+function detectBarMapMembershipRules(
+  root: SyntaxNode,
+  source: string,
+  frame: SourceFrame,
+  locale: string,
+): Finding | undefined {
+  let offendingNode: SyntaxNode | undefined
+  walk(root, (node) => {
+    if (offendingNode !== undefined || node.name !== 'BinaryExpression') return
+    const children = directChildren(node).filter((child) => !isPunctuation(child))
+    if (children.length < 3) return
+    if (!children.some((child) => child.name === 'in')) return
+    const right = children[children.length - 1]
+    if (right === undefined || !isBareDataReference(right, source)) return
+    offendingNode = node
+  })
+  if (offendingNode === undefined) return undefined
+  const line = lineForPosition(frame, offendingNode.from ?? offendingNode.to)
+  return makeFinding(
+    frame,
+    offendingNode,
+    t('bar_map_membership_forbidden', locale, {
+      lineno: line,
+      pattern: compactText(nodeText(source, offendingNode)),
+    }),
+  )
 }
 
 function detectLifecycleContract(
@@ -1680,6 +1709,17 @@ function walkNodes(root: SyntaxNode): SyntaxNode[] {
 
 function isPunctuation(node: SyntaxNode): boolean {
   return PUNCTUATION.has(node.name)
+}
+
+function isBareDataReference(node: SyntaxNode, source: string): boolean {
+  if (node.name === 'VariableName' || node.name === 'PropertyName') {
+    return nodeText(source, node) === 'data'
+  }
+  if (node.name === 'ParenthesizedExpression' || node.name === 'AtomExpression') {
+    const child = firstMeaningfulChild(node)
+    return child !== undefined ? isBareDataReference(child, source) : false
+  }
+  return false
 }
 
 function expressionNameChain(node: SyntaxNode, source: string): string[] | null {

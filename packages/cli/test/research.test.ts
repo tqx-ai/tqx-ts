@@ -804,22 +804,29 @@ def handle_data(context, data):
     expect(process.exitCode).toBe(2)
   })
 
-  it('rejects try/except strategy source before requesting Qube', async () => {
+  it('rejects BarMap membership strategy source before requesting Qube', async () => {
     const store = new MemoryStore()
     store.value = 'stored-key'
     const stderr = new BufferOutput()
     const fetch = vi.fn<typeof globalThis.fetch>()
-    const strategyWithTry = STOCK_STRATEGY.replace(
-      'def handle_data(context, data):\n    pass',
-      `def handle_data(context, data):
-    try:
-        print(data)
-    except Exception:
-        return`,
+    const strategyWithMembership = US_DAILY_MOVING_AVERAGE_FIXTURE.replace(
+      '        bar = data[symbol]\n',
+      `        if symbol not in data:
+            continue
+
+        bar = data[symbol]
+`,
     )
 
     await runCli(
-      ['research', 'strategy', 'create', '--market=stock', `--code=${strategyWithTry}`, '--json'],
+      [
+        'research',
+        'strategy',
+        'create',
+        '--market=us',
+        `--code=${strategyWithMembership}`,
+        '--json',
+      ],
       {
         environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
         credentialStore: store,
@@ -828,8 +835,8 @@ def handle_data(context, data):
       },
     )
 
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('try')
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('except')
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('BarMap')
+    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('data[symbol]')
     expect(fetch).not.toHaveBeenCalled()
     expect(process.exitCode).toBe(2)
   })

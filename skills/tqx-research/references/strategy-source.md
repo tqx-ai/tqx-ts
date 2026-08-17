@@ -20,6 +20,6 @@ Without that material, draft a research specification or explain the missing con
 - The CLI warns about the mainland `panda_backtest.api.stock_api`, the wrong market import, or a missing expected import. Pass `--strictMarketApi` to reject those warnings.
 - The CLI rejects calls to `eval`, `exec`, `open`, `__import__`, `compile`, `input`, `globals`, `locals`, `vars`, and `dir` when they occur outside strings and comments.
 - Star imports (`from ... import *`) must be at module top level. The CLI rejects nested star imports.
-- Current-bar data must use an explicit guard before `data[symbol]`, or `data[symbol]` with `KeyError` handling. The CLI rejects `data.get(...)`.
+- Current-bar data must use `data[symbol]` directly and then validate the returned bar fields. The CLI rejects `data.get(...)` and membership checks against `data`.
 
 The checks above are not a compiler, sandbox guarantee, data validation, or evidence that code will execute successfully on Qube.

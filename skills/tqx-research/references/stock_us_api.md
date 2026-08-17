@@ -141,10 +141,7 @@ In minute backtest, `context.hms` is used according to the US stock market tradi
 
 ```python
 symbol = "TSLA.NB"
-if symbol in data:
-    bar = data[symbol]
-else:
-    bar = None
+bar = data[symbol]
 account = context.stock_account_dict.get(context.account)
 position = None if account is None else account.positions.get(symbol)
 ```
@@ -189,7 +186,7 @@ if position and position.sellable > 0:
 It is preferred to start from the canonical fixture `packages/sdk/test/fixtures/us_ma.py` directly:
 
 ```powershell
-tqx research strategy create --market us --file .\tests\us_ma.py `
+tqx research strategy create --market us --file ./packages/sdk/test/fixtures/us_ma.py `
   --name "US stock moving average strategy" `
   --startDate 20250101 --endDate 20250220 --frequency 1d `
   --strictMarketApi
@@ -207,7 +204,7 @@ It is not a transaction confirmation. The window unit changes with frequency, th
 - Disable `eval/exec/open/compile/input/globals/locals/vars/dir/__import__`.
 - Use `--file` for multi-line code to avoid PowerShell parameters damaging source code quotes.
 - The market, imported modules, and code suffixes must be consistent and use `--strictMarketApi`.
-- Current-bar reads should use an explicit guard before `data[symbol]`, or `data[symbol]` with `KeyError` handling; do not use `data.get(...)`.
+- Current-bar reads should use `data[symbol]` directly and then validate the returned bar fields; do not use `data.get(...)` or membership checks against `data`.
 - `TIMEOUT` only stops CLI waiting; retain the returned `run_id`, use `tqx research strategy result <run_id>` query or
   `tqx research strategy stop <run_id>` Cancel the background task.
 

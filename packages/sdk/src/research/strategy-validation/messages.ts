@@ -44,6 +44,7 @@ export type StrategyMessageKey =
   | 'stock_api_quotation_unknown_kwarg'
   | 'stock_missing_init_market_data'
   | 'stock_panda_data_outside_init_market_data'
+  | 'bar_map_membership_forbidden'
   | 'future_srlogger_forbidden'
   | 'future_try_except_forbidden'
   | 'future_unsupported_lifecycle'
@@ -86,8 +87,9 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
     en: 'Line {lineno}: `{module}.{method}` is not in the allowlist. Available methods: {known}',
   },
   data_get_forbidden: {
-    'zh-CN': '第 {lineno} 行请使用 `data[symbol]` 并处理 `KeyError`，不要用 `data.get(...)`。',
-    en: 'Line {lineno}: use `data[symbol]` and handle `KeyError`; do not use `data.get(...)`.',
+    'zh-CN':
+      '第 {lineno} 行请直接使用 `data[symbol]`，再按返回 bar 的有效字段判断是否跳过；不要用 `data.get(...)`。',
+    en: 'Line {lineno}: use `data[symbol]` directly, then skip by checking the returned bar fields; do not use `data.get(...)`.',
   },
   forbidden_builtin: {
     'zh-CN': '第 {lineno} 行调用了被禁用的内建函数 `{name}`。',
@@ -203,12 +205,17 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
   },
   stock_try_except_forbidden: {
     'zh-CN':
-      '第 {lineno} 行使用了 `try`/`except`；请先写 `if symbol not in data: continue`，再访问 `data[symbol]`。策略禁止吞异常。',
-    en: 'Line {lineno}: uses `try`/`except`; write `if symbol not in data: continue` first, then read `data[symbol]`. Strategies must not swallow exceptions.',
+      '第 {lineno} 行使用了 `try`/`except`；请直接读取 `data[symbol]`，再按 bar 字段判断是否跳过。策略禁止吞异常。',
+    en: 'Line {lineno}: uses `try`/`except`; read `data[symbol]` directly, then decide whether to skip by checking bar fields. Strategies must not swallow exceptions.',
   },
   stock_unsupported_lifecycle: {
     'zh-CN': '第 {lineno} 行定义了不支持的生命周期 `{name}`；股票策略不要写该钩子。',
     en: 'Line {lineno}: unsupported lifecycle `{name}`; equity strategies must not define this hook.',
+  },
+  bar_map_membership_forbidden: {
+    'zh-CN':
+      '第 {lineno} 行使用了 `{pattern}`；回测 `data` 是 BarMap，不支持 `symbol in data` 或 `symbol not in data`。请直接用 `data[symbol]` 读取，并按返回 bar 的有效字段判断是否跳过。',
+    en: 'Line {lineno}: uses `{pattern}`; backtest `data` is a BarMap and does not support `symbol in data` or `symbol not in data`. Read `data[symbol]` directly and skip by checking the returned bar fields.',
   },
   stock_api_quotation_bad_period: {
     'zh-CN': '第 {lineno} 行 `stock_api_quotation(...)` 的 `period` 只能是 `"1d"` 或 `"1m"`',

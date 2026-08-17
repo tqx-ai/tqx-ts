@@ -90,18 +90,20 @@ describe('strategy validation', () => {
     expect(error.issues[0]?.message).toContain('except')
   })
 
-  it('rejects the legacy US try/except access pattern', () => {
+  it.each([
+    ['symbol in data', `        if symbol in data:\n            bar = data[symbol]\n`],
+    [
+      'symbol not in data',
+      `        if symbol not in data:\n            continue\n\n        bar = data[symbol]\n`,
+    ],
+  ])('rejects the legacy US %s pattern', (_label, replacement) => {
     const legacyUsTemplate = US_DAILY_MOVING_AVERAGE_FIXTURE.replace(
-      '        if symbol not in data:\n            continue\n\n        bar = data[symbol]\n',
-      `        try:
-            bar = data[symbol]
-        except Exception:
-            continue
-`,
+      '        bar = data[symbol]\n',
+      replacement,
     )
     const error = expectValidationError(legacyUsTemplate, 'us')
 
-    expect(error.issues[0]?.message).toContain('try')
+    expect(error.issues[0]?.message).toContain('BarMap')
     expect(error.issues[0]?.message).toContain('data[symbol]')
   })
 

@@ -91,7 +91,7 @@ context.close_history = {
 }
 ```
 
-Read each `data[symbol]` in `handle_data` independently, preferably with `if symbol not in data: continue` before access, then each stock independently calculates signals, checks positions and places orders. Keep the price history cache per symbol and bounded.
+Read each `data[symbol]` in `handle_data` directly, then each stock independently calculates signals, checks positions and places orders. Keep the price history cache per symbol and bounded.
 Do not share a price history list, and do not sort them horizontally by income; once compared horizontally, it becomes a cross-sectional strategy.
 
 ## 6. Use TQX data pre-screening
@@ -128,7 +128,7 @@ Data pre-screening only determines which targets run the rules, and does not cha
 - `after_trading(context)`: Record account, order intention and diagnostic log.
 
 The code must check bar, price, account, cash, position, `sellable` and history length. The price must be a finite positive number, and all ratios must be
-Protect the denominator. The length of the history cache is limited to avoid unlimited growth with backtesting. Currently bar must use an explicit guard before `data[symbol]`, or `data[symbol]` with `KeyError` handling; don't rely on unacknowledged `bar.close_array`.
+Protect the denominator. The length of the history cache is limited to avoid unlimited growth with backtesting. Currently bar must use `data[symbol]` directly, then validate the returned bar fields; don't rely on unacknowledged `bar.close_array`.
 
 The buying quantity of Hong Kong stocks is processed according to the trading unit of each stock in `stock_hk_api.md`; the order for US stocks is processed as an integer number of shares. sell for use
 `position.sellable`, order submission does not mean the transaction is completed, and the transaction record must be checked eventually.
@@ -147,7 +147,7 @@ tqx research strategy create --market hk --file ./tests/hk_ma.py `
 US stocks:
 
 ```powershell
-tqx research strategy create --market us --file ./tests/us_ma.py `
+tqx research strategy create --market us --file ./packages/sdk/test/fixtures/us_ma.py `
   --name "US stock moving average timing strategy" `
   --startDate 20250101 --endDate 20250220 --frequency 1d `
   --strictMarketApi

@@ -1,3 +1,5 @@
+import pandas as pd
+
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_us_api import *
 
@@ -12,6 +14,33 @@ def init_market_data(context):
 
     context.today_trades = []
     context.close_history = {symbol: [] for symbol in context.stock_universe}
+
+    backtest_start = pd.Timestamp(str(context.run_info.start_date))
+    warmup_start = (backtest_start - pd.Timedelta(days=max(context.slow_window * 5, 60))).strftime(
+        "%Y%m%d"
+    )
+    warmup_end = (backtest_start - pd.Timedelta(days=1)).strftime("%Y%m%d")
+    history = stock_api_quotation(
+        symbol_list=context.stock_universe,
+        start_date=warmup_start,
+        end_date=warmup_end,
+        fields=["symbol", "date", "close"],
+        period="1d",
+    )
+    if history is None or history.empty:
+        return
+
+    history = history.dropna(subset=["symbol", "date", "close"]).sort_values(["symbol", "date"])
+    max_len = max(context.fast_window, context.slow_window) * 5
+    for symbol, group in history.groupby("symbol", sort=False):
+        closes = []
+        for close_price in group["close"].tolist():
+            if close_price is None:
+                continue
+            close_value = float(close_price)
+            if close_value > 0:
+                closes.append(close_value)
+        context.close_history[symbol] = closes[-max_len:]
 
 
 def initialize(context):
@@ -52,9 +81,6 @@ def handle_data(context, data):
         return
 
     for symbol in context.stock_universe:
-        if symbol not in data:
-            continue
-
         bar = data[symbol]
         if bar is None:
             continue
