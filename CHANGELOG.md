@@ -14,6 +14,13 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 - Add Qube Python strategy validation for syntax, lifecycle rules, market-specific APIs, data API
   arguments, and context state before requests are submitted.
 - Add Strategy Code Gateway support.
+- Add explicit trading API error codes for invalid price and price-range inputs.
+- Normalize cancelled backtests consistently across list, result, and wait output, including
+  cancellation reasons and partial-result markers.
+- Enforce direct `data[symbol]` access for US strategy BarMaps and strengthen US symbol, lifecycle,
+  market API, and rolling-window validation.
+- Refine the official US strategy templates and research references for the updated market and
+  cancellation contracts.
 
 ## 0.2.1 - 2026-08-07
 
