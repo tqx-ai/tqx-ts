@@ -44,6 +44,7 @@ function response(
 
 afterEach(() => {
   vi.unstubAllEnvs?.()
+  vi.useRealTimers()
 })
 
 describe('TqxClient', () => {
@@ -254,6 +255,41 @@ describe('TqxClient', () => {
     })
   })
 
+  it.each([502, 503, 504] as const)('retries GET requests after %s responses', async (status) => {
+    vi.useFakeTimers()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            code: 'service_unavailable',
+            message: 'service unavailable',
+            data: null,
+            request_id: `request-${status}`,
+            timestamp: 1,
+          },
+          {
+            status,
+            headers: { 'X-Request-ID': `request-${status}` },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(response({ status: 'ok', service: 'panda_openapi', version: '1.0.0' }))
+    const client = new TqxClient({ tradingBaseUrl: 'https://api.example.test', fetch })
+
+    const promise = client.health()
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(100)
+    expect(fetch).toHaveBeenCalledTimes(2)
+
+    await expect(promise).resolves.toEqual({
+      status: 'ok',
+      service: 'panda_openapi',
+      version: '1.0.0',
+    })
+  })
+
   it('preserves the latest retryable response metadata when retries exhaust on a network error', async () => {
     vi.useFakeTimers()
     const fetch = vi
@@ -290,6 +326,38 @@ describe('TqxClient', () => {
       status: 503,
       requestId: 'request-503',
       url: 'https://api.example.test/openapi/v1/health',
+    })
+  })
+
+  it.each([408, 429] as const)('does not retry GET requests after %s responses', async (status) => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            code: status === 408 ? 'request_timeout' : 'rate_limited',
+            message: status === 408 ? 'request timed out' : 'rate limited',
+            data: null,
+            request_id: `request-${status}`,
+            timestamp: 1,
+          },
+          {
+            status,
+            headers: { 'X-Request-ID': `request-${status}` },
+          },
+        ),
+      )
+      .mockResolvedValueOnce(response({ status: 'ok', service: 'panda_openapi', version: '1.0.0' }))
+    const client = new TqxClient({ tradingBaseUrl: 'https://api.example.test', fetch })
+
+    const error = await client.health().catch((caught: unknown) => caught)
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(error).toBeInstanceOf(TqxApiError)
+    expect(error).toMatchObject({
+      status,
+      code: status === 408 ? 'request_timeout' : 'rate_limited',
+      requestId: `request-${status}`,
     })
   })
 
