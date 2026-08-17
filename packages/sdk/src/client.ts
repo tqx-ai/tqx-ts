@@ -40,7 +40,7 @@ interface RequestOptions<TSchema extends v.BaseSchema<unknown, unknown, v.BaseIs
 
 const MAX_REQUEST_ATTEMPTS = 3
 const INITIAL_RETRY_DELAY_MS = 100
-const RETRYABLE_HTTP_STATUS_CODES = new Set([408, 429, 502, 503, 504])
+const RETRYABLE_HTTP_STATUS_CODES = new Set([502, 503, 504])
 
 export class TqxClient {
   readonly auth: AuthApi
@@ -130,17 +130,17 @@ export class TqxClient {
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     }
     const retryableRequest = method === 'GET' || headers.has('Idempotency-Key')
-    const performRequest = async (
-      attempt: number,
-      lastRetryableResponse?: RetryableResponseMetadata,
-    ): Promise<v.InferOutput<TSchema>> => {
+    let lastRetryableResponse: RetryableResponseMetadata | undefined
+
+    /* eslint-disable no-await-in-loop */
+    for (let attempt = 1; attempt <= MAX_REQUEST_ATTEMPTS; attempt += 1) {
       let response: Response
       try {
         response = await this.#fetch(url, requestInit)
       } catch (error) {
         if (retryableRequest && attempt < MAX_REQUEST_ATTEMPTS) {
           await sleep(retryDelay(attempt))
-          return performRequest(attempt + 1, lastRetryableResponse)
+          continue
         }
         throw new TqxNetworkError('Unable to reach the TQX API', {
           cause: error,
@@ -156,20 +156,26 @@ export class TqxClient {
         RETRYABLE_HTTP_STATUS_CODES.has(response.status) &&
         attempt < MAX_REQUEST_ATTEMPTS
       ) {
-        const nextRetryableResponse: RetryableResponseMetadata = {
+        lastRetryableResponse = {
           status: response.status,
           requestId: response.headers.get('X-Request-ID'),
           url: response.url || url.toString(),
         }
         await discardResponseBody(response)
         await sleep(retryDelay(attempt))
-        return performRequest(attempt + 1, nextRetryableResponse)
+        continue
       }
 
       return decodeResponse(response, url, options)
     }
+    /* eslint-enable no-await-in-loop */
 
-    return performRequest(1)
+    throw new TqxNetworkError('Unable to reach the TQX API', {
+      status: lastRetryableResponse?.status,
+      requestId: lastRetryableResponse?.requestId,
+      url: lastRetryableResponse?.url ?? url.toString(),
+      attempts: MAX_REQUEST_ATTEMPTS,
+    })
   }
 }
 
