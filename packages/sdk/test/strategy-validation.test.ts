@@ -98,7 +98,7 @@ describe('strategy validation', () => {
     ],
   ])('rejects the legacy US %s pattern', (_label, replacement) => {
     const legacyUsTemplate = US_DAILY_MOVING_AVERAGE_FIXTURE.replace(
-      '        bar = data[symbol]\n',
+      /        bar = data\[symbol\]\r?\n/,
       replacement,
     )
     const error = expectValidationError(legacyUsTemplate, 'us')

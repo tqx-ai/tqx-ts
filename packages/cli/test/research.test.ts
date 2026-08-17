@@ -810,7 +810,7 @@ def handle_data(context, data):
     const stderr = new BufferOutput()
     const fetch = vi.fn<typeof globalThis.fetch>()
     const strategyWithMembership = US_DAILY_MOVING_AVERAGE_FIXTURE.replace(
-      '        bar = data[symbol]\n',
+      /        bar = data\[symbol\]\r?\n/,
       `        if symbol not in data:
             continue
 
