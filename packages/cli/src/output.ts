@@ -84,6 +84,7 @@ export class Output {
       details.request_id ? `request ${details.request_id}` : null,
     ].filter((value): value is string => Boolean(value))
     const suffix = metadata.length ? this.#colors.dim(` (${metadata.join(', ')})`) : ''
+    const message = formatErrorMessage(details)
     const issues = details.issues
       ?.map((issue) => `\n  ${this.#colors.yellow(issue.path)}: ${issue.message}`)
       .join('')
@@ -92,7 +93,10 @@ export class Output {
       details.data === undefined
         ? ''
         : `\n  ${this.#colors.cyan('data')}:\n${indentLines(JSON.stringify(details.data, null, 2), '    ')}`
-    this.stderr.write(`${prefix}: ${details.message}${suffix}${issues ?? ''}${url}${data}\n`)
+    const conflictHint = formatVersionConflictHint(details)
+    this.stderr.write(
+      `${prefix}: ${message}${suffix}${issues ?? ''}${url}${data}${conflictHint ?? ''}\n`,
+    )
   }
 
   warning(message: string): void {
@@ -258,6 +262,72 @@ export function errorDetails(error: unknown): ErrorOutput {
   if (error instanceof TqxError) return { message: error.message, code: error.name }
   if (error instanceof Error) return { message: error.message }
   return { message: String(error) }
+}
+
+function formatErrorMessage(details: ErrorOutput): string {
+  if (details.status === 409 && isVersionConflictDetails(details)) return 'Version conflict'
+  return details.message
+}
+
+function formatVersionConflictHint(details: ErrorOutput): string | null {
+  if (details.status !== 409) return null
+  if (details.code !== 'version_conflict' && !containsVersionConflictMarker(details.data))
+    return null
+  const latestVersionId = findLatestVersionId(details.data)
+  if (latestVersionId === undefined) return null
+
+  const versionId = String(latestVersionId)
+  return [
+    '',
+    `  latest_version_id: ${versionId}`,
+    `  Retry with --baseVersionId=${versionId}.`,
+    '  Use --confirmRebase to save against the latest HEAD instead.',
+  ].join('\n')
+}
+
+function containsVersionConflictMarker(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  if (isVersionConflictMarker(value)) return true
+  return containsVersionConflictMarker(value.detail) || containsVersionConflictMarker(value.data)
+}
+
+function isVersionConflictDetails(details: ErrorOutput): boolean {
+  return details.code === 'version_conflict' || containsVersionConflictMarker(details.data)
+}
+
+function findLatestVersionId(value: unknown): string | number | undefined {
+  if (!isRecord(value)) return undefined
+
+  const direct = readVersionId(value.latest_version_id) ?? readVersionId(value.latestVersionId)
+  if (direct !== undefined) return direct
+
+  if (isVersionConflictMarker(value)) {
+    const nested = findLatestVersionId(value.data)
+    if (nested !== undefined) return nested
+  }
+
+  const detail = findLatestVersionId(value.detail)
+  if (detail !== undefined) return detail
+
+  return findLatestVersionId(value.data)
+}
+
+function isVersionConflictMarker(value: Record<string, unknown>): boolean {
+  return (
+    readVersionCode(value.code) === 'version_conflict' ||
+    readVersionCode(value.error_code) === 'version_conflict' ||
+    readVersionCode(value.errorCode) === 'version_conflict'
+  )
+}
+
+function readVersionCode(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined
+}
+
+function readVersionId(value: unknown): string | number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) return value.trim()
+  return undefined
 }
 
 function formatIssuePath(path: readonly { key: unknown }[] | undefined): string {

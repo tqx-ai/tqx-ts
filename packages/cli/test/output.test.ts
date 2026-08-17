@@ -155,6 +155,35 @@ describe('Output', () => {
     expect(plainBuffer.value).toContain('REJECTED')
   })
 
+  it('adds retry guidance for version conflicts in plain output without changing JSON', () => {
+    const data = {
+      detail: {
+        code: 'version_conflict',
+        latest_version_id: 244,
+        base_version_id: 243,
+      },
+    }
+    const error = new TqxApiError('Version conflict', 409, 'http_409', 'request-2', data)
+    const jsonBuffer = new BufferOutput()
+    const plainBuffer = new BufferOutput()
+
+    new Output('json', jsonBuffer, jsonBuffer).error(error)
+    new Output('plain', plainBuffer, plainBuffer).error(error)
+
+    expect(JSON.parse(jsonBuffer.value)).toEqual({
+      error: {
+        message: 'Version conflict',
+        code: 'http_409',
+        status: 409,
+        request_id: 'request-2',
+        data,
+      },
+    })
+    expect(plainBuffer.value).toContain('latest_version_id: 244')
+    expect(plainBuffer.value).toContain('--baseVersionId=244')
+    expect(plainBuffer.value).toContain('--confirmRebase')
+  })
+
   it('omits null API error data for compact legacy errors', () => {
     const details = errorDetails(new TqxApiError('invalid API key', 401, 'invalid_api_key', null))
 
