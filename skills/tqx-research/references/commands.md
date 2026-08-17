@@ -65,6 +65,8 @@ The default name of `create` is `TQX Factor`. You must provide one and only one 
 
 `run` defaults to `adjustmentCycle=5`, `groupNumber=5`, `factorDirection=Positive`. `--noWait` returns `SUBMITTED` and `analysis_id`; otherwise poll every 2 seconds, default up to 600 seconds. `stop` polls the cancellation status by default every second, up to 10 seconds; `request_accepted` does not mean that it has been cancelled.
 
+Factor save uses optimistic concurrency. Recommended flow: `factor info` or `factor versions` first, then `factor save --baseVersionId=<latest_version_id>`. If the server returns `409 version_conflict`, retry with the returned `latest_version_id` or pass `--confirmRebase` when you intentionally want to save on the latest HEAD.
+
 ## Strategy Library and Backtests
 
 ```text
@@ -83,6 +85,8 @@ tqx research backtest result <run-id> [--download[=<path>]]
 `backtest-options`: `--startDate`, `--endDate`, `--startCapital`, `--commissionRate`, `--slippage`, `--frequency=1d|1M`, `--symbols=<symbol1,symbol2,...>`. When creating a strategy, the defaults are `startCapital=10000000`, `commissionRate=1`, `slippage=0`, and `frequency=1d`. Updates and runs retain saved parameters unless explicitly overridden. The CLI rebuilds only supported saved fields and ignores the server's `margin_rate`, `standard_symbol`, and `null` values, so changing the dates does not require deleting and recreating the strategy. The CLI rejects requests whose end date is not later than the start date.
 
 Strategy runs are polled every 2 seconds by default, for up to 600 seconds. A timeout stops local waiting only; it does not cancel the remote run, and the output includes a `stop_command`. `--download` saves the raw result JSON: with no value it writes to the Downloads directory, with a directory it generates a filename there, and with a file path it writes to that file. List commands hide source code by default. `backtest list` also removes large fields and provides `equity_count` and `trade_count`; use `backtest result` for the complete result.
+
+Strategy save follows the same optimistic concurrency flow: check `strategy info` or `strategy versions` first, save with `--baseVersionId=<latest_version_id>`, and on `409 version_conflict` retry with the returned `latest_version_id` or use `--confirmRebase` for an intentional rebase onto the latest HEAD.
 
 ## Local source code check and success status
 

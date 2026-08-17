@@ -77,15 +77,25 @@ export function createStrategyCommand(runtime: CommandRuntime) {
           }),
       }),
       save: defineCommand({
-        meta: { name: 'save', description: 'Save a strategy code version' },
+        meta: {
+          name: 'save',
+          description:
+            'Save a strategy code version. Check strategy info or versions first, then use --baseVersionId=<latest_version_id> as the optimistic concurrency base. Use --confirmRebase to save on the latest HEAD after a conflict.',
+        },
         args: {
           strategyId: resourceIdArg('Strategy ID'),
           code: { type: 'string', description: 'Python strategy source' },
           file: { type: 'string', description: 'Load strategy source from a file' },
           name: { type: 'string', description: 'Strategy name' },
           description: { type: 'string', description: 'Strategy description' },
-          baseVersionId: { type: 'string', description: 'Expected current version ID' },
-          confirmRebase: { type: 'boolean', description: 'Rebase on the latest version' },
+          baseVersionId: {
+            type: 'string',
+            description: 'Latest version ID to use as the optimistic concurrency base',
+          },
+          confirmRebase: {
+            type: 'boolean',
+            description: 'Rebase onto the latest HEAD before saving',
+          },
           ...backtestArgs,
         },
         run: ({ args }) =>

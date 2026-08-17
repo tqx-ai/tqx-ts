@@ -118,6 +118,34 @@ describe('research CLI', () => {
     expect(exit).toHaveBeenCalledWith(0)
   })
 
+  it('explains optimistic concurrency in factor save help', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
+
+    await runCli(['--plain', 'research', 'factor', 'save', '--help'])
+
+    const help = log.mock.calls.flat().join('\n')
+    expect(help).toContain('Save a factor code version')
+    expect(help).toContain('Check factor info or versions first')
+    expect(help).toContain('--baseVersionId=<latest_version_id>')
+    expect(help).toContain('--confirmRebase')
+    expect(exit).toHaveBeenCalledWith(0)
+  })
+
+  it('explains optimistic concurrency in strategy save help', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
+
+    await runCli(['--plain', 'research', 'strategy', 'save', '--help'])
+
+    const help = log.mock.calls.flat().join('\n')
+    expect(help).toContain('Save a strategy code version')
+    expect(help).toContain('Check strategy info or versions first')
+    expect(help).toContain('--baseVersionId=<latest_version_id>')
+    expect(help).toContain('--confirmRebase')
+    expect(exit).toHaveBeenCalledWith(0)
+  })
+
   it('uses the stored API key and creates Qube factors instead of workflows', async () => {
     const store = new MemoryStore()
     store.value = 'stored-key'
@@ -482,6 +510,52 @@ describe('research CLI', () => {
         market_type: 'main',
       },
     })
+  })
+
+  it('shows version conflict retry guidance when factor save returns 409', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stderr = new BufferOutput()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        gatewayResponse({
+          id: 221,
+          market: 'hk',
+          latest_version: {
+            id: 244,
+            factor_id: 221,
+            version_number: 1,
+            code: 'close',
+            code_type: 'formula',
+            market: 'hk',
+          },
+        }),
+      )
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            detail: {
+              code: 'version_conflict',
+              latest_version_id: 244,
+              base_version_id: null,
+            },
+          },
+          { status: 409 },
+        ),
+      )
+
+    await runCli(['--plain', 'research', 'factor', 'save', '221', '--formula=close*1'], {
+      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
+      credentialStore: store,
+      fetch,
+      stderr,
+    })
+
+    expect(stderr.value).toContain('latest_version_id: 244')
+    expect(stderr.value).toContain('--baseVersionId=244')
+    expect(stderr.value).toContain('--confirmRebase')
+    expect(process.exitCode).toBe(1)
   })
 
   it('keeps explicit strategy list market queries focused and preserves code with includeContent', async () => {

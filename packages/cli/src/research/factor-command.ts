@@ -112,7 +112,11 @@ export function createFactorCommand(runtime: CommandRuntime) {
           }),
       }),
       save: defineCommand({
-        meta: { name: 'save', description: 'Save a factor code version' },
+        meta: {
+          name: 'save',
+          description:
+            'Save a factor code version. Check factor info or versions first, then use --baseVersionId=<latest_version_id> as the optimistic concurrency base. Use --confirmRebase to save on the latest HEAD after a conflict.',
+        },
         args: {
           factorId: resourceIdArg('Factor ID'),
           market: {
@@ -124,8 +128,14 @@ export function createFactorCommand(runtime: CommandRuntime) {
           file: { type: 'string', description: 'Load factor source from a file' },
           name: { type: 'string', description: 'Factor name' },
           description: { type: 'string', description: 'Factor description' },
-          baseVersionId: { type: 'string', description: 'Expected current version ID' },
-          confirmRebase: { type: 'boolean', description: 'Rebase on the latest version' },
+          baseVersionId: {
+            type: 'string',
+            description: 'Latest version ID to use as the optimistic concurrency base',
+          },
+          confirmRebase: {
+            type: 'boolean',
+            description: 'Rebase onto the latest HEAD before saving',
+          },
           startDate: { type: 'string', description: 'Analysis start date' },
           endDate: { type: 'string', description: 'Analysis end date' },
           adjustmentCycle: { type: 'string' },
