@@ -1,6 +1,12 @@
 import pc from 'picocolors'
 
-import { TqxApiError, TqxError, TqxProtocolError, TqxValidationError } from '@tqx-ai/sdk'
+import {
+  TqxApiError,
+  TqxError,
+  TqxNetworkError,
+  TqxProtocolError,
+  TqxValidationError,
+} from '@tqx-ai/sdk'
 import { isRecord } from './utils/basic/type-guard'
 import { getRuntimeProcess } from './utils/runtime'
 
@@ -246,6 +252,15 @@ export function errorDetails(error: unknown): ErrorOutput {
       status: error.status,
       request_id: error.requestId,
       ...(error.contentType ? { content_type: error.contentType } : {}),
+      ...(error.url ? { url: error.url } : {}),
+    }
+  }
+  if (error instanceof TqxNetworkError) {
+    return {
+      message: error.message,
+      code: 'network_error',
+      ...(error.status !== undefined ? { status: error.status } : {}),
+      ...(error.requestId !== undefined ? { request_id: error.requestId } : {}),
       ...(error.url ? { url: error.url } : {}),
     }
   }

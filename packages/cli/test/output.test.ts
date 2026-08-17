@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { TqxApiError, TqxProtocolError } from '@tqx-ai/sdk'
+import { TqxApiError, TqxNetworkError, TqxProtocolError } from '@tqx-ai/sdk'
 
 import { Output, errorDetails } from '../src/output'
 
@@ -153,6 +153,31 @@ describe('Output', () => {
     expect(plainBuffer.value).not.toContain('data: {')
     expect(plainBuffer.value).toContain('signal_id')
     expect(plainBuffer.value).toContain('REJECTED')
+  })
+
+  it('surfaces retry metadata for network errors', () => {
+    const error = new TqxNetworkError('Unable to reach the TQX API', {
+      status: 503,
+      requestId: 'request-3',
+      url: 'https://api.example.test/openapi/v1/health',
+    })
+    const jsonBuffer = new BufferOutput()
+    const plainBuffer = new BufferOutput()
+
+    new Output('json', jsonBuffer, jsonBuffer).error(error)
+    new Output('plain', plainBuffer, plainBuffer).error(error)
+
+    expect(JSON.parse(jsonBuffer.value)).toEqual({
+      error: {
+        message: 'Unable to reach the TQX API',
+        code: 'network_error',
+        status: 503,
+        request_id: 'request-3',
+        url: 'https://api.example.test/openapi/v1/health',
+      },
+    })
+    expect(plainBuffer.value).toContain('(HTTP 503, request request-3)')
+    expect(plainBuffer.value).toContain('url: https://api.example.test/openapi/v1/health')
   })
 
   it('adds retry guidance for version conflicts in plain output without changing JSON', () => {

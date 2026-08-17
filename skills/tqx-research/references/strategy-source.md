@@ -14,7 +14,7 @@ Without that material, draft a research specification or explain the missing con
 
 ## CLI-verifiable rules
 
-- Factor definitions accept a formula or Python source. Python factor source must reference at least one `factors["field"]` or `factors['field']` expression.
+- Factor definitions accept a formula or Python source. Python factor source must define exactly one subclass of `Factor`, implement `calculate(self, factors)`, and reference at least one `factors["field"]` or `factors['field']` expression inside that class.
 - Strategy definitions accept only Python source.
 - For Hong Kong strategies, the CLI expects `panda_backtest.api.stock_hk_api`; for US strategies, it expects `panda_backtest.api.stock_us_api`.
 - The CLI warns about the mainland `panda_backtest.api.stock_api`, the wrong market import, or a missing expected import. Pass `--strictMarketApi` to reject those warnings.

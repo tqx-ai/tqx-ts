@@ -21,6 +21,28 @@ export class TqxValidationError extends TqxError {
 
 export class TqxNetworkError extends TqxError {
   override readonly name = 'TqxNetworkError'
+
+  readonly status?: number
+  readonly requestId?: string | null
+  readonly url?: string | null
+  readonly attempts?: number
+
+  constructor(
+    message: string,
+    options: {
+      cause?: unknown
+      status?: number
+      requestId?: string | null
+      url?: string | null
+      attempts?: number
+    } = {},
+  ) {
+    super(message, options)
+    this.status = options.status
+    this.requestId = options.requestId
+    this.url = options.url
+    this.attempts = options.attempts
+  }
 }
 
 export class TqxProtocolError extends TqxError {
