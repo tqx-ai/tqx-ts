@@ -6,7 +6,7 @@ CommonJS entry points with TypeScript declarations.
 ## Installation
 
 ```bash
-npm install @tqx-ai/sdk@0.2.3
+npm install @tqx-ai/sdk@0.3.0
 ```
 
 ## Usage
