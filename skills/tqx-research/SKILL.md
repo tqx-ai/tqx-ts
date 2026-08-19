@@ -30,6 +30,7 @@ This Skill is served from the moving `main` branch and must not be treated as a 
 
 - All CLI operations, authentication, parameters, status and output: read [Commands Reference](references/commands.md).
 - Writing Node.js/TypeScript integrations, confirming SDK types, or polling: read [SDK reference](references/sdk.md).
+- Generate or modify factor source code: first read [Factor Creation Guide](references/factor-creation.md), then read the local [Factor Operators](references/factor-operators.md) and the data/code docs from the authoritative factor references.
 - Generate or modify strategy source code: first read [Strategy Templates](references/strategy_templates.md), then read the corresponding [Hong Kong Stock API](references/stock_hk_api.md) or [US Stock API](references/stock_us_api.md) corresponding to the market.
 - Generate time-series strategies: also read [Time-Series Strategies](references/time_series_strategies.md).
 - Generate cross-sectional strategies, dynamic stock universes, or fundamental filters: also read [Cross-Sectional Strategies](references/cross_sectional_strategies.md).
