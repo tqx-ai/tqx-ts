@@ -400,6 +400,7 @@ describe('TqxClient', () => {
       quantity: '2',
       price: '185.50',
       reason: 'breakout',
+      time_in_force: 'DAY',
     })
   })
 
@@ -485,6 +486,92 @@ describe('TqxClient', () => {
     const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
 
     await expect(client.trading.getSignal('signal-001')).resolves.toEqual(signal)
+  })
+
+  it('parses funds-rejection diagnostics fields when querying a rejected signal', async () => {
+    const signal = {
+      signal_id: 'signal-funds-rejected',
+      state: 'REJECTED',
+      order_id: null,
+      order_status: 'REJECTED',
+      message:
+        'insufficient buying power: order value is USD 1855.00, available buying power is USD 500.00, shortfall is USD 1355.00.',
+      created_at: now,
+      updated_at: now,
+      error_code: null,
+      broker_error_id: null,
+      rejection_reason: 'insufficient buying power',
+      symbol: 'AAPL.US',
+      requested_price: '185.50',
+      requested_value: '1855.00',
+      available_buying_power: '500.00',
+      shortfall: '1355.00',
+      currency: 'USD',
+      time_in_force: 'DAY',
+      market_session: 'REGULAR',
+      effective_trade_date: '2026-07-21',
+      expire_at: now,
+    }
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(response(signal))
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    await expect(client.trading.getSignal('signal-funds-rejected')).resolves.toEqual(signal)
+  })
+
+  it('parses position-rejection diagnostics fields when querying a rejected signal', async () => {
+    const signal = {
+      signal_id: 'signal-position-rejected',
+      state: 'REJECTED',
+      order_id: null,
+      order_status: 'REJECTED',
+      message:
+        '00700.HK has 50 shares available; requested 100, exceeding by 50. Short selling is not permitted.',
+      created_at: now,
+      updated_at: now,
+      error_code: null,
+      broker_error_id: null,
+      rejection_reason: 'insufficient position',
+      symbol: '00700.HK',
+      total_quantity: '50',
+      requested_quantity: '100',
+      available_quantity: '50',
+      excess_quantity: '50',
+      short_selling_allowed: false,
+    }
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(response(signal))
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    await expect(client.trading.getSignal('signal-position-rejected')).resolves.toEqual(signal)
+  })
+
+  it('parses session and cancellation metadata when querying an order', async () => {
+    const order = {
+      order_id: 'order-session-1',
+      client_order_id: 'client-order-1',
+      symbol: '00700.HK',
+      symbol_name: 'Tencent',
+      market: 'HK',
+      currency: 'HKD',
+      side: 'SELL',
+      order_type: 'LIMIT',
+      status: 'CANCELLING',
+      quantity: '100',
+      price: '350.00',
+      filled_quantity: '0',
+      remaining_quantity: '100',
+      average_fill_price: null,
+      submitted_at: now,
+      updated_at: now,
+      time_in_force: 'DAY',
+      market_session: 'REGULAR',
+      effective_trade_date: '2026-07-21',
+      expire_at: now,
+      cancel_request_id: 'cancel-request-1',
+    }
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(response(order))
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    await expect(client.trading.getOrder('order-session-1')).resolves.toEqual(order)
   })
 
   it('rejects invalid order styles before making a request', async () => {
