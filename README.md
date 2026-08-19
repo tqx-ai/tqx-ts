@@ -66,7 +66,7 @@ tqx trading positions [--symbol=<symbol>] [--market=HK|US] [--limit=<n>] [--curs
 tqx trading orders list [--limit=<n>] [--cursor=<cursor>]
 tqx trading orders get <order-id>
 tqx trading orders place --symbol=<symbol> --side=BUY|SELL --quantity=<quantity> --yes \
-  [--orderType=MARKET|LIMIT] [--price=<price>] [--reason=<reason>] [--idempotencyKey=<key>]
+  [--orderType=MARKET|LIMIT] [--price=<price>] [--reason=<reason>] [--timeInForce=DAY] [--idempotencyKey=<key>]
 tqx trading orders modify <order-id> --price=<price>
 tqx trading orders cancel <order-id>
 tqx trading trades [--market=HK|US] [--orderId=<id>] [--limit=<n>] [--cursor=<cursor>]

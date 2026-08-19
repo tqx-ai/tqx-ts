@@ -116,6 +116,7 @@ export class TradingApiClient implements TradingApi {
         quantity: parsed.quantity,
         price: parsed.price,
         reason: parsed.reason || undefined,
+        time_in_force: parsed.timeInForce ?? 'DAY',
       },
     })
   }

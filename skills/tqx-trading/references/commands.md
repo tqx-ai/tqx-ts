@@ -343,7 +343,7 @@ tqx trading orders place --symbol=AAPL.US --side=BUY --quantity=1 --yes --json
 Limit order:
 
 ```powershell
-tqx trading orders place --symbol=00700.HK --side=BUY --quantity=100 --orderType=LIMIT --price=350.00 --reason=<reason> --yes --json
+tqx trading orders place --symbol=00700.HK --side=BUY --quantity=100 --orderType=LIMIT --price=350.00 --timeInForce=DAY --reason=<reason> --yes --json
 ```
 
 Constraints:
@@ -354,6 +354,7 @@ Constraints:
 - When `orderType` is omitted, the CLI defaults to `MARKET`.
 - `LIMIT` must contain a positive number `price`; `MARKET` must not contain `price`.
 - `reason` can be up to 512 characters long.
+- `timeInForce` currently supports `DAY` and defaults to `DAY`; the order expires at the current market session close.
 - `--yes` confirms submitting the order.
 - When `idempotencyKey` is omitted, the CLI generates a new key. When you need to safely retry the same intent, you must explicitly pass in and reuse the stable key; the key length is 8 to 128, the first character is a letter or number, and the rest only allows letters, numbers, `. _ : -`.
 

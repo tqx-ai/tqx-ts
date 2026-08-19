@@ -296,6 +296,7 @@ describe('CLI', () => {
       side: 'BUY',
       order_type: 'MARKET',
       quantity: '1',
+      time_in_force: 'DAY',
     })
     expect(new Headers(request?.headers).get('Idempotency-Key')).toMatch(
       /^cli-order-[0-9a-f-]{36}$/,
@@ -344,6 +345,9 @@ describe('CLI', () => {
     expect(new Headers(fetch.mock.calls[0]?.[1]?.headers).get('Idempotency-Key')).toBe(
       'retry-key-001',
     )
+    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+      time_in_force: 'DAY',
+    })
   })
 
   it('requires confirmation before placing an order', async () => {

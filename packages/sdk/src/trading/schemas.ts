@@ -6,6 +6,7 @@ export const TradingModeSchema = v.picklist(['LIVE', 'PAPER'])
 export const MarketSchema = v.picklist(['HK', 'US'])
 export const OrderSideSchema = v.picklist(['BUY', 'SELL'])
 export const OrderTypeSchema = v.picklist(['MARKET', 'LIMIT'])
+export const TimeInForceSchema = v.picklist(['DAY'])
 
 /** Final and in-flight lifecycle states of an order. */
 export const OrderStatusSchema = v.picklist([
@@ -82,6 +83,11 @@ export const OrderDataSchema = v.looseObject({
   average_fill_price: nullableString,
   submitted_at: nullableString,
   updated_at: nullableString,
+  time_in_force: v.optional(TimeInForceSchema),
+  market_session: optionalNullableString,
+  effective_trade_date: optionalNullableString,
+  expire_at: optionalNullableString,
+  cancel_request_id: optionalNullableString,
 })
 
 export const TradeDataSchema = v.looseObject({
@@ -117,6 +123,21 @@ export const SignalDataSchema = v.looseObject({
   broker_error_id: v.optional(v.nullable(v.number())),
   rejection_reason: optionalNullableString,
   parent_request_id: optionalNullableString,
+  symbol: optionalNullableString,
+  requested_price: optionalNullableString,
+  total_quantity: optionalNullableString,
+  requested_quantity: optionalNullableString,
+  available_quantity: optionalNullableString,
+  excess_quantity: optionalNullableString,
+  short_selling_allowed: v.optional(v.nullable(v.boolean())),
+  requested_value: optionalNullableString,
+  available_buying_power: optionalNullableString,
+  shortfall: optionalNullableString,
+  currency: optionalNullableString,
+  time_in_force: v.optional(TimeInForceSchema),
+  market_session: optionalNullableString,
+  effective_trade_date: optionalNullableString,
+  expire_at: optionalNullableString,
 })
 
 /** `accepted` acknowledges the operation request, not the order's final state. */
@@ -183,6 +204,7 @@ export const PlaceOrderInputSchema = v.pipe(
         v.maxLength(512),
       ),
     ),
+    timeInForce: v.optional(TimeInForceSchema),
     idempotencyKey: v.pipe(
       v.string(),
       v.minLength(8, 'Must be at least 8 characters'),
@@ -225,5 +247,6 @@ export type ModifyOrderInput = v.InferInput<typeof ModifyOrderInputSchema>
 export type Market = v.InferOutput<typeof MarketSchema>
 export type OrderSide = v.InferOutput<typeof OrderSideSchema>
 export type OrderType = v.InferOutput<typeof OrderTypeSchema>
+export type TimeInForce = v.InferOutput<typeof TimeInForceSchema>
 export type OrderStatus = v.InferOutput<typeof OrderStatusSchema>
 export type SignalState = v.InferOutput<typeof SignalStateSchema>

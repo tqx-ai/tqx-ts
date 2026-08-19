@@ -45,6 +45,11 @@ export function createTradingCommand(runtime: CommandRuntime) {
           quantity: { type: 'string', required: true, description: 'Positive integer quantity' },
           price: { type: 'string', description: 'Required for LIMIT orders' },
           reason: { type: 'string', description: 'Optional order rationale' },
+          timeInForce: {
+            type: 'enum',
+            options: ['DAY'],
+            description: 'Order validity (defaults to DAY)',
+          },
           idempotencyKey: {
             type: 'string',
             description: 'Stable key used to safely retry this order (generated when omitted)',
@@ -61,6 +66,7 @@ export function createTradingCommand(runtime: CommandRuntime) {
               quantity: args.quantity!,
               price: args.price,
               reason: args.reason,
+              timeInForce: args.timeInForce ?? 'DAY',
               idempotencyKey: args.idempotencyKey ?? `cli-order-${randomUUID()}`,
             })
           }),
