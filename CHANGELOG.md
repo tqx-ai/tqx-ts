@@ -4,6 +4,19 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.3.0 - 2026-08-19
+
+### Added
+
+- Add the `timeInForce` order option, currently supporting `DAY`, to the SDK and CLI.
+- Add factor creation guidance, factor operator references, and local Python factor code gates.
+
+### Changed
+
+- Retry GET and idempotent write requests after 5xx responses with exponential backoff.
+- Improve CLI diagnostics and retry guidance for optimistic-concurrency version conflicts.
+- Preserve network retry metadata and expand rejected-order diagnostics in SDK responses.
+
 ## 0.2.3 - 2026-08-17
 
 ### Changed
