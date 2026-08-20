@@ -87,32 +87,6 @@ npx skills add tqx-ai/tqx-ts \
 
 The CLI also supports `--skill '*'` to install every discovered skill, but prefer the three explicit names above so unrelated future skills in the repository are not installed accidentally.
 
-## Install with SkillHub
-
-Use SkillHub only when neither a harness-native manager nor `npx` is available, and `skillhub --version` succeeds. Before installing, inspect the one selected destination. Do not overwrite a same-named local Skill. The official SkillHub instructions require an explicit `--dir` pointing to the active agent's skill directory; do not rely on its default `./skills/` directory.
-
-Search for the TQX skills:
-
-```bash
-skillhub search tqx
-```
-
-Install each result using the exact skill identifier returned by the search:
-
-```bash
-skillhub install <tqx-research-result> --dir <agent-skills-directory>
-skillhub install <tqx-trading-result> --dir <agent-skills-directory>
-skillhub install <what-is-tqx-result> --dir <agent-skills-directory>
-```
-
-Point `--dir` at the current agent's own skill directory — global or project scope, but never both. Resolve the directory from the harness you are running in rather than assuming a fixed path. If SkillHub does not return a TQX result, report that the fallback source did not find the Skills; do not install another manager solely as a fallback.
-
-If `skillhub` is not installed and the user explicitly asks to install it, read the official instructions at `https://skillhub.cn/install/skillhub.md` and obtain confirmation before adding the CLI. The documented CLI-only installer is:
-
-```bash
-curl -fsSL https://skillhub-1388575217.cos.ap-guangzhou.myqcloud.com/install/install.sh | bash -s -- --cli-only
-```
-
 ## Verify
 
 After installation, verify that all three `SKILL.md` files exist in the selected agent directory and that their frontmatter contains `name` and `description`. Reload the agent if it does not discover newly installed skills immediately.
