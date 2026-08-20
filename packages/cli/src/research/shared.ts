@@ -76,8 +76,14 @@ export const backtestArgs = {
   startDate: { type: 'string' as const, description: 'Start date (YYYYMMDD or YYYY-MM-DD)' },
   endDate: { type: 'string' as const, description: 'End date (YYYYMMDD or YYYY-MM-DD)' },
   startCapital: { type: 'string' as const, description: 'Initial capital' },
-  commissionRate: { type: 'string' as const, description: 'Commission rate' },
-  slippage: { type: 'string' as const, description: 'Slippage' },
+  commissionRate: {
+    type: 'string' as const,
+    description: 'Backend commission parameter value; not automatically interpreted as percent',
+  },
+  slippage: {
+    type: 'string' as const,
+    description: 'Proportional slippage applied by backend to simulated fill price',
+  },
   frequency: { type: 'enum' as const, options: ['1d', '1M'], description: 'Bar frequency' },
   symbols: { type: 'string' as const, description: 'Comma-separated symbols' },
 }

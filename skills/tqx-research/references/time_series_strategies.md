@@ -46,8 +46,8 @@ Deterministic default parameters for the type; missing parameters must not be ra
 | Backtest interval | The default task execution date is the latest complete natural quarter, and `--startDate/--endDate` is passed explicitly |
 | Position | A maximum of 90% of the funds can be used for a single bid; the default budget for multiple bids is equal, and the total target position does not exceed 90% |
 | `start_capital` | CLI default `10,000,000` |
-| `commission_rate` | CLI default `1`; this is the backend node parameter value and is not interpreted as 1% by itself |
-| `slippage` | CLI default `0` |
+| `commission_rate` | CLI default `1`; this is the raw backend commission parameter value and is not interpreted as percent or basis points by the CLI |
+| `slippage` | CLI default `0`; proportional backend slippage input applied to simulated fill prices |
 | Stop Loss/Take Profit/Maximum Retracement | Not enabled if not specified; random generation of thresholds is prohibited |
 | Historical warm-up | At least reach the maximum indicator window; additionally retain the previous valid signal when a strict crossover event is required |
 | Hong Kong stock trading unit | No fixed default value; read and cache `min_order_amount` by target |

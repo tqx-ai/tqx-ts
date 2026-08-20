@@ -103,6 +103,10 @@ build-time `TQX_BUILD_BASE_URL` or the runtime `TQX_BASE_URL`; both must include
 gateway prefix for research commands.
 `tqx balance` also uses this gateway, rather than `TQX_BUILD_TRADING_BASE_URL`.
 
+Backtest cost parameters are passed through as backend inputs: `commissionRate` is the raw
+commission parameter value used by the backend, and `slippage` is applied proportionally to the
+simulated fill price. The CLI does not reinterpret `commissionRate` as percent or basis points.
+
 Human-readable output is colored by default. Use `--plain` for text without ANSI sequences or
 `--json` for machine-readable JSON. The output flag can appear anywhere in a command. Help and
 version support `--help`, `-H`, `-h`, `--version`, `-V`, and `-v`.
