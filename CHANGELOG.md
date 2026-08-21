@@ -4,6 +4,21 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.3.1 - 2026-08-21
+
+### Added
+
+- Add limit-order examples and guidance for Hong Kong and US research strategies.
+
+### Changed
+
+- Clarify that backtest commission and slippage values are passed through as backend parameters.
+- Clarify factor source-file usage and normalize technical-indicator examples to backend field names.
+
+### Removed
+
+- Remove the obsolete SkillHub installation fallback from the skill command reference.
+
 ## 0.3.0 - 2026-08-19
 
 ### Added
