@@ -18,7 +18,8 @@ When a factor needs field names, market-specific data shapes, or examples of sup
 - Factors are research signals only.
 - A factor is either Formula or Python.
 - Create one factor per source file when possible.
-- Prefer UTF-8 `.py` files and `--file` for multiline Python source.
+- Prefer UTF-8 `.py` files and `--file` for multiline Python source only.
+
 
 ## Market And Data Contract
 
@@ -68,13 +69,14 @@ class MomentumFactor(Factor):
 1. Decide whether the signal is Formula or Python.
 2. Check the market contract and supported fields.
 3. For Python, keep one `Factor` subclass and one `calculate(self, factors)` entry point.
-4. Save the source in a UTF-8 `.py` file when it spans multiple lines.
-5. Create the factor with `tqx research factor create --market=<hk|us> --file <path> ...` or `--code` for short inline source.
+4. Save the Python source in a UTF-8 `.py` file when it spans multiple lines.
+5. Create the factor with `tqx research factor create --market=<hk|us> --file <python-path> ...` or `--code` for short inline source; use `--formula` for Formula mode.
 6. Keep the returned `factor_id` for later analysis or updates.
 
 ## Windows Notes
 
-- Prefer `--file` for multiline code on Windows.
+
+- Prefer `--file` for multiline Python source on Windows.
 - If you use `--code`, make sure shell escaping preserves the inner double quotes in `factors["field"]`.
 
 ## Common Rejection Patterns

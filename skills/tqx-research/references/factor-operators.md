@@ -122,30 +122,33 @@ Use lowercase field names such as `close` and `volume`, and uppercase operator n
 
 ## Technical indicators
 
+
+Technical indicator arguments use lowercase field names; operator names remain uppercase.
+
 | Indicator | Expression |
 |---|---|
-| Average volume | `ADV(VOLUME, N)` |
-| MACD | `MACD_DIF(CLOSE, SHORT, LONG, M)`, `MACD_DEA(CLOSE, SHORT, LONG, M)`, `MACD(CLOSE, SHORT, LONG, M)` |
-| KDJ | `KDJ_K(CLOSE, HIGH, LOW, N, M1, M2)`, `KDJ_D(CLOSE, HIGH, LOW, N, M1, M2)`, `KDJ_J(CLOSE, HIGH, LOW, N, M1, M2)` |
+| Average volume | `ADV(volume, N)` |
+| MACD | `MACD_DIF(close, short, long, M)`, `MACD_DEA(close, short, long, M)`, `MACD(close, short, long, M)` |
+| KDJ | `KDJ_K(close, high, low, N, M1, M2)`, `KDJ_D(close, high, low, N, M1, M2)`, `KDJ_J(close, high, low, N, M1, M2)` |
 | RSI / Williams %R | `RSI(X, N)`, `WR(X, N)` |
-| Bollinger bands | `BOLL_UPPER(CLOSE, N, P)`, `BOLL_MID(CLOSE, N, P)`, `BOLL_LOWER(CLOSE, N, P)`, `BOLL_WIDTH(X, N)` |
-| Donchian channels | `TAQ_UPPER(HIGH, LOW, N)`, `TAQ_MID(HIGH, LOW, N)`, `TAQ_LOWER(HIGH, LOW, N)` |
-| Bias / PSY / CCI | `BIAS(CLOSE, N)`, `PSY(CLOSE, N)`, `PSYMA(CLOSE, N, M)`, `CCI(X, N)` |
+| Bollinger bands | `BOLL_UPPER(close, N, P)`, `BOLL_MID(close, N, P)`, `BOLL_LOWER(close, N, P)`, `BOLL_WIDTH(X, N)` |
+| Donchian channels | `TAQ_UPPER(high, low, N)`, `TAQ_MID(high, low, N)`, `TAQ_LOWER(high, low, N)` |
+| Bias / PSY / CCI | `BIAS(close, N)`, `PSY(close, N)`, `PSYMA(close, N, M)`, `CCI(X, N)` |
 | ATR | `ATR(X, N)` |
-| BBI | `BBI(CLOSE, M1, M2, M3, M4)` |
-| DMI | `DMI_PDI(CLOSE, HIGH, LOW, M1, M2)`, `DMI_MDI(CLOSE, HIGH, LOW, M1, M2)`, `DMI_ADX(CLOSE, HIGH, LOW, M1, M2)`, `DMI_ADXR(CLOSE, HIGH, LOW, M1, M2)` |
-| Advanced moving averages | `DEMA(X, N)`, `TEMA(CLOSE, N)`, `KAMA(X, N)`, `T3(X, N)` |
+| BBI | `BBI(close, M1, M2, M3, M4)` |
+| DMI | `DMI_PDI(close, high, low, M1, M2)`, `DMI_MDI(close, high, low, M1, M2)`, `DMI_ADX(close, high, low, M1, M2)`, `DMI_ADXR(close, high, low, M1, M2)` |
+| Advanced moving averages | `DEMA(X, N)`, `TEMA(close, N)`, `KAMA(X, N)`, `T3(X, N)` |
 | Oscillators | `PPO(A, B)`, `AROONOSC(X, N)`, `ADXR(X, N)`, `CMO(X, N)`, `STOCHASTIC(X, N)` |
-| Volume indicators | `OBV(CLOSE, VOL)`, `VR(CLOSE, VOLUME, M1)`, `MFI(CLOSE, HIGH, LOW, VOLUME, N)` |
-| EMV | `EMV(HIGH, LOW, VOL, N, M)`, `EMVMA(HIGH, LOW, VOL, N, M)` |
-| TRIX | `TRIX(CLOSE, M1, M2)`, `TRIMA(CLOSE, M1, M2)` |
-| DPO | `DPO(CLOSE, M1, M2, M3)`, `DPOMA(CLOSE, M1, M2, M3)` |
-| BRAR | `BRAR(OPEN, CLOSE, HIGH, LOW, M1)`, `ARBR(OPEN, CLOSE, HIGH, LOW, M1)` |
-| Momentum | `MTM(CLOSE, N, M)`, `MTMMA(CLOSE, N, M)`, `ROCMA(CLOSE, N, M)` |
-| MASS | `MASS(HIGH, LOW, N1, N2, M)`, `MASSMA(HIGH, LOW, N1, N2, M)` |
-| EXPMA | `EXPMA(CLOSE, N1, N2)`, `EXPMA2(CLOSE, N1, N2)` |
-| ASI | `ASI(OPEN, CLOSE, HIGH, LOW, M1, M2)`, `ASIT(OPEN, CLOSE, HIGH, LOW, M1, M2)` |
-| DIF | `DIF(CLOSE, N1, N2, M)`, `DFMA(CLOSE, N1, N2, M)` |
+| Volume indicators | `OBV(close, volume)`, `VR(close, volume, M1)`, `MFI(close, high, low, volume, N)` |
+| EMV | `EMV(high, low, volume, N, M)`, `EMVMA(high, low, volume, N, M)` |
+| TRIX | `TRIX(close, M1, M2)`, `TRIMA(close, M1, M2)` |
+| DPO | `DPO(close, M1, M2, M3)`, `DPOMA(close, M1, M2, M3)` |
+| BRAR | `BRAR(open, close, high, low, M1)`, `ARBR(open, close, high, low, M1)` |
+| Momentum | `MTM(close, N, M)`, `MTMMA(close, N, M)`, `ROCMA(close, N, M)` |
+| MASS | `MASS(high, low, N1, N2, M)`, `MASSMA(high, low, N1, N2, M)` |
+| EXPMA | `EXPMA(close, N1, N2)`, `EXPMA2(close, N1, N2)` |
+| ASI | `ASI(open, close, high, low, M1, M2)`, `ASIT(open, close, high, low, M1, M2)` |
+| DIF | `DIF(close, N1, N2, M)`, `DFMA(close, N1, N2, M)` |
 | Bollinger difference | `BOLLINGERDIFF(A, B)` |
 
 ## Market compatibility
