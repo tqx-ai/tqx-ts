@@ -58,7 +58,7 @@ Do not call `start()`, `get_backtest_id()` or `run_stock_backtest()` yourself in
 3. `handle_data(context, data)` defensively checks account, bar, price and history length.
 4. Historical prices are saved in `context` and do not rely on unconfirmed `bar.close_array`.
 5. Read accounts and positions through `context.stock_account_dict`.
-6. `order_shares` is a positive number to buy and a negative number to sell; use `position.sellable` to sell.
+6. `order_shares` is a positive number to buy and a negative number to sell; use `position.sellable` to sell. Market orders use `style=MarketOrderStyle`; limit orders use `style=LimitOrderStyle(limit_price)`.
 7. The current template implements the status judgment of "hold if the short moving average is higher than the long moving average", and is not a strict judgment of upper/lower crossing events.
 
 ## 3. Hong Kong stock daily moving average template

@@ -132,6 +132,7 @@ Protect the denominator. The length of the history cache is limited to avoid unl
 
 The buying quantity of Hong Kong stocks is processed according to the trading unit of each stock in `stock_hk_api.md`; the order for US stocks is processed as an integer number of shares. sell for use
 `position.sellable`, order submission does not mean the transaction is completed, and the transaction record must be checked eventually.
+When you need a limit order, write it as `order_shares(context.account, context.symbol, buy_qty, style=LimitOrderStyle(limit_price))`.
 
 ## 8. Create and run
 

@@ -205,6 +205,12 @@ if position and position.sellable > 0:
     order_shares(context.account, symbol, -position.sellable, style=MarketOrderStyle)
 ```
 
+Limit order example:
+
+```python
+order_shares(context.account, symbol, buy_qty, style=LimitOrderStyle(limit_price))
+```
+
 ## 7. Minimum runnable strategy
 
 The existing `tqx_cli/tests/hk_ma.py` is tested with the CLI backtest run, but its buy amount is not rounded to the number of shares per lot; use it as
