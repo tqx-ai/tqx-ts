@@ -181,6 +181,12 @@ if position and position.sellable > 0:
     order_shares(context.account, "TSLA.NB", -position.sellable, style=MarketOrderStyle)
 ```
 
+Limit order example:
+
+```python
+order_shares(context.account, "TSLA.NB", buy_qty, style=LimitOrderStyle(limit_price))
+```
+
 ## 6. Minimum runnable strategy
 
 It is preferred to start from the canonical fixture `packages/sdk/test/fixtures/us_ma.py` directly:

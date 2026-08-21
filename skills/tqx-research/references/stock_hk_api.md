@@ -159,13 +159,13 @@ Currently `tests/hk_ma.py` only implements `initialize` and `handle_data`. It us
 Records close, so its reliable use is for daily strategies; at minute frequency, it records the first bar of the day, not the daily closing price.
 
 ```python
-symbol = "0700.HK"
-try:
+def handle_data(context, data):
+    symbol = "0700.HK"
     bar = data[symbol]
-except KeyError:
-    bar = None
-account = context.stock_account_dict.get(context.account)
-position = None if account is None else account.positions.get(symbol)
+    if bar is None or bar.close is None or bar.close <= 0:
+        return
+    account = context.stock_account_dict.get(context.account)
+    position = None if account is None else account.positions.get(symbol)
 ```
 
 Commonly used bar fields: `open/high/low/close/last/volume/turnover/vwap/preclose/date/time/trade_date/`
@@ -203,6 +203,12 @@ if lot and account and bar and bar.close and bar.close > 0:
 
 if position and position.sellable > 0:
     order_shares(context.account, symbol, -position.sellable, style=MarketOrderStyle)
+```
+
+Limit order example:
+
+```python
+order_shares(context.account, symbol, buy_qty, style=LimitOrderStyle(limit_price))
 ```
 
 ## 7. Minimum runnable strategy
