@@ -20,6 +20,7 @@ When a factor needs field names, market-specific data shapes, or examples of sup
 - Create one factor per source file when possible.
 - Prefer UTF-8 `.py` files and `--file` for multiline Python source only.
 
+
 ## Market And Data Contract
 
 - Confirm the market is `hk` or `us` before writing source.
@@ -73,6 +74,7 @@ class MomentumFactor(Factor):
 6. Keep the returned `factor_id` for later analysis or updates.
 
 ## Windows Notes
+
 
 - Prefer `--file` for multiline Python source on Windows.
 - If you use `--code`, make sure shell escaping preserves the inner double quotes in `factors["field"]`.
