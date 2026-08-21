@@ -122,6 +122,7 @@ Use lowercase field names such as `close` and `volume`, and uppercase operator n
 
 ## Technical indicators
 
+
 Technical indicator arguments use lowercase field names; operator names remain uppercase.
 
 | Indicator | Expression |
