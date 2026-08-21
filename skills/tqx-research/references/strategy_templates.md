@@ -121,11 +121,7 @@ def _position_size_by_cash(account, price, max_ratio):
 
 def handle_data(context, data):
     symbol = context.symbol
-
-    try:
-        bar = data[symbol]
-    except Exception:
-        return
+    bar = data[symbol]
 
     if bar is None or bar.close is None or bar.close <= 0:
         return
