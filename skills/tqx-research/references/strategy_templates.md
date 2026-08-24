@@ -73,17 +73,39 @@ from panda_backtest.api.api import *
 from panda_backtest.api.stock_hk_api import *
 import tqx_data
 
+import pandas as pd
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_hk_api import *
 
-def initialize(context):
+
+def init_market_data(context):
     context.account = "15032863"
     context.symbol = "0700.HK"
-
     context.short_window = 5
     context.long_window = 20
     context.max_position_ratio = 0.9
-
     context.closes = []
     context.last_date = None
+
+    backtest_start = pd.Timestamp(str(context.run_info.start_date))
+    warmup_start = (backtest_start - pd.Timedelta(days=max(context.long_window * 5, 60))).strftime("%Y%m%d")
+    warmup_end = (backtest_start - pd.Timedelta(days=1)).strftime("%Y%m%d")
+    history = stock_api_quotation(
+        symbol_list=[context.symbol],
+        start_date=warmup_start,
+        end_date=warmup_end,
+        fields=["symbol", "date", "close"],
+        period="1d",
+    )
+    if history is None or history.empty:
+        return
+
+    closes = [float(x) for x in history["close"].tolist() if x is not None and float(x) > 0]
+    context.closes = closes[-max(context.short_window, context.long_window) * 5:]
+
+
+def initialize(context):
+    init_market_data(context)
 
 
 def _update_closes(context, bar):
