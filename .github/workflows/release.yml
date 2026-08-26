@@ -207,7 +207,7 @@ jobs:
           - **Linux ARM64**: `tqx-v__VERSION__-linux-arm64`
 
           Standalone binaries include the CLI runtime and do not require Node.js. For installation,
-          upgrades, authentication, and architecture details, see the [TQX CLI skill installation guide](https://github.com/tqx-ai/tqx-ts/blob/__TAG__/skills/tqx-trading/references/commands.md).
+          upgrades, authentication, and architecture details, see the [TQX CLI skill installation guide](https://github.com/tqx-ai/tqx-ts/blob/__TAG__/skills/tqx-trading/references/commands.md). Installed CLIs can check and upgrade themselves with `tqx self-update`.
 
           `SHA256SUMS` is included below as a release asset for integrity verification.
 
@@ -233,6 +233,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh release create "$GITHUB_REF_NAME" release-assets/* \
-            --title "TQX $GITHUB_REF_NAME" \
-            --notes-file release-notes.md
+          args=("$GITHUB_REF_NAME" release-assets/* --title "TQX $GITHUB_REF_NAME" --notes-file release-notes.md)
+          [[ "$GITHUB_REF_NAME" == *-* ]] && args+=(--prerelease)
+          gh release create "${args[@]}"

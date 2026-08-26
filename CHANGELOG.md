@@ -4,6 +4,9 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+- Add `tqx self-update`, 24-hour throttled automatic version checks, checksum-verified standalone
+  upgrades, and pinned package-manager upgrades.
+
 ## 0.3.1 - 2026-08-21
 
 ### Added

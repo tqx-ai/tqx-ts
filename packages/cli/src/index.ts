@@ -14,3 +14,4 @@ try {
 export { runCli } from './command'
 export * from './credentials'
 export * from './output'
+export * from './update'

@@ -24,7 +24,7 @@ TQX Research has two well-defined layers:
 
 ## Version resolution
 
-This Skill is served from the moving `main` branch and must not be treated as a version lock. At the start of a CLI task, resolve the latest standalone release version without requiring Node.js, for example from GitHub Releases metadata or the npm registry through an available HTTP client. Use `npm view @tqx-ai/cli version --json` only when npm is already available. Check the user's installed `tqx --version` when present, and use the resolved version consistently for binary installation, temporary execution, and verification. If an older CLI is already installed, tell the user that the CLI is out of date and should be upgraded before running Research commands; do not silently continue with old command shapes. Do not ask the user to install Node.js merely to install or check the CLI. If the latest version cannot be reached, use only an already verified CLI and report that the latest version could not be checked.
+This Skill is served from the moving `main` branch and must not be treated as a version lock. At the start of a CLI task, run `tqx self-update --check --json` when a global CLI is available, then run `tqx --version`. If an older CLI is installed, run `tqx self-update` before Research commands; use `tqx self-update --version=<version>` only when an explicit release is required. Temporary `npx`, `bunx`, and `pnpm dlx` runners cannot self-update and must be installed globally first. Do not ask the user to install Node.js merely to check a standalone binary. If the update check cannot be reached, use only an already verified CLI and report that the latest version could not be checked.
 
 ## Read by task
 

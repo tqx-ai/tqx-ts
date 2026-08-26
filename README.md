@@ -56,7 +56,19 @@ tqx login --api-key=<key>
 tqx logout
 tqx status
 tqx balance
+tqx self-update
+tqx self-update --check --json
+# Install a specific release (including rollback)
+tqx self-update --version=<version>
 ```
+
+`tqx self-update` checks GitHub Releases and upgrades the current standalone binary or global package
+installation. Automatic update checks run at most once every 24 hours before business commands;
+they never upgrade without an explicit `tqx self-update`. Use `--check` for an agent-friendly version
+check. Standalone updates support Windows x64, macOS x64/arm64, and Linux x64/arm64.
+Automatic checks are skipped for `--json` and CI environments. Set `TQX_UPDATE_CHECK=0` (also accepts `false` or `no`) to disable background checks. Custom
+`TQX_UPDATE_RELEASES_URL` sources are trusted input and must provide authentic metadata and
+checksums.
 
 Trading commands:
 
