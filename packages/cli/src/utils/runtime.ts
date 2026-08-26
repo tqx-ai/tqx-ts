@@ -13,6 +13,8 @@ export interface RuntimeOutput {
 
 export interface RuntimeProcess {
   readonly argv: string[]
+  readonly execPath: string
+  readonly arch: string
   readonly env: NodeJS.ProcessEnv
   readonly pid: number
   readonly platform: string

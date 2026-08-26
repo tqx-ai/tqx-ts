@@ -23,6 +23,7 @@ check('Node CJS SDK require', 'node', [
 check('Node CLI version', 'node', [cli, '-V'], cliPackageJson.version)
 check('Node CLI help', 'node', [cli, '-H'], 'TQX trading and research command-line client')
 check('Node CLI help includes research', 'node', [cli, '-H'], 'research')
+check('Node CLI help includes self-update', 'node', [cli, '-H'], 'self-update')
 check('Bun CLI version', process.execPath, [cli, '-V'], cliPackageJson.version)
 
 function check(name: string, command: string, args: string[], expectedOutput?: string): void {

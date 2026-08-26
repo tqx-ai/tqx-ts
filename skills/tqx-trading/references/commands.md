@@ -51,6 +51,21 @@ tqx --version
 tqx --help
 ```
 
+After installation, use the built-in updater instead of manually downloading release assets:
+
+```powershell
+tqx self-update
+tqx self-update --check --json
+tqx self-update --version=<version>
+```
+
+Automatic checks run at most once every 24 hours before business commands. `tqx self-update` verifies
+`SHA256SUMS` before replacing standalone binaries and upgrades detected global package-manager
+installations. Temporary `npx`, `bunx`, and `pnpm dlx` executions must be installed globally
+before they can be updated.
+Automatic checks are skipped for `--json` and CI environments. Set `TQX_UPDATE_CHECK=0` to disable automatic checks. A custom `TQX_UPDATE_RELEASES_URL` is trusted
+input and must provide authentic release metadata and SHA256SUMS.
+
 Resolve the latest release without requiring Node.js:
 
 ```powershell

@@ -5,6 +5,7 @@ import { Output, type OutputMode, type WritableOutput } from './output'
 import { createResearchCommand } from './research/command'
 import { createCommandRuntime, type CommandRuntimeDependencies } from './runtime/command-runtime'
 import { createTradingCommand } from './trading/command'
+import { checkForUpdates, runUpdate, shouldAutoCheck, type UpdateDependencies } from './update'
 import { CliUsageError } from './utils/errors'
 import { getRuntimeEnvironment, getRuntimeProcess } from './utils/runtime'
 
@@ -14,6 +15,8 @@ export interface CliDependencies {
   fetch?: typeof globalThis.fetch
   stdout?: WritableOutput
   stderr?: WritableOutput
+  update?: UpdateDependencies
+  autoUpdateCheck?: boolean
 }
 
 interface ResolvedDependencies extends CommandRuntimeDependencies {}
@@ -36,7 +39,32 @@ export async function runCli(
     output: new Output(mode, dependencies.stdout, dependencies.stderr),
   }
 
-  await runMain(createMainCommand(resolved), { rawArgs: commandArguments })
+  const updateDependencies: UpdateDependencies = {
+    environment: resolved.environment,
+    fetch: dependencies.update?.fetch ?? dependencies.fetch,
+    ...dependencies.update,
+  }
+  const isExplicitUpdate = commandArguments[0] === 'self-update'
+  const autoCheckEnabled =
+    (dependencies.autoUpdateCheck ?? dependencies.fetch === undefined) &&
+    !['0', 'false', 'no'].includes(
+      resolved.environment.TQX_UPDATE_CHECK?.trim().toLowerCase() ?? '',
+    ) &&
+    mode !== 'json' &&
+    !resolved.environment.CI
+  if (autoCheckEnabled && !isExplicitUpdate && shouldAutoCheck(commandArguments)) {
+    void checkForUpdates({ ...updateDependencies, timeoutMs: 5_000 })
+      .then((result) => {
+        if (result.update_available) {
+          resolved.output.warning(
+            `A new CLI version is available: ${result.current_version} -> ${result.latest_version}. Run tqx self-update.`,
+          )
+        }
+      })
+      .catch(() => undefined)
+  }
+
+  await runMain(createMainCommand(resolved, updateDependencies), { rawArgs: commandArguments })
 }
 
 export function extractGlobalOptions(rawArguments: string[]): {
@@ -62,7 +90,10 @@ export function extractGlobalOptions(rawArguments: string[]): {
   return result
 }
 
-function createMainCommand(dependencies: ResolvedDependencies) {
+function createMainCommand(
+  dependencies: ResolvedDependencies,
+  updateDependencies: UpdateDependencies,
+) {
   const runtime = createCommandRuntime(dependencies)
   const apiKeyUrl = __TQX_BUILD_API_KEY_URL__.trim()
   const loginDescription = apiKeyUrl
@@ -123,6 +154,36 @@ function createMainCommand(dependencies: ResolvedDependencies) {
             return { ...status, authenticated: verification.valid }
           }),
       }),
+      'self-update': defineCommand({
+        meta: { name: 'self-update', description: 'Check for and install a newer CLI version' },
+        args: {
+          check: { type: 'boolean', description: 'Only check for an update' },
+          version: { type: 'string', description: 'Install a specific release version' },
+        },
+        run: ({ args }) =>
+          runtime.run(async () => {
+            if (args.version === '')
+              throw new CliUsageError(
+                'Use --version=<version> to install a specific release. Use tqx --version or tqx -V to display the CLI version.',
+              )
+            const check = await checkForUpdates({
+              ...updateDependencies,
+              force: true,
+              version: args.version,
+            })
+            if (args.check) {
+              return {
+                updated: false,
+                current_version: check.current_version,
+                latest_version: check.latest_version,
+                method: null,
+                install_path: null,
+                update_available: check.update_available,
+              }
+            }
+            return runUpdate(check, updateDependencies)
+          }),
+      }),
       balance: defineCommand({
         meta: { name: 'balance', description: 'Show the TQX wallet balance' },
         run: () => runtime.user((client) => client.user.getBalance()),
@@ -141,7 +202,7 @@ function normalizeGlobalArguments(rawArguments: string[]): string[] {
       args.push('--help')
       continue
     }
-    if (argument === '-V') {
+    if (argument === '-V' || argument === '-v') {
       args.push('--version')
       continue
     }

@@ -35,7 +35,16 @@ Or store it in the system keychain or user configuration:
 tqx login --api-key=sk-example-xxxxxxxxxxxxxxxx
 tqx status
 tqx balance
+tqx self-update
+tqx self-update --check --json
+tqx self-update --version=<version>
 ```
+
+The self-update command verifies GitHub release checksums before replacing standalone binaries and
+updates global npm, pnpm, Yarn Classic, or Bun installations when detected. Automatic checks run
+at most once per 24 hours and never install a version without an explicit `tqx self-update`.
+Automatic checks are skipped for `--json` and CI environments. Set `TQX_UPDATE_CHECK=0` to disable background checks. Custom release URLs must be trusted because
+their metadata and checksums control the downloaded binary.
 
 Passing a secret on the command line can save it in shell history. Prefer `TQX_API_KEY` when that
 is a concern.

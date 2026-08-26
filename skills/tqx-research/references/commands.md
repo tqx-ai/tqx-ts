@@ -4,6 +4,19 @@ Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`,
 
 ## Installation, Gateway and Authentication
 
+The CLI can check and install updates itself:
+
+```powershell
+tqx self-update --check --json
+tqx self-update
+```
+
+Automatic checks are throttled to once per 24 hours. Use `tqx self-update --version=<version>` for a
+specific release or rollback with `tqx self-update --version=<version>`. Do not attempt to update a temporary `npx`, `bunx`, or `pnpm dlx`
+runner; install the CLI globally first.
+Automatic checks are skipped for `--json` and CI environments. Set `TQX_UPDATE_CHECK=0` to disable automatic checks. Custom release URLs must be trusted because
+their metadata and checksums control the downloaded binary.
+
 Resolve the latest release version with an available HTTP client, not by requiring Node.js. For example:
 
 ```powershell
