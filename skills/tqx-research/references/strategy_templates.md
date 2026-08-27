@@ -67,6 +67,7 @@ This template corresponds to `tqx_cli/tests/hk_ma.py`, is used for QUBE `market=
 The original run-through template does not actively round up by `min_order_amount`. The current backend will normalize the order quantity again, so the requested quantity is the same as
 Actual order quantities may vary. When generating a new Hong Kong stock strategy, even if you still use `0700.HK`, you must press `stock_hk_api.md`
 Read and cache the `min_order_amount` of each target, and then round the buying amount; do not regard the unrounded part below as a best practice.
+The Hong Kong template keeps all one-time initialization in `init_market_data(context)`, and `initialize(context)` only delegates to it.
 
 ```python
 from panda_backtest.api.api import *
@@ -74,16 +75,34 @@ from panda_backtest.api.stock_hk_api import *
 import tqx_data
 
 
-def initialize(context):
+def init_market_data(context):
     context.account = "15032863"
     context.symbol = "0700.HK"
-
     context.short_window = 5
     context.long_window = 20
     context.max_position_ratio = 0.9
-
     context.closes = []
     context.last_date = None
+
+    backtest_start = pd.Timestamp(str(context.run_info.start_date))
+    warmup_start = (backtest_start - pd.Timedelta(days=max(context.long_window * 5, 60))).strftime("%Y%m%d")
+    warmup_end = (backtest_start - pd.Timedelta(days=1)).strftime("%Y%m%d")
+    history = stock_api_quotation(
+        symbol_list=[context.symbol],
+        start_date=warmup_start,
+        end_date=warmup_end,
+        fields=["symbol", "date", "close"],
+        period="1d",
+    )
+    if history is None or history.empty:
+        return
+
+    closes = [float(x) for x in history["close"].tolist() if x is not None and float(x) > 0]
+    context.closes = closes[-max(context.short_window, context.long_window) * 5:]
+
+
+def initialize(context):
+    init_market_data(context)
 
 
 def _update_closes(context, bar):
