@@ -51,7 +51,8 @@ tqx --version
 tqx --help
 ```
 
-After installation, use the built-in updater instead of manually downloading release assets:
+If `tqx` is already installed, upgrade it with the built-in updater instead of manually downloading
+release assets:
 
 ```powershell
 tqx self-update
@@ -66,16 +67,19 @@ before they can be updated.
 Automatic checks are skipped for `--json` and CI environments. Set `TQX_UPDATE_CHECK=0` to disable automatic checks. A custom `TQX_UPDATE_RELEASES_URL` is trusted
 input and must provide authentic release metadata and SHA256SUMS.
 
-Resolve the latest release without requiring Node.js:
+Always upgrade an installed but outdated CLI with `tqx self-update`. The manual download steps below
+apply only when the `tqx` command is missing entirely; using them to replace an existing installation
+bypasses the checksum verification and the installation-method detection.
+
+If `tqx` is not installed, resolve the latest release without requiring Node.js:
 
 ```powershell
 $release = Invoke-RestMethod 'https://api.github.com/repos/tqx-ai/tqx-ts/releases/latest'
 $version = $release.tag_name.TrimStart('v')
 ```
 
-If it is missing or outdated, install the matching latest GitHub Release standalone binary for the
-user's OS and CPU architecture. Place the binary in a user-owned bin directory on `PATH`, and
-verify it. Windows ARM64 has no standalone asset and should use the npm fallback.
+Then install the matching latest GitHub Release standalone binary for the user's OS and CPU
+architecture. Place the binary in a user-owned bin directory on `PATH`, and verify it. Windows ARM64 has no standalone asset and should use the npm fallback.
 
 Windows x64 PowerShell:
 

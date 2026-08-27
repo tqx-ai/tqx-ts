@@ -9,6 +9,9 @@ import { getRuntimeEnvironment, getRuntimeProcess, type RuntimeProcess } from '.
 const DEFAULT_RELEASES_URL = 'https://api.github.com/repos/tqx-ai/tqx-ts/releases'
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000
 const DOWNLOAD_TIMEOUT_MS = 5 * 60_000
+const PROCESS_TIMEOUT_MS = 10 * 60_000
+const QUICK_PROCESS_TIMEOUT_MS = 60_000
+const PROCESS_KILL_GRACE_MS = 5_000
 const CLI_PACKAGE = '@tqx-ai/cli'
 
 export type UpdateMethod = 'standalone' | 'npm' | 'pnpm' | 'yarn' | 'bun'
@@ -60,6 +63,7 @@ export interface UpdateDependencies {
   fileOps?: Partial<UpdateFileOps>
   spawn?: typeof nodeSpawn
   timeoutMs?: number
+  processTimeoutMs?: number
 }
 
 interface ResolvedUpdateDependencies {
@@ -70,6 +74,7 @@ interface ResolvedUpdateDependencies {
   fileOps: UpdateFileOps
   spawn: typeof nodeSpawn
   timeoutMs?: number
+  processTimeoutMs?: number
 }
 
 export class UpdateError extends Error {
@@ -206,6 +211,7 @@ function resolveDependencies(input: UpdateDependencies): ResolvedUpdateDependenc
     } as UpdateFileOps,
     spawn: input.spawn ?? nodeSpawn,
     timeoutMs: input.timeoutMs,
+    processTimeoutMs: input.processTimeoutMs,
   }
 }
 
@@ -394,7 +400,7 @@ async function updatePackage(
       )
     throw error
   }
-  const verified = await runProcess(binPath, ['--version'], deps, true)
+  const verified = await runProcess(binPath, ['--version'], deps, true, QUICK_PROCESS_TIMEOUT_MS)
   if (verified.trim() !== check.latest_version)
     throw new UpdateError(
       `Package manager completed, but ${binPath} reports version ${verified.trim() || 'unknown'} instead of ${check.latest_version}.`,
@@ -424,7 +430,13 @@ async function queryGlobalBinPath(
           : ['global', 'bin']
   try {
     const directory = (
-      await runProcess(method === 'npm' ? 'npm' : method, query, deps, true)
+      await runProcess(
+        method === 'npm' ? 'npm' : method,
+        query,
+        deps,
+        true,
+        QUICK_PROCESS_TIMEOUT_MS,
+      )
     ).trim()
     if (!directory) return null
     return method === 'npm' && runtime.platform !== 'win32'
@@ -479,7 +491,13 @@ async function updateStandalone(
       .catch(() => 0o755)
     await fileOps.writeFile(temporaryPath, binary, { mode: existingMode })
     await fileOps.chmod(temporaryPath, existingMode)
-    const version = await runProcess(temporaryPath, ['--version'], deps, true)
+    const version = await runProcess(
+      temporaryPath,
+      ['--version'],
+      deps,
+      true,
+      QUICK_PROCESS_TIMEOUT_MS,
+    )
     if (version.trim() !== check.latest_version)
       throw new UpdateError(
         `Downloaded binary reports version ${version.trim() || 'unknown'} instead of ${check.latest_version}.`,
@@ -577,8 +595,10 @@ function runProcess(
   args: string[],
   deps: UpdateDependencies,
   capture = false,
+  timeoutMs = PROCESS_TIMEOUT_MS,
 ): Promise<string> {
   const spawn = deps.spawn ?? nodeSpawn
+  const limit = deps.processTimeoutMs ?? timeoutMs
   return new Promise((resolve, reject) => {
     const child: ChildProcess = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -586,30 +606,57 @@ function runProcess(
     })
     let stdout = ''
     let stderr = ''
+    let timedOut = false
+    let killTimer: ReturnType<typeof setTimeout> | undefined
+    const timeoutError = () =>
+      new UpdateError(
+        `${command} timed out after ${Math.round(limit / 1000)}s and was terminated${stderr.trim() ? `: ${stderr.trim()}` : '.'}`,
+      )
+    // A stalled package manager must not hang the CLI forever. Ask it to stop, then
+    // escalate to SIGKILL and give up on waiting for `close` so the promise always settles.
+    const timer = setTimeout(() => {
+      timedOut = true
+      child.kill('SIGTERM')
+      killTimer = setTimeout(() => {
+        child.kill('SIGKILL')
+        reject(timeoutError())
+      }, PROCESS_KILL_GRACE_MS)
+    }, limit)
+    timer.unref?.()
+    const clearTimers = () => {
+      clearTimeout(timer)
+      if (killTimer) clearTimeout(killTimer)
+    }
     child.stdout?.on('data', (chunk) => {
       stdout += String(chunk)
     })
     child.stderr?.on('data', (chunk) => {
       stderr += String(chunk)
     })
-    child.on('error', (error) =>
-      reject(new UpdateError(`Failed to run ${command}: ${error.message}`, { cause: error })),
-    )
-    child.on('close', (code) =>
-      code === 0
-        ? (() => {
-            if (!capture && (stdout || stderr)) {
-              const output = deps.process?.stderr ?? getRuntimeProcess().stderr
-              output.write(`${stdout}${stderr}`)
-            }
-            resolve(stdout)
-          })()
-        : reject(
-            new UpdateError(
-              `${command} failed with exit code ${code ?? 1}${stderr.trim() ? `: ${stderr.trim()}` : ''}`,
-            ),
+    child.on('error', (error) => {
+      clearTimers()
+      reject(new UpdateError(`Failed to run ${command}: ${error.message}`, { cause: error }))
+    })
+    child.on('close', (code) => {
+      clearTimers()
+      if (timedOut) {
+        reject(timeoutError())
+        return
+      }
+      if (code !== 0) {
+        reject(
+          new UpdateError(
+            `${command} failed with exit code ${code ?? 1}${stderr.trim() ? `: ${stderr.trim()}` : ''}`,
           ),
-    )
+        )
+        return
+      }
+      if (!capture && (stdout || stderr)) {
+        const output = deps.process?.stderr ?? getRuntimeProcess().stderr
+        output.write(`${stdout}${stderr}`)
+      }
+      resolve(stdout)
+    })
   })
 }
 

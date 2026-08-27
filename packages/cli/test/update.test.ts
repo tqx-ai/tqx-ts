@@ -1,3 +1,5 @@
+import type { spawn as nodeSpawn } from 'node:child_process'
+import { EventEmitter } from 'node:events'
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -30,6 +32,33 @@ function release(tag_name: string, overrides: Partial<ReleaseInfo> = {}): Releas
     assets: [],
     ...overrides,
   }
+}
+
+function fakeChild(): EventEmitter & { stdout: EventEmitter; stderr: EventEmitter } {
+  return Object.assign(new EventEmitter(), {
+    stdout: new EventEmitter(),
+    stderr: new EventEmitter(),
+  })
+}
+
+function completedChild(stdout: string) {
+  const child = fakeChild()
+  setTimeout(() => {
+    child.stdout.emit('data', stdout)
+    child.emit('close', 0)
+  }, 0)
+  return Object.assign(child, { kill: vi.fn() })
+}
+
+function hangingChild() {
+  const child = fakeChild()
+  // Never closes on its own; only a signal ends it.
+  return Object.assign(child, {
+    kill: vi.fn(() => {
+      setTimeout(() => child.emit('close', null), 0)
+      return true
+    }),
+  })
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -309,6 +338,25 @@ describe('CLI updates', () => {
       ['prefix', '-g'],
       expect.objectContaining({ stdio: ['ignore', 'pipe', 'pipe'] }),
     )
+  })
+
+  it('terminates a package manager that never exits', async () => {
+    const install = hangingChild()
+    const spawn = vi.fn((_command: string, args: readonly string[]) =>
+      args[0] === 'prefix' ? completedChild('/usr/local\n') : install,
+    ) as unknown as typeof nodeSpawn
+    const check = {
+      current_version: '0.3.1',
+      latest_version: '0.4.0',
+      update_available: true,
+      release: release('v0.4.0'),
+      checked: true,
+    }
+
+    await expect(
+      runUpdate(check, { process: runtime(), spawn, processTimeoutMs: 20 }),
+    ).rejects.toThrow('npm timed out')
+    expect(install.kill).toHaveBeenCalledWith('SIGTERM')
   })
 
   it('skips automatic checks for help, version and self-update', () => {
