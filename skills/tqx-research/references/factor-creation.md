@@ -19,6 +19,8 @@ When a factor needs field names, market-specific data shapes, or examples of sup
 - A factor is either Formula or Python.
 - Create one factor per source file when possible.
 - Prefer UTF-8 `.py` files and `--file` for multiline Python source only.
+- `--formula` is for single-expression factor formulas built from the market fields and operators listed in [Factor Operators](./factor-operators.md), such as `open`, `high`, `low`, `close`, `volume`, `amount`, `turnover`, and `market_cap`.
+- If a factor depends on data returned by [TQX data API](./tqx_data_usage.md), such as valuation metrics from `tqx_data.get_company_imed(...)`, or it needs multi-step logic, create it with Python `--file` instead of passing those API field names to `--formula`.
 
 
 ## Market And Data Contract
@@ -62,6 +64,48 @@ class MomentumFactor(Factor):
     def calculate(self, factors):
         close = factors["close"]
         return close.groupby(level="symbol").transform(lambda s: s / s.shift(20) - 1)
+```
+
+## Complex Data API Factors
+
+For formula mode, use only fields and operators from [Factor Operators](./factor-operators.md).
+Fields such as `imed_pb_ttm`, `imed_pe_ttm`, and `imed_ps_ttm` are response fields of
+`tqx_data.get_company_imed(...)`, not direct formula fields. To build valuation or fundamental
+factors from these fields, save a Python factor in a `.py` file and create it with `--file`.
+
+Example:
+
+```python
+from panda_backtest.api.api import *
+import pandas as pd
+import tqx_data
+
+
+class ImedValuationFactor(Factor):
+    def calculate(self, factors):
+        close = factors["close"]
+        symbols = close.index.get_level_values("symbol").unique().tolist()
+        imed = tqx_data.get_company_imed(
+            market="hk",
+            symbol=symbols,
+            fields=["symbol", "date", "imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"],
+        )
+        if imed.empty:
+            return close * 0
+
+        latest = (
+            imed.dropna(subset=["symbol"])
+            .sort_values(["symbol", "date"])
+            .drop_duplicates("symbol", keep="last")
+            .set_index("symbol")[["imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]]
+        )
+        score = -(
+            latest["imed_pb_ttm"].fillna(0)
+            + latest["imed_pe_ttm"].fillna(0)
+            + latest["imed_ps_ttm"].fillna(0)
+        )
+        mapped = close.index.get_level_values("symbol").map(score)
+        return pd.Series(mapped.to_numpy(), index=close.index, name="imed_valuation_score")
 ```
 
 ## Create Workflow
