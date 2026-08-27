@@ -4,8 +4,18 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.4.0 - 2026-08-27
+
+### Added
+
 - Add `tqx self-update`, 24-hour throttled automatic version checks, checksum-verified standalone
   upgrades, and pinned package-manager upgrades.
+- Add factor creation guidance and refine Hong Kong strategy and factor templates.
+
+### Changed
+
+- Update API key retrieval guidance and improve self-update timeout handling.
+- Expand research documentation for factor and strategy workflows.
 
 ## 0.3.1 - 2026-08-21
 
