@@ -4,6 +4,8 @@ Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`,
 
 ## Installation, Gateway and Authentication
 
+If the user does not have an API key, direct them to the TQX web app to [create an account](https://www.tqx.ai/user-center?tab=accounts), then [create a competition instance](https://www.tqx.ai/user-center?tab=agents). After the instance is created, ask the user to provide the generated key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
+
 The CLI can check and install updates itself:
 
 ```powershell

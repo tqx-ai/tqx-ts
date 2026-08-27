@@ -15,6 +15,15 @@ Operational trading intent takes precedence over the TQX overview Skill. If this
 - Do not tell the user to open a terminal or run a command to configure an API key. Ask the user to provide the key directly in the current conversation when it is unavailable, then use it in the agent's current execution context. Acknowledge receipt without quoting it.
 - Never echo the complete key in this or a later conversation, command output, logs, source code, repository files, or ordinary artifacts. Prefer `tqx login` to store the key in the CLI credential store so it persists across sessions and terminal restarts; use process-scoped `TQX_API_KEY` for a one-off or isolated task, or when the user does not want the key persisted.
 
+## Get an API key
+
+When the user does not have an API key, tell them to complete these steps in the TQX web app:
+
+1. [Create an account](https://www.tqx.ai/user-center?tab=accounts). TQX currently supports a Huatai live account or a TQX simulation account.
+2. [Create a competition instance](https://www.tqx.ai/user-center?tab=agents).
+
+After the competition instance is created, ask the user to provide the generated API key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
+
 ## Version resolution
 
 This document is served from the moving `main` branch and must not be treated as a version lock. At the start of each task, resolve the latest standalone release from GitHub Releases metadata with an available HTTP client; this must not require Node.js or npm. Use `npm view @tqx-ai/cli version --json` only when npm is already available. Use the resolved version consistently for installation, execution, and verification. Do not use a version remembered from an older skill, local skill registry, cached prompt, or pre-existing command. If the release cannot be reached, keep an already verified CLI and report that the latest version could not be checked; never silently fall back to an older version.
