@@ -73,6 +73,9 @@ Fields such as `imed_pb_ttm`, `imed_pe_ttm`, and `imed_ps_ttm` are response fiel
 `tqx_data.get_company_imed(...)`, not direct formula fields. To build valuation or fundamental
 factors from these fields, save a Python factor in a `.py` file and create it with `--file`.
 
+The example below is Hong Kong only and keeps the valuation snapshot aligned to each bar date so
+the factor does not see later disclosures.
+
 Example:
 
 ```python
@@ -85,6 +88,10 @@ class ImedValuationFactor(Factor):
     def calculate(self, factors):
         close = factors["close"]
         symbols = close.index.get_level_values("symbol").unique().tolist()
+        close_frame = close.rename("close").reset_index()
+        close_frame["date"] = pd.to_datetime(close_frame["date"])
+        close_frame = close_frame.sort_values(["symbol", "date"])
+
         imed = tqx_data.get_company_imed(
             market="hk",
             symbol=symbols,
@@ -93,19 +100,28 @@ class ImedValuationFactor(Factor):
         if imed.empty:
             return close * 0
 
-        latest = (
-            imed.dropna(subset=["symbol"])
+        imed = (
+            imed.dropna(subset=["symbol", "date"])
+            .assign(date=lambda df: pd.to_datetime(df["date"]))
             .sort_values(["symbol", "date"])
-            .drop_duplicates("symbol", keep="last")
-            .set_index("symbol")[["imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]]
+            .drop_duplicates(["symbol", "date"], keep="last")
+        )
+        merged = pd.merge(
+            close_frame,
+            imed[["symbol", "date", "imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]],
+            on=["symbol", "date"],
+            how="left",
+        )
+        merged[["imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]] = (
+            merged.groupby("symbol", sort=False)[["imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]]
+            .ffill()
         )
         score = -(
-            latest["imed_pb_ttm"].fillna(0)
-            + latest["imed_pe_ttm"].fillna(0)
-            + latest["imed_ps_ttm"].fillna(0)
+            merged["imed_pb_ttm"].fillna(0)
+            + merged["imed_pe_ttm"].fillna(0)
+            + merged["imed_ps_ttm"].fillna(0)
         )
-        mapped = close.index.get_level_values("symbol").map(score)
-        return pd.Series(mapped.to_numpy(), index=close.index, name="imed_valuation_score")
+        return pd.Series(score.to_numpy(), index=close.index, name="imed_valuation_score")
 ```
 
 ## Create Workflow
