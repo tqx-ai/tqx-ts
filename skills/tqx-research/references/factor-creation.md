@@ -19,6 +19,8 @@ When a factor needs field names, market-specific data shapes, or examples of sup
 - A factor is either Formula or Python.
 - Create one factor per source file when possible.
 - Prefer UTF-8 `.py` files and `--file` for multiline Python source only.
+- `--formula` is for single-expression factor formulas built from the market fields and operators listed in [Factor Operators](./factor-operators.md), such as `open`, `high`, `low`, `close`, `volume`, `amount`, `turnover`, and `market_cap`.
+- If a factor depends on data returned by [TQX data API](./tqx_data_usage.md), such as valuation metrics from `tqx_data.get_company_imed(...)`, or it needs multi-step logic, create it with Python `--file` instead of passing those API field names to `--formula`.
 
 
 ## Market And Data Contract
@@ -62,6 +64,64 @@ class MomentumFactor(Factor):
     def calculate(self, factors):
         close = factors["close"]
         return close.groupby(level="symbol").transform(lambda s: s / s.shift(20) - 1)
+```
+
+## Complex Data API Factors
+
+For formula mode, use only fields and operators from [Factor Operators](./factor-operators.md).
+Fields such as `imed_pb_ttm`, `imed_pe_ttm`, and `imed_ps_ttm` are response fields of
+`tqx_data.get_company_imed(...)`, not direct formula fields. To build valuation or fundamental
+factors from these fields, save a Python factor in a `.py` file and create it with `--file`.
+
+The example below is Hong Kong only and keeps the valuation snapshot aligned to each bar date so
+the factor does not see later disclosures.
+
+Example:
+
+```python
+from panda_backtest.api.api import *
+import pandas as pd
+import tqx_data
+
+
+class ImedValuationFactor(Factor):
+    def calculate(self, factors):
+        close = factors["close"]
+        symbols = close.index.get_level_values("symbol").unique().tolist()
+        close_frame = close.rename("close").reset_index()
+        close_frame["date"] = pd.to_datetime(close_frame["date"])
+        close_frame = close_frame.sort_values(["symbol", "date"])
+
+        imed = tqx_data.get_company_imed(
+            market="hk",
+            symbol=symbols,
+            fields=["symbol", "date", "imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"],
+        )
+        if imed.empty:
+            return close * 0
+
+        imed = (
+            imed.dropna(subset=["symbol", "date"])
+            .assign(date=lambda df: pd.to_datetime(df["date"]))
+            .sort_values(["symbol", "date"])
+            .drop_duplicates(["symbol", "date"], keep="last")
+        )
+        merged = pd.merge(
+            close_frame,
+            imed[["symbol", "date", "imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]],
+            on=["symbol", "date"],
+            how="left",
+        )
+        merged[["imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]] = (
+            merged.groupby("symbol", sort=False)[["imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]]
+            .ffill()
+        )
+        score = -(
+            merged["imed_pb_ttm"].fillna(0)
+            + merged["imed_pe_ttm"].fillna(0)
+            + merged["imed_ps_ttm"].fillna(0)
+        )
+        return pd.Series(score.to_numpy(), index=close.index, name="imed_valuation_score")
 ```
 
 ## Create Workflow

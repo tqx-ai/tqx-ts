@@ -67,23 +67,60 @@ This template corresponds to `tqx_cli/tests/hk_ma.py`, is used for QUBE `market=
 The original run-through template does not actively round up by `min_order_amount`. The current backend will normalize the order quantity again, so the requested quantity is the same as
 Actual order quantities may vary. When generating a new Hong Kong stock strategy, even if you still use `0700.HK`, you must press `stock_hk_api.md`
 Read and cache the `min_order_amount` of each target, and then round the buying amount; do not regard the unrounded part below as a best practice.
+The Hong Kong template keeps all one-time initialization in `init_market_data(context)`, and `initialize(context)` only delegates to it.
 
 ```python
+import math
+import pandas as pd
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_hk_api import *
 import tqx_data
 
 
-def initialize(context):
+def _valid_price(value):
+    price = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(price):
+        return None
+    price = float(price)
+    if not math.isfinite(price) or price <= 0:
+        return None
+    return price
+
+
+def init_market_data(context):
     context.account = "15032863"
     context.symbol = "0700.HK"
-
     context.short_window = 5
     context.long_window = 20
     context.max_position_ratio = 0.9
-
     context.closes = []
     context.last_date = None
+
+    backtest_start = pd.Timestamp(str(context.run_info.start_date))
+    warmup_start = (backtest_start - pd.Timedelta(days=max(context.long_window * 5, 60))).strftime("%Y%m%d")
+    warmup_end = (backtest_start - pd.Timedelta(days=1)).strftime("%Y%m%d")
+    history = stock_api_quotation(
+        symbol_list=[context.symbol],
+        start_date=warmup_start,
+        end_date=warmup_end,
+        fields=["symbol", "date", "close"],
+        period="1d",
+    )
+    if history is None or history.empty:
+        return
+    if not {"symbol", "date", "close"}.issubset(history.columns):
+        return
+
+    closes = []
+    for close_price in history["close"].tolist():
+        close_value = _valid_price(close_price)
+        if close_value is not None:
+            closes.append(close_value)
+    context.closes = closes[-max(context.short_window, context.long_window) * 5:]
+
+
+def initialize(context):
+    init_market_data(context)
 
 
 def _update_closes(context, bar):
@@ -93,7 +130,11 @@ def _update_closes(context, bar):
             return
         context.last_date = trade_date
 
-    context.closes.append(float(bar.close))
+    close_price = _valid_price(bar.close)
+    if close_price is None:
+        return
+
+    context.closes.append(close_price)
     max_len = max(context.short_window, context.long_window)
     if len(context.closes) > max_len:
         context.closes = context.closes[-max_len:]
@@ -123,7 +164,10 @@ def handle_data(context, data):
     symbol = context.symbol
     bar = data[symbol]
 
-    if bar is None or bar.close is None or bar.close <= 0:
+    if bar is None or bar.close is None:
+        return
+    close_price = _valid_price(bar.close)
+    if close_price is None:
         return
 
     _update_closes(context, bar)
@@ -178,9 +222,20 @@ This template corresponds to the canonical US fixture used by SDK/CLI validation
 The minute frequency is measured in minutes, so do not directly switch this template to the minute strategy.
 
 ```python
+import math
 import pandas as pd
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_us_api import *
+
+
+def _valid_price(value):
+    price = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(price):
+        return None
+    price = float(price)
+    if not math.isfinite(price) or price <= 0:
+        return None
+    return price
 
 
 def init_market_data(context):
@@ -208,16 +263,16 @@ def init_market_data(context):
     )
     if history is None or history.empty:
         return
+    if not {"symbol", "date", "close"}.issubset(history.columns):
+        return
 
     history = history.dropna(subset=["symbol", "date", "close"]).sort_values(["symbol", "date"])
     max_len = max(context.fast_window, context.slow_window) * 5
     for symbol, group in history.groupby("symbol", sort=False):
         closes = []
         for close_price in group["close"].tolist():
-            if close_price is None:
-                continue
-            close_value = float(close_price)
-            if close_value > 0:
+            close_value = _valid_price(close_price)
+            if close_value is not None:
                 closes.append(close_value)
         context.close_history[symbol] = closes[-max_len:]
 
@@ -264,8 +319,8 @@ def handle_data(context, data):
         close_val = getattr(bar, "close", None)
         if close_val is None:
             continue
-        close_price = float(close_val)
-        if close_price <= 0:
+        close_price = _valid_price(close_val)
+        if close_price is None:
             continue
 
         history = context.close_history.setdefault(symbol, [])
