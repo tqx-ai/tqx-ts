@@ -13,9 +13,9 @@ tqx self-update --check --json
 tqx self-update
 ```
 
-Automatic checks are throttled to once per 24 hours. Use `tqx self-update --version=<version>` for a
-specific release or rollback with `tqx self-update --version=<version>`. Do not attempt to update a temporary `npx`, `bunx`, or `pnpm dlx`
-runner; install the CLI globally first.
+Automatic checks are throttled to once per 24 hours. Use `tqx self-update --version=<version>` to
+install a specific release or to roll back. Do not attempt to update a temporary `npx`, `bunx`, or
+`pnpm dlx` runner; install the CLI globally first.
 Automatic checks are skipped for `--json` and CI environments. Set `TQX_UPDATE_CHECK=0` to disable automatic checks. Custom release URLs must be trusted because
 their metadata and checksums control the downloaded binary.
 
@@ -33,12 +33,13 @@ tqx --version
 tqx research --help
 ```
 
-If the command is missing or its version is older than the resolved version, tell the user that the
-installed CLI is out of date and should be upgraded before running Research commands. Install the CLI
-globally from the matching GitHub Release standalone binary for the user's OS and architecture, then
-verify it. Do not ask the user to install Node.js merely to install or check the CLI. If that binary
-cannot be used and a Node/npm environment is available, fall back to the npm package at the
-resolved version:
+If the command is missing, install the CLI globally from the matching GitHub Release standalone
+binary for the user's OS and architecture, then verify it. If it is installed but older than the
+resolved version, tell the user that the CLI is out of date and upgrade it with `tqx self-update`,
+which verifies `SHA256SUMS` and detects the existing installation method; do not replace an installed
+CLI by downloading release assets manually. Do not ask the user to install Node.js merely to install
+or check the CLI. If that binary cannot be used and a Node/npm environment is available, fall back to
+the npm package at the resolved version:
 
 ```powershell
 npm install --global @tqx-ai/cli@<resolved-version>
