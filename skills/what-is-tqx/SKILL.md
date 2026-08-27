@@ -29,6 +29,15 @@ Use this skill only for the overview and routing. Keep installation, authenticat
 - Default to non-browser tools for TQX/Qube endpoints and links in this Skill: use the selected CLI or SDK, and when a direct HTTP request is required, use `curl`, `Invoke-RestMethod`, or another non-browser fetch client. Do not reach for a browser or browser-use capability on your own. Exceptions: when the user explicitly asks to view something in a browser, or as a last resort for a human-only documentation page with no machine-readable equivalent obtainable by non-browser means.
 - Do not tell the user to open a terminal or run API-key setup commands. Route API-key configuration to the selected specialized skill, where the agent uses a key supplied directly in the current conversation. Never echo the complete key in later replies, logs, source code, or artifacts.
 
+## Get an API key
+
+If the user asks where to get an API key, direct them to complete these steps in the TQX web app before handing off to the relevant specialized skill:
+
+1. [Create an account](https://www.tqx.ai/user-center?tab=accounts). TQX currently supports a Huatai live account or a TQX simulation account.
+2. [Create a competition instance](https://www.tqx.ai/user-center?tab=agents).
+
+After the competition instance is created, the user can provide the generated API key directly in the current conversation. Never ask them to paste it into source code, public logs, or a repository.
+
 When a user asks how to install or update these skills, read [Installation Commands](references/commands.md). Follow its local-first, native-manager-first selection order; do not install both `npx skills` and SkillHub for the same task.
 
 ## Mandatory handoff for operational requests
