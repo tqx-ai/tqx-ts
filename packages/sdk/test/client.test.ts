@@ -637,6 +637,40 @@ describe('TqxClient', () => {
     expect(error).toMatchObject({ status: 401, code: 'invalid_api_key', requestId: 'request-401' })
   })
 
+  it('preserves the agent cooldown order rejection code and message', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      Response.json(
+        {
+          code: 'agent_cooldown',
+          message: 'order rejected: the bound agent is in cooldown and cannot place orders',
+          data: null,
+          request_id: 'request-cooldown',
+          timestamp: 1,
+        },
+        { status: 409 },
+      ),
+    )
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    const error = await client.trading
+      .placeOrder({
+        symbol: '00700.HK',
+        side: 'BUY',
+        orderType: 'MARKET',
+        quantity: '100',
+        idempotencyKey: 'signal-cooldown',
+      })
+      .catch((caught: unknown) => caught)
+
+    expect(error).toBeInstanceOf(TqxApiError)
+    expect(error).toMatchObject({
+      code: 'agent_cooldown',
+      message: 'order rejected: the bound agent is in cooldown and cannot place orders',
+      status: 409,
+      requestId: 'request-cooldown',
+    })
+  })
+
   it('preserves business data attached to API errors', async () => {
     const rejection = {
       signal_id: 'signal-rejected',

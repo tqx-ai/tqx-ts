@@ -278,6 +278,7 @@ Among them, `code`, `status`, `request_id` and `data` may be missing. When `data
 | 409 | `position_direction_conflict` | The request conflicts with the current position direction |
 | 409 | `market_closed` | The market or trading session does not currently accept this operation |
 | 409 | `account_locked` | The trading account is temporarily locked |
+| 409 | `agent_cooldown` | The bound competition agent is in cooldown and cannot place orders |
 | 409 | `invalid_trade_date` | The order belongs to a different trading day and can no longer be acted on |
 | 422 | `invalid_lot_size` | Quantity does not satisfy the market lot rule |
 | 422 | `invalid_order_price` | Price is invalid for the market or order rules |
@@ -292,7 +293,7 @@ Among them, `code`, `status`, `request_id` and `data` may be missing. When `data
 The status class tells you what to do next:
 
 - **409** — the order conflicts with current state. The same order may succeed later once the state
-  changes (market opens, funds settle, the lock clears). Do not change the order to "work around" it.
+  changes (market opens, funds settle, the lock or agent cooldown clears). Do not change the order to "work around" it.
 - **422** — the order content itself is not acceptable. Resubmitting it unchanged will fail again;
   fix the quantity, price, or symbol first.
 - **403 / 400** — the account or the request is not eligible at all; do not retry.

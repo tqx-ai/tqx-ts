@@ -244,13 +244,13 @@ You can also use `pnpm add --global @tqx-ai/cli@<new-version>` or according to t
 - `sh: tqx: command not found` is a local CLI startup/PATH problem and cannot be treated as `401 invalid_api_key`; first handle it according to "Temporary CLI and workspace exception".
 - Preserve and report `message`, `code`, `status`, `request_id` and optional `data` in JSON errors, do not fake success results.
   Trading rejections use specific HTTP/code pairs: `409 insufficient_funds`, `409 insufficient_position`,
-  `409 position_direction_conflict`, `409 market_closed`, `409 account_locked`,
+  `409 position_direction_conflict`, `409 market_closed`, `409 account_locked`, `409 agent_cooldown`,
   `409 invalid_trade_date`, `409 order_not_cancellable`, `409 order_not_modifiable`,
   `422 invalid_lot_size`, `422 invalid_order_price`, `422 invalid_symbol`,
   `422 risk_control_blocked`, `422 order_rejected`, `403 market_not_permitted`,
   `404 order_not_found`, `404 signal_not_found`, and `504 trading_timeout`.
   The status class is the retry signal: `409` means the same order may succeed once state changes
-  (do not alter the order to work around it), while `422` means the order content must be fixed
+  (market opens, funds settle, or the lock/cooldown clears; do not alter the order to work around it), while `422` means the order content must be fixed
   before resubmitting. Never retry a `422` unchanged.
   `500 trading_data_mapping_error` means the upstream trading payload could not be interpreted safely.
   `503 trading_service_unavailable` means the trading channel is unavailable, including the case where the

@@ -77,6 +77,7 @@ export type TradingApiErrorCode =
   | 'position_direction_conflict'
   | 'market_closed'
   | 'account_locked'
+  | 'agent_cooldown'
   | 'invalid_trade_date'
   | 'market_not_permitted'
   | 'invalid_lot_size'
