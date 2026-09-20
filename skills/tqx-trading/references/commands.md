@@ -23,7 +23,7 @@ start and use that same version for installation, execution, and verification.
 - For the CLI, check for an existing global `tqx` first. When it is missing or the version is wrong, prefer the matching GitHub Release standalone binary because it is the supported global installation path and does not require Node.js.
 - When there is a `pnpm-lock.yaml` or the user explicitly uses pnpm, pnpm will be used. For new documents, write `pnpm dlx` first; `pnpx`
   is the equivalent shortcut that can be retained.
-- Use Bun when the project has `bun.lock`, the user explicitly uses Bun, or you are developing the `tqx-ts` source. The repository's development toolchain is pinned to Bun 1.3.14.
+- Use Bun when the project has `bun.lock`, the user explicitly uses Bun, or you are developing the `tqx-ts` source. The repository's development toolchain is pinned to Bun 1.4.2.
 - Existing projects always use the package manager corresponding to their lockfile, and do not mix multiple lockfiles.
 - CLI should normally be installed globally; SDK is only installed to specific application projects, not installed globally. Temporary runners are an explicit fallback for isolated or one-time execution.
 

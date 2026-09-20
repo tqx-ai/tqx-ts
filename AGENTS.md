@@ -2,7 +2,7 @@
 
 ## Scope And Ownership
 
-- This Bun 1.3.14+ workspace publishes the Node.js 22.18+ `@tqx-ai/sdk` and
+- This Bun 1.4.2+ workspace publishes the Node.js 22.18+ `@tqx-ai/sdk` and
   `@tqx-ai/cli` packages. Run workspace commands from this directory.
 - `packages/sdk` owns the public client, API paths, public types, Valibot validation, transport,
   response decoding, and typed API errors. `packages/cli` owns Citty commands, credentials,

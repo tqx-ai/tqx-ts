@@ -21,6 +21,8 @@ export interface TqxClientOptions {
   tradingBaseUrl?: string
   apiKey?: string
   fetch?: typeof globalThis.fetch
+  clientMac?: string
+  clientVersion?: string
 }
 
 export interface AuthApi {
@@ -51,6 +53,8 @@ export class TqxClient {
   readonly #baseUrl?: string
   readonly #tradingBaseUrl: string
   readonly #apiKey?: string
+  readonly #clientMac?: string
+  readonly #clientVersion?: string
   readonly #fetch: typeof globalThis.fetch
 
   constructor(clientOptions: TqxClientOptions) {
@@ -66,6 +70,8 @@ export class TqxClient {
         (__TQX_BUILD_DEFAULT_TRADING_BASE_URL__.trim() || this.#baseUrl),
     )
     this.#apiKey = clientOptions.apiKey?.trim() || undefined
+    this.#clientMac = normalizeClientMac(clientOptions.clientMac)
+    this.#clientVersion = normalizeClientVersion(clientOptions.clientVersion)
     this.#fetch = clientOptions.fetch ?? globalThis.fetch
     if (typeof this.#fetch !== 'function') {
       throw new TqxConfigurationError('A Fetch API implementation is required')
@@ -123,6 +129,8 @@ export class TqxClient {
     const headers = new Headers(options.headers)
     headers.set('Accept', 'application/json')
     if (authenticated) headers.set('X-API-Key', this.#apiKey!)
+    if (this.#clientMac) headers.set('X-TQX-Client-MAC', this.#clientMac)
+    if (this.#clientVersion) headers.set('X-TQX-Client-Version', this.#clientVersion)
     if (options.body !== undefined) headers.set('Content-Type', 'application/json')
     const requestInit: RequestInit = {
       method,
@@ -177,6 +185,29 @@ export class TqxClient {
       attempts: MAX_REQUEST_ATTEMPTS,
     })
   }
+}
+
+const CLIENT_MAC_PATTERN = /^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$/
+const CLIENT_VERSION_PATTERN = /^[\x20-\x7e]{1,128}$/
+
+function normalizeClientMac(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const normalized = value.trim().replaceAll('-', ':').toUpperCase()
+  if (!CLIENT_MAC_PATTERN.test(normalized)) {
+    throw new TqxConfigurationError('clientMac must be a valid MAC address')
+  }
+  return normalized
+}
+
+function normalizeClientVersion(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined
+  const normalized = value.trim()
+  if (!CLIENT_VERSION_PATTERN.test(normalized)) {
+    throw new TqxConfigurationError(
+      'clientVersion must be a non-empty printable value of at most 128 characters',
+    )
+  }
+  return normalized
 }
 
 interface RetryableResponseMetadata {

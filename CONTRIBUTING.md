@@ -5,7 +5,7 @@ This repository is a Bun workspace for the Node.js-compatible `@tqx-ai/sdk` and 
 
 ## Requirements
 
-- Bun 1.3.14 or newer
+- Bun 1.4.2 or newer
 - Node.js 22.18 or newer for published-package smoke checks
 
 Install dependencies and run the complete check suite:

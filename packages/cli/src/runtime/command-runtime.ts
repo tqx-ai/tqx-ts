@@ -3,6 +3,7 @@ import { TqxClient, TqxValidationError } from '@tqx-ai/sdk'
 import { resolveApiKey, type CredentialStore } from '../credentials'
 import { Output, type WritableOutput } from '../output'
 import { CliUsageError } from '../utils/errors'
+import { getLocalMacAddress } from '../utils/client-identity'
 import { getRuntimeProcess } from '../utils/runtime'
 
 export interface CommandRuntimeDependencies {
@@ -36,7 +37,14 @@ export function createCommandRuntime(dependencies: CommandRuntimeDependencies): 
         'TQX_BASE_URL is required because this CLI was built without TQX_BUILD_BASE_URL',
       )
     }
-    return new TqxClient({ baseUrl, tradingBaseUrl, apiKey, fetch })
+    return new TqxClient({
+      baseUrl,
+      tradingBaseUrl,
+      apiKey,
+      clientMac: getLocalMacAddress(),
+      clientVersion: __TQX_BUILD_CLI_VERSION__,
+      fetch,
+    })
   }
 
   const getApiKey = () => resolveApiKey(dependencies.credentialStore, dependencies.environment)
