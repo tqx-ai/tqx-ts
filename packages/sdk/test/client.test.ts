@@ -404,6 +404,24 @@ describe('TqxClient', () => {
     })
   })
 
+  it('forwards optional client audit headers without changing the request body', async () => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(response({ status: 'ok', service: 'panda_openapi', version: '1.0.0' }))
+    const client = new TqxClient({
+      tradingBaseUrl: 'https://api.example.test',
+      clientMac: 'aa-bb-cc-dd-ee-ff',
+      clientVersion: '1.0.0 (beta)',
+      fetch,
+    })
+
+    await client.health()
+
+    const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers)
+    expect(headers.get('X-TQX-Client-MAC')).toBe('AA:BB:CC:DD:EE:FF')
+    expect(headers.get('X-TQX-Client-Version')).toBe('1.0.0 (beta)')
+  })
+
   it('does not retry writes without an idempotency key', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>().mockRejectedValue(new TypeError('fetch failed'))
     const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })

@@ -23,7 +23,7 @@ start and use that same version for installation, execution, and verification.
 - For the CLI, check for an existing global `tqx` first. When it is missing or the version is wrong, prefer the matching GitHub Release standalone binary because it is the supported global installation path and does not require Node.js.
 - When there is a `pnpm-lock.yaml` or the user explicitly uses pnpm, pnpm will be used. For new documents, write `pnpm dlx` first; `pnpx`
   is the equivalent shortcut that can be retained.
-- Use Bun when the project has `bun.lock`, the user explicitly uses Bun, or you are developing the `tqx-ts` source. The repository's development toolchain is pinned to Bun 1.3.14.
+- Use Bun when the project has `bun.lock`, the user explicitly uses Bun, or you are developing the `tqx-ts` source. The repository's development toolchain is pinned to Bun 1.4.2.
 - Existing projects always use the package manager corresponding to their lockfile, and do not mix multiple lockfiles.
 - CLI should normally be installed globally; SDK is only installed to specific application projects, not installed globally. Temporary runners are an explicit fallback for isolated or one-time execution.
 
@@ -409,3 +409,13 @@ tqx trading trades --help
 ```
 
 Exit code convention: usage or input verification error is 2, API/network/protocol error is 1, success is 0.
+
+## Bug report
+
+For a reproducible TQX API/CLI product defect, submit a complete diagnostic report when the task authorizes reporting:
+
+```text
+tqx bug report --title="Short title" --desc="Steps to reproduce, PAPER/LIVE mode, complete response, and request_id" --json
+```
+
+Use only the documented title and description flags. Do not report ordinary broker rejections as product bugs. Make the description as detailed as possible: record the complete input parameters and complete response result with original field names and values, plus the account mode, reproduction steps, and environment. If reporting was not authorized, prepare the report and ask first. If `tqx bug report --help` is unavailable in the installed version, do not call an undocumented endpoint.

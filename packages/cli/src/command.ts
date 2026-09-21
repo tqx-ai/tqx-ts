@@ -5,6 +5,7 @@ import { Output, type OutputMode, type WritableOutput } from './output'
 import { createResearchCommand } from './research/command'
 import { createCommandRuntime, type CommandRuntimeDependencies } from './runtime/command-runtime'
 import { createTradingCommand } from './trading/command'
+import { createBugCommand } from './bug-report/command'
 import { checkForUpdates, runUpdate, shouldAutoCheck, type UpdateDependencies } from './update'
 import { CliUsageError } from './utils/errors'
 import { getRuntimeEnvironment, getRuntimeProcess } from './utils/runtime'
@@ -190,6 +191,7 @@ function createMainCommand(
       }),
       research: createResearchCommand(runtime),
       trading: createTradingCommand(runtime),
+      bug: createBugCommand(runtime),
     },
   })
 }

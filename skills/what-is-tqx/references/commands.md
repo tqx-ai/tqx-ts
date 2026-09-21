@@ -22,6 +22,16 @@ https://github.com/tqx-ai/tqx-ts
 
 The three skill names are `tqx-research`, `tqx-trading`, and `what-is-tqx`.
 
+## Bug report
+
+The TQX CLI bug-report interface is:
+
+```text
+tqx bug report --title="Short title" --desc="Steps to reproduce, environment, complete response, and request_id" --json
+```
+
+Use it only for a reproducible TQX defect and only when the task authorizes the external report; otherwise ask for confirmation. Make the description as detailed as possible, including complete input parameters, complete response results, reproduction steps, and environment details so developers can reproduce and fix the issue quickly. If the installed CLI does not list `bug report` in help, do not invent a direct API call.
+
 ## Check the harness and managers
 
 First inspect the active harness's loaded Skills and native management documentation or capability. The exact command is harness-specific; use its native mechanism rather than assuming an external CLI. If the requested Skill is loaded or locally available, stop here and use it.
