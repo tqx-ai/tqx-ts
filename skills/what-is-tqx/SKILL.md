@@ -76,6 +76,10 @@ Keep these boundaries explicit:
 - Treat a trading **LIVE account** as part of the same trading system and as capable of affecting real funds and positions.
 - Use an API key only under the selected specialized skill's authentication rules. Never expose the complete key in replies, logs, source code, or configuration.
 
+## Bug reporting
+
+The TQX CLI exposes `tqx bug report --title=<title> --desc=<markdown>`. Route a confirmed, reproducible TQX defect to this command after applying the relevant specialized skill. The coding agent may proactively submit a report when the user asked to investigate, fix, or report the defect; otherwise ask for confirmation before the external write. Make the description as detailed as possible, including complete input parameters, complete response results, reproduction steps, and environment details so developers can reproduce and fix the issue quickly.
+
 ## Short Answer Pattern
 
 When the user asks only "What is TQX?", explain that TQX includes a Qube research system and a separate trading system. Explain that Qube is the web-based research and agent environment at `https://www.tqx.trade/agent_quant/`, and that its research capabilities can be accessed locally with an API key. Then ask whether the user wants research support or account-based trading and route to the matching skill.

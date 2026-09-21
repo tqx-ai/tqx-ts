@@ -136,10 +136,17 @@ describe('CLI updates', () => {
   })
 
   it('does not treat version shortcuts as self-update options', async () => {
+    const stderr = {
+      value: '',
+      write(chunk: string) {
+        this.value += chunk
+      },
+    }
     const fetch = vi.fn<typeof globalThis.fetch>()
-    await runCli(['self-update', '-V'], { fetch, autoUpdateCheck: false })
-    await runCli(['self-update', '-v'], { fetch, autoUpdateCheck: false })
+    await runCli(['self-update', '-V'], { fetch, autoUpdateCheck: false, stderr })
+    await runCli(['self-update', '-v'], { fetch, autoUpdateCheck: false, stderr })
     expect(fetch).not.toHaveBeenCalled()
+    expect(stderr.value).toContain('Use --version=<version> to install a specific release')
   })
 
   it('keeps the v prefix when requesting a specific release', async () => {

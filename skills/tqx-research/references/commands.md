@@ -119,3 +119,13 @@ Strategy save follows the same optimistic concurrency flow: check `strategy info
 Strategy source code cannot call `eval`, `exec`, `open`, `__import__`, `compile`, `input`, `globals`, `locals`, `vars`, or `dir` outside strings and comments. `from ... import *` may appear only at module top level. For the current bar, use `data[symbol]` directly and validate the returned bar fields; do not call `data.get(...)` or do membership checks against `data`. Hong Kong strategies should import `panda_backtest.api.stock_hk_api`, and US strategies should import `panda_backtest.api.stock_us_api`. A wrong-market import, the mainland `stock_api`, or a missing expected import produces a warning; `--strictMarketApi` turns it into an error.
 
 `done` is mapped to `SUCCESS`; `failed` is `FAILED`, `cancelled` is `CANCELLED`. `PENDING`, `RUNNING`, `SUBMITTED`, `TIMEOUT` and `STOP_REQUESTED` do not complete successfully. Command exit codes are not a substitute for responses, final states, logs, transactions, and result checks.
+
+## Bug report
+
+For a reproducible TQX/Qube product defect, submit a complete diagnostic report when the task authorizes reporting:
+
+```text
+tqx bug report --title="Short title" --desc="Steps to reproduce, environment, complete response, and request_id" --json
+```
+
+Use only the documented title and description flags. Make the description as detailed as possible: record the complete input parameters and complete response result with original field names and values, plus the reproduction steps and environment. If reporting was not authorized, prepare the report and ask first. If `tqx bug report --help` is unavailable in the installed version, do not call an undocumented endpoint.

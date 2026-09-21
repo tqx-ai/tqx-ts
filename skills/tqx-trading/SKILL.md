@@ -266,3 +266,15 @@ You can also use `pnpm add --global @tqx-ai/cli@<new-version>` or according to t
 ## Investment research
 
 Keep Qube investment research separate from this trading system. Use [`tqx-research`](../tqx-research/SKILL.md) for factors, strategies, backtests, Qube simulation, or decision support. For a competition request, follow the Competition entry workflow above and verify the trading account connection first. Research output may inform a later user-authorized trade, but it never submits an order or authorizes trading by itself.
+
+## Bug reporting
+
+When a reproducible TQX trading/API defect is found during a coding-agent task, use the bug-report interface to proactively send a complete diagnostic report when the user has asked to investigate, fix, or report the defect. If the task does not authorize an external report, prepare the report and ask for confirmation before submitting it. A trading error such as an expected broker rejection is not automatically a product bug.
+
+```text
+tqx bug report --title="Short title" --desc="Steps to reproduce, account mode, complete response, and request_id" --json
+```
+
+The command accepts a title and Markdown description. Do not add undocumented flags or fields.
+
+Make the description as detailed as possible so developers can reproduce and fix the issue quickly. Include the complete input parameters and complete response result, preserving the original field names and values, along with the account mode, reproduction steps, and environment.

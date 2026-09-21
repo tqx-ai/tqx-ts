@@ -17,6 +17,9 @@ const APIs = {
   RESEARCH_STRATEGIES: 'agent_quant/api/strategies',
   RESEARCH_BACKTESTS: 'agent_quant/api/backtests',
   RESEARCH_STRATEGY_VERSIONS: 'agent_quant/api/strategy-versions',
+
+  // Bug Report API
+  BUG_REPORTS: '/openapi/v1/bug-reports', // its base url is the same as the Trading API's one
 } as const
 
 export default APIs

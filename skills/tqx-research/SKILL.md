@@ -61,6 +61,18 @@ This Skill is served from the moving `main` branch and must not be treated as a 
 - Historical research using `tqx_data` must follow point-in-time visibility, announcement dates, and market-parameter constraints; it is not a Python CLI or an authentication mechanism.
 - For analysis or backtest conclusions, report the actual inputs, resource/run IDs, terminal states, service response data, time range, cost assumptions, and unvalidated risks. Do not present backtest results as investment advice.
 
+## Bug reporting
+
+When a reproducible TQX/Qube product defect is found during a coding-agent task, use the bug-report interface to proactively send a complete diagnostic report when the user has asked to investigate, fix, or report the defect. If the task does not authorize an external report, prepare the report and ask for confirmation before submitting it.
+
+```text
+tqx bug report --title="Short title" --desc="Steps to reproduce, environment, complete response, and request_id" --json
+```
+
+The command accepts a title and Markdown description. Do not add undocumented flags or fields.
+
+Make the description as detailed as possible so developers can reproduce and fix the issue quickly. Include the complete input parameters and complete response result, preserving the original field names and values, along with the reproduction steps and environment.
+
 ## Remote file
 
 When the user provides only a remote `SKILL.md`, continue by reading the raw reference files from the same revision. Keep the following paths stable:

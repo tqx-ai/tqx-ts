@@ -12,9 +12,11 @@ import APIs from './config/APIs'
 import { ResearchApiClient, type ResearchApi } from './research/api'
 import { TradingApiClient, type TradingApi } from './trading/trading-api'
 import { UserApiClient, type UserApi } from './user/user-api'
+import { BugsApiClient, type BugsApi } from './bug-report/bug-report-api'
 
 export type { TradingApi } from './trading/trading-api'
 export type { UserApi } from './user/user-api'
+export type { BugsApi } from './bug-report/bug-report-api'
 
 export interface TqxClientOptions {
   baseUrl?: string
@@ -49,6 +51,7 @@ export class TqxClient {
   readonly trading: TradingApi
   readonly research: ResearchApi
   readonly user: UserApi
+  readonly bugs: BugsApi
 
   readonly #baseUrl?: string
   readonly #tradingBaseUrl: string
@@ -98,6 +101,9 @@ export class TqxClient {
           schema: HealthDataSchema,
         }),
     })
+    this.bugs = new BugsApiClient((path, options) =>
+      this.#request(path, { ...options, baseUrl: this.#tradingBaseUrl }),
+    )
     this.auth = { verify: () => this.user.verify() }
   }
 

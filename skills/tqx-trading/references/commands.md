@@ -409,3 +409,13 @@ tqx trading trades --help
 ```
 
 Exit code convention: usage or input verification error is 2, API/network/protocol error is 1, success is 0.
+
+## Bug report
+
+For a reproducible TQX API/CLI product defect, submit a complete diagnostic report when the task authorizes reporting:
+
+```text
+tqx bug report --title="Short title" --desc="Steps to reproduce, PAPER/LIVE mode, complete response, and request_id" --json
+```
+
+Use only the documented title and description flags. Do not report ordinary broker rejections as product bugs. Make the description as detailed as possible: record the complete input parameters and complete response result with original field names and values, plus the account mode, reproduction steps, and environment. If reporting was not authorized, prepare the report and ask first. If `tqx bug report --help` is unavailable in the installed version, do not call an undocumented endpoint.
