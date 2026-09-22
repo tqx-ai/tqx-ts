@@ -117,7 +117,7 @@ describe('CLI updates', () => {
     }
     const fetch = vi
       .fn<typeof globalThis.fetch>()
-      .mockResolvedValue(Response.json([release('v0.5.0')]))
+      .mockResolvedValue(Response.json([release('v0.6.0')]))
 
     await runCli(['self-update', '--check', '--json'], {
       environment: { XDG_CONFIG_HOME: directory },
@@ -127,8 +127,8 @@ describe('CLI updates', () => {
 
     expect(JSON.parse(stdout.value)).toMatchObject({
       updated: false,
-      current_version: '0.4.0',
-      latest_version: '0.5.0',
+      current_version: '0.5.0',
+      latest_version: '0.6.0',
       update_available: true,
       method: null,
       install_path: null,
@@ -231,10 +231,10 @@ describe('CLI updates', () => {
       .fn<typeof globalThis.fetch>()
       .mockResolvedValue(
         Response.json([
-          release('v0.4.1-beta.1', { prerelease: true }),
+          release('v0.5.1-beta.1', { prerelease: true }),
           release('v0.3.2'),
-          release('v0.4.1'),
-          release('v0.5.0', { draft: true }),
+          release('v0.5.1'),
+          release('v0.6.0', { draft: true }),
         ]),
       )
 
@@ -245,7 +245,7 @@ describe('CLI updates', () => {
       now: () => 100,
     })
 
-    expect(result.latest_version).toBe('0.4.1')
+    expect(result.latest_version).toBe('0.5.1')
     expect(result.update_available).toBe(true)
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('/releases?per_page=100'),

@@ -4,6 +4,21 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.5.0 - 2026-09-22
+
+### Added
+
+- Add SDK and CLI support for submitting detailed bug reports with validated input and optional
+  idempotency keys.
+- Add optional client MAC address and version headers to SDK requests, populated automatically by
+  the CLI.
+- Add the `agent_cooldown` trading API error code.
+
+### Changed
+
+- Update bundled research, trading, and product guidance with the bug-report workflow.
+- Require Bun 1.4.2 for development, CI, and release builds.
+
 ## 0.4.0 - 2026-08-27
 
 ### Added
