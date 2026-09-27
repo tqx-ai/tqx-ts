@@ -61,10 +61,13 @@ must point at that exact commit.
 ## Dry Run
 
 Run the release workflow manually to rehearse a release without publishing anything. A dry run
-runs the release checks, builds and compresses every standalone binary, and verifies each one on
-its own platform, but it skips the tag check, both npm publishes, and the GitHub Release. The
-binaries, gzip assets, npm tarballs, and `SHA256SUMS` are kept as the `release-assets` workflow
-artifact. Push the branch first; the workflow runs the version of `release.yml` on that branch:
+runs every job and step of a real release except the tag check, the npm publishes, and publishing
+the GitHub Release: it builds and compresses every standalone binary, verifies each one on its own
+platform, uploads all assets to a temporary draft GitHub Release named `dry-run-<run-id>-<attempt>`,
+checks the draft, and deletes it. Drafts are visible only to repository collaborators and do not
+create tags. The binaries, gzip assets, npm tarballs, and `SHA256SUMS` stay available as the
+`release-assets` workflow artifact. Push the branch first; the workflow runs the version of
+`release.yml` on that branch:
 
 ```bash
 gh workflow run release.yml --ref <branch>
@@ -75,10 +78,18 @@ gh run download <run-id> --name release-assets --dir release-assets
 
 ## Tag And Publish
 
-The tag workflow at `.github/workflows/release.yml` is the only publishing path. It runs the
-release checks, publishes the SDK before the CLI through npm OIDC, builds platform binaries, and
-creates the GitHub Release. Do not run the local `publish:sdk` or `publish:cli` scripts for a
-normal release.
+The tag workflow at `.github/workflows/release.yml` is the only publishing path. Nothing is
+published until every standalone binary has passed verification. The `publish` job then:
+
+1. uploads every asset to a draft GitHub Release and confirms the draft is complete;
+2. publishes the SDK and then the CLI to npm through OIDC;
+3. publishes the draft GitHub Release last, because it is what announces the update to users and
+   npm-installed CLIs update from npm.
+
+Every `publish` step is safe to rerun: an already published npm version is skipped and an
+unpublished draft from an earlier attempt is replaced. If the job fails, fix the cause and rerun the
+failed job for the same tag. Do not run the local `publish:sdk` or `publish:cli` scripts for a normal
+release.
 
 ```bash
 git add package.json lerna.json packages/sdk/package.json packages/cli/package.json \
@@ -97,9 +108,9 @@ Unit tests cover only the TypeScript source, so these checks are what confirm th
 binary behaves exactly like the npm CLI on Node.js and that the `.gz` assets `tqx self-update`
 prefers match their checksums. To check a locally compiled binary, run
 `bun scripts/standalone-e2e.ts <binary>` after `bun run build`.
-For a repository configuration failure before publishing, correct the configuration and rerun the
-workflow for the same tag. For a release-content failure, create a new patch version and tag its
-commit. If a package was published, never reuse or overwrite that version.
+For a repository configuration failure, correct the configuration and rerun the workflow for the
+same tag. For a release-content failure, create a new patch version and tag its commit. If a package
+was published, never reuse or overwrite that version.
 
 ## Verify From npm
 
