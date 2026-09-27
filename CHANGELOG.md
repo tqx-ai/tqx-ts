@@ -4,6 +4,12 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+### Changed
+
+- Publish nothing until every standalone binary passes verification, then upload a draft GitHub
+  Release, publish npm, and publish the release last. Dry runs now also upload and delete a
+  temporary draft release, and every publishing step is safe to rerun.
+
 ### Fixed
 
 - Check out the repository in the release job again so `gh release create` can publish the GitHub

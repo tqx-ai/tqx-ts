@@ -4,8 +4,9 @@ on:
   push:
     tags:
       - 'v*.*.*'
-  # Manual runs are dry runs: they build, compress, and verify every binary on its own platform and
-  # keep the results as workflow artifacts, but never publish to npm or create a GitHub Release.
+  # Manual runs are dry runs: they build, compress, and verify every binary on its own platform,
+  # upload everything to a temporary draft GitHub Release and delete it, and never publish to npm or
+  # publish a release. The packaged files stay available as the release-assets workflow artifact.
   workflow_dispatch:
 
 permissions:
@@ -13,8 +14,8 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
-    name: Publish packages and release binaries
+  build:
+    name: Build packages and Linux binaries
     runs-on: ubuntu-latest
     env:
       TQX_BUILD_BASE_URL: ${{ vars.TQX_BUILD_BASE_URL }}
@@ -36,9 +37,6 @@ jobs:
         uses: actions/setup-node@v7.0.0
         with:
           node-version: 22.18.0
-
-      - name: Update npm for trusted publishing
-        run: npm install --global npm@11.5.1
 
       - name: Confirm tag and package version agree
         if: github.event_name == 'push'
@@ -73,26 +71,6 @@ jobs:
           mkdir -p release-artifacts
           bun pm pack --cwd packages/sdk --destination "$GITHUB_WORKSPACE/release-artifacts" --quiet
           bun pm pack --cwd packages/cli --destination "$GITHUB_WORKSPACE/release-artifacts" --quiet
-
-      - name: Publish SDK
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          tag="latest"
-          [[ "$version" == *-* ]] && tag="beta"
-          npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-sdk-${version}.tgz" \
-            --access public --tag "$tag" --provenance
-
-      - name: Publish CLI
-        if: github.event_name == 'push'
-        shell: bash
-        run: |
-          version="${GITHUB_REF_NAME#v}"
-          tag="latest"
-          [[ "$version" == *-* ]] && tag="beta"
-          npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-cli-${version}.tgz" \
-            --access public --tag "$tag" --provenance
 
       - name: Compile Linux standalone binaries
         shell: bash
@@ -213,7 +191,7 @@ jobs:
   package-binaries:
     name: Compress binaries and generate checksums
     needs:
-      - publish
+      - build
       - compile-macos
       - compile-windows
     runs-on: ubuntu-latest
@@ -325,16 +303,30 @@ jobs:
           version="$(node -p "require('./package.json').version")"
           bun scripts/standalone-e2e.ts "release-assets/tqx-v${version}-${{ matrix.asset }}"
 
-  release:
-    name: Create GitHub Release
+  # Publishing starts only after every binary passed verification. Order matters:
+  # 1. Upload everything to a draft release first, where upload problems surface invisibly.
+  # 2. Publish npm next; npm-installed CLIs update from npm once they see the GitHub Release.
+  # 3. Publish the draft last, because the GitHub Release is what announces the update to users.
+  # Every step can be rerun: published npm versions are skipped and a leftover draft is replaced.
+  publish:
+    name: Publish npm packages and the GitHub Release
     needs: verify-binaries
-    if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DRY_RUN: ${{ github.event_name != 'push' }}
 
     steps:
-      # gh release create resolves the target repository from the git checkout.
       - name: Check out the release tag
         uses: actions/checkout@v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 22.18.0
+
+      - name: Update npm for trusted publishing
+        run: npm install --global npm@11.5.1
 
       - name: Download packaged release assets
         uses: actions/download-artifact@v8.0.1
@@ -342,12 +334,36 @@ jobs:
           name: release-assets
           path: release-assets
 
+      - name: Resolve release metadata
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ "$DRY_RUN" == true ]]; then
+            # Draft releases do not create tags, so the temporary tag name never reaches the repository.
+            tag="dry-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+            notes_ref="$GITHUB_SHA"
+          else
+            tag="$GITHUB_REF_NAME"
+            notes_ref="$GITHUB_REF_NAME"
+          fi
+          npm_tag=latest
+          prerelease=false
+          if [[ "$version" == *-* ]]; then
+            npm_tag=beta
+            prerelease=true
+          fi
+          {
+            echo "VERSION=$version"
+            echo "RELEASE_TAG=$tag"
+            echo "NOTES_REF=$notes_ref"
+            echo "NPM_TAG=$npm_tag"
+            echo "PRERELEASE=$prerelease"
+          } >> "$GITHUB_ENV"
+
       - name: Prepare release notes
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          tag="$GITHUB_REF_NAME"
-          changelog_url="https://github.com/${GITHUB_REPOSITORY}/blob/${tag}/CHANGELOG.md"
+          changelog_url="https://github.com/${GITHUB_REPOSITORY}/blob/${NOTES_REF}/CHANGELOG.md"
 
           cat > release-notes.md <<'EOF'
           TQX CLI binaries and npm packages for version **__VERSION__**.
@@ -377,8 +393,8 @@ jobs:
           EOF
 
           sed -i \
-            -e "s|__TAG__|$tag|g" \
-            -e "s|__VERSION__|$version|g" \
+            -e "s|__TAG__|$NOTES_REF|g" \
+            -e "s|__VERSION__|$VERSION|g" \
             -e "s|__CHANGELOG_URL__|$changelog_url|g" \
             release-notes.md
 
@@ -387,11 +403,57 @@ jobs:
             exit 1
           fi
 
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      # Every gh command passes --repo, so none depends on the checkout to find the repository.
+      - name: Upload all assets to a draft GitHub Release
         shell: bash
         run: |
-          args=("$GITHUB_REF_NAME" release-assets/* --title "TQX $GITHUB_REF_NAME" --notes-file release-notes.md)
-          [[ "$GITHUB_REF_NAME" == *-* ]] && args+=(--prerelease)
+          existing="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft 2>/dev/null || true)"
+          if [[ "$existing" == true ]]; then
+            echo "Replacing the unpublished draft left by an earlier attempt"
+            gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes
+          fi
+          args=("$RELEASE_TAG" release-assets/* --repo "$GITHUB_REPOSITORY" --draft
+            --target "$GITHUB_SHA" --title "TQX v$VERSION" --notes-file release-notes.md)
+          [[ "$PRERELEASE" == true ]] && args+=(--prerelease)
           gh release create "${args[@]}"
+
+      - name: Confirm the draft contains every asset
+        shell: bash
+        run: |
+          expected="$(find release-assets -maxdepth 1 -type f | wc -l)"
+          actual="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length')"
+          echo "Draft ${RELEASE_TAG} has ${actual}/${expected} assets"
+          test "$actual" -eq "$expected"
+
+      - name: Delete the dry-run draft
+        if: always() && env.DRY_RUN == 'true'
+        shell: bash
+        run: gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes || true
+
+      - name: Publish SDK to npm
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          if npm view "@tqx-ai/sdk@${VERSION}" version > /dev/null 2>&1; then
+            echo "@tqx-ai/sdk@${VERSION} is already published"
+          else
+            npm publish "release-assets/tqx-ai-sdk-${VERSION}.tgz" --access public --tag "$NPM_TAG" --provenance
+          fi
+
+      - name: Publish CLI to npm
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          if npm view "@tqx-ai/cli@${VERSION}" version > /dev/null 2>&1; then
+            echo "@tqx-ai/cli@${VERSION} is already published"
+          else
+            npm publish "release-assets/tqx-ai-cli-${VERSION}.tgz" --access public --tag "$NPM_TAG" --provenance
+          fi
+
+      - name: Publish the GitHub Release
+        if: env.DRY_RUN != 'true'
+        shell: bash
+        run: |
+          args=("$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false)
+          [[ "$PRERELEASE" != true ]] && args+=(--latest)
+          gh release edit "${args[@]}"
