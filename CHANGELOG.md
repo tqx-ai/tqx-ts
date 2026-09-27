@@ -10,7 +10,8 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 - Publish nothing until every standalone binary passes verification, then upload a draft GitHub
   Release, publish npm, and publish the release last. Dry runs now also upload and delete a
-  temporary draft release, and every publishing step is safe to rerun.
+  temporary draft release and run `npm publish --dry-run`, and every publishing step is safe to
+  rerun.
 
 ### Fixed
 
@@ -18,6 +19,9 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
   repository explicitly and the release job checks out the repository again. The v0.5.1 workflow
   published npm but failed to create the GitHub Release, which was then created from the verified
   workflow assets.
+- Publish npm tarballs by absolute path. A relative `dir/file.tgz` path is read by npm as a GitHub
+  repository shorthand, which stopped the first v0.5.2 run before anything was published. Dry runs
+  now run `npm publish --dry-run` with the same arguments.
 
 ## 0.5.1 - 2026-09-27
 

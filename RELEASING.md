@@ -61,10 +61,10 @@ must point at that exact commit.
 ## Dry Run
 
 Run the release workflow manually to rehearse a release without publishing anything. A dry run
-runs every job and step of a real release except the tag check, the npm publishes, and publishing
-the GitHub Release: it builds and compresses every standalone binary, verifies each one on its own
-platform, uploads all assets to a temporary draft GitHub Release named `dry-run-<run-id>-<attempt>`,
-checks the draft, and deletes it. Drafts are visible only to repository collaborators and do not
+runs every job and step of a real release except the tag check and publishing the GitHub Release:
+it builds and compresses every standalone binary, verifies each one on its own platform, uploads all
+assets to a temporary draft GitHub Release named `dry-run-<run-id>-<attempt>`, checks the draft,
+deletes it, and runs both npm publishes with `--dry-run`. Drafts are visible only to repository collaborators and do not
 create tags. The binaries, gzip assets, npm tarballs, and `SHA256SUMS` stay available as the
 `release-assets` workflow artifact. Push the branch first; the workflow runs the version of
 `release.yml` on that branch:

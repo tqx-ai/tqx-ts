@@ -5,8 +5,8 @@ on:
     tags:
       - 'v*.*.*'
   # Manual runs are dry runs: they build, compress, and verify every binary on its own platform,
-  # upload everything to a temporary draft GitHub Release and delete it, and never publish to npm or
-  # publish a release. The packaged files stay available as the release-assets workflow artifact.
+  # upload everything to a temporary draft GitHub Release and delete it, run `npm publish --dry-run`,
+  # and never publish to npm or publish a release. The packaged files stay available as the release-assets workflow artifact.
   workflow_dispatch:
 
 permissions:
@@ -431,23 +431,27 @@ jobs:
         run: gh release delete "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --yes || true
 
       - name: Publish SDK to npm
-        if: env.DRY_RUN != 'true'
+        # Dry runs run the same command with --dry-run. The tarball path must be absolute: npm reads
+        # a relative "dir/file.tgz" spec as a GitHub "user/repo" shorthand and tries to clone it.
         shell: bash
         run: |
           if npm view "@tqx-ai/sdk@${VERSION}" version > /dev/null 2>&1; then
             echo "@tqx-ai/sdk@${VERSION} is already published"
           else
-            npm publish "release-assets/tqx-ai-sdk-${VERSION}.tgz" --access public --tag "$NPM_TAG" --provenance
+            args=("$GITHUB_WORKSPACE/release-assets/tqx-ai-sdk-${VERSION}.tgz" --access public --tag "$NPM_TAG" --provenance)
+            [[ "$DRY_RUN" == true ]] && args+=(--dry-run)
+            npm publish "${args[@]}"
           fi
 
       - name: Publish CLI to npm
-        if: env.DRY_RUN != 'true'
         shell: bash
         run: |
           if npm view "@tqx-ai/cli@${VERSION}" version > /dev/null 2>&1; then
             echo "@tqx-ai/cli@${VERSION} is already published"
           else
-            npm publish "release-assets/tqx-ai-cli-${VERSION}.tgz" --access public --tag "$NPM_TAG" --provenance
+            args=("$GITHUB_WORKSPACE/release-assets/tqx-ai-cli-${VERSION}.tgz" --access public --tag "$NPM_TAG" --provenance)
+            [[ "$DRY_RUN" == true ]] && args+=(--dry-run)
+            npm publish "${args[@]}"
           fi
 
       - name: Publish the GitHub Release
