@@ -94,23 +94,73 @@ jobs:
           npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-cli-${version}.tgz" \
             --access public --tag "$tag" --provenance
 
-      - name: Compile Linux and macOS standalone binaries
+      - name: Compile Linux standalone binaries
         shell: bash
         run: |
           version="$(node -p "require('./package.json').version")"
           mkdir -p dist-bin
           bun build --compile --target=bun-linux-x64 --outfile="dist-bin/tqx-v${version}-linux-x64" packages/cli/dist/index.mjs
           bun build --compile --target=bun-linux-arm64 --outfile="dist-bin/tqx-v${version}-linux-arm64" packages/cli/dist/index.mjs
-          bun build --compile --target=bun-darwin-x64 --outfile="dist-bin/tqx-v${version}-macos-x64" packages/cli/dist/index.mjs
-          bun build --compile --target=bun-darwin-arm64 --outfile="dist-bin/tqx-v${version}-macos-arm64" packages/cli/dist/index.mjs
 
-      - name: Upload package and Unix release artifacts
+      - name: Upload package and Linux release artifacts
         uses: actions/upload-artifact@v7.0.1
         with:
           name: release-assets-unix
           path: |
             release-artifacts/*.tgz
             dist-bin/*
+          if-no-files-found: error
+
+  compile-macos:
+    name: Compile and sign macOS standalone binaries
+    runs-on: macos-latest
+    env:
+      TQX_BUILD_BASE_URL: ${{ vars.TQX_BUILD_BASE_URL }}
+      TQX_BUILD_TRADING_BASE_URL: ${{ vars.TQX_BUILD_TRADING_BASE_URL }}
+      TQX_BUILD_GET_API_KEY_URL: ${{ vars.TQX_BUILD_GET_API_KEY_URL }}
+
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Write production build configuration
+        shell: bash
+        run: |
+          printf 'TQX_BUILD_BASE_URL=%s\nTQX_BUILD_TRADING_BASE_URL=%s\nTQX_BUILD_GET_API_KEY_URL=%s\n' \
+            "$TQX_BUILD_BASE_URL" "$TQX_BUILD_TRADING_BASE_URL" "$TQX_BUILD_GET_API_KEY_URL" > .env
+          cp .env .env.prod
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build SDK and CLI
+        run: bun run build
+
+      - name: Compile and ad-hoc sign macOS standalone binaries
+        shell: bash
+        run: |
+          version="$(bun -p "require('./package.json').version")"
+          mkdir -p dist-bin
+          for arch in x64 arm64; do
+            binary="dist-bin/tqx-v${version}-macos-${arch}"
+            bun build --compile --target="bun-darwin-${arch}" --outfile="$binary" packages/cli/dist/index.mjs
+            # Appending the CLI invalidates the Bun runtime's embedded signature. The darwin-x64
+            # runtime keeps Bun's Developer ID signature, and macOS then rejects keychain reads
+            # (errSecAuthFailed), so Bun.secrets can store an API key but never read it back.
+            codesign --force --sign - "$binary"
+            codesign --verify --strict --verbose=2 "$binary"
+          done
+
+      - name: Upload macOS release artifacts
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-assets-macos
+          path: dist-bin/*
           if-no-files-found: error
 
   compile-windows:
@@ -164,6 +214,7 @@ jobs:
     name: Compress binaries and generate checksums
     needs:
       - publish
+      - compile-macos
       - compile-windows
     runs-on: ubuntu-latest
 

@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 
 import * as v from 'valibot'
 
+import { isRecord } from './utils/basic/type-guard'
 import {
   getBunSecrets,
   getRuntimeEnvironment,
@@ -22,10 +23,29 @@ export class CredentialStoreUnavailableError extends Error {
     super(message, options)
     this.name = 'CredentialStoreUnavailableError'
   }
+
+  /** True when the store exists but refused access, for example a keychain ACL rejection. */
+  get accessDenied(): boolean {
+    const code = isRecord(this.cause) ? this.cause.code : undefined
+    return typeof code === 'string' && ACCESS_DENIED_CODES.has(code)
+  }
+
+  get reason(): string {
+    return this.cause instanceof Error ? this.cause.message : this.message
+  }
 }
+
+export type CredentialWarning = (message: string) => void
 
 export const DEFAULT_ACCOUNT_ID = 'default'
 const BUN_SECRET_SERVICE = 'trade.tqx.cli'
+const ACCESS_DENIED_CODES = new Set([
+  'ERR_SECRETS_ACCESS_DENIED',
+  'ERR_SECRETS_AUTH_FAILED',
+  'ERR_SECRETS_INTERACTION_NOT_ALLOWED',
+  'ERR_SECRETS_INTERACTION_REQUIRED',
+  'ERR_SECRETS_USER_CANCELED',
+])
 
 const credentialsFileSchema = v.strictObject({
   version: v.literal(1),
@@ -141,35 +161,63 @@ export class FallbackCredentialStore implements CredentialStore {
   constructor(
     private readonly preferred: CredentialStore | null,
     private readonly fallback: CredentialStore,
+    private readonly warn: CredentialWarning = () => undefined,
   ) {}
 
   async get(accountId: string): Promise<string | null> {
+    let unreadable: CredentialStoreUnavailableError | undefined
     if (this.preferred) {
       try {
         const secret = await this.preferred.get(accountId)
         if (secret) return secret
       } catch (error) {
         if (!(error instanceof CredentialStoreUnavailableError)) throw error
+        // A missing keychain service (for example on a headless Linux server) is expected and stays
+        // silent; a keychain that refuses access may hold a key the user believes is stored.
+        if (error.accessDenied) unreadable = error
       }
     }
-    return this.fallback.get(accountId)
+    const secret = await this.fallback.get(accountId)
+    if (!secret && unreadable)
+      this.warn(
+        `Unable to read the stored API key from the system keychain (${unreadable.reason}). Run tqx login again or set TQX_API_KEY.`,
+      )
+    return secret
   }
 
   async set(accountId: string, secret: string): Promise<void> {
-    if (this.preferred) {
-      try {
-        await this.preferred.set(accountId, secret)
+    if (!this.preferred) {
+      await this.fallback.set(accountId, secret)
+      return
+    }
+    let reason: string
+    try {
+      await this.preferred.set(accountId, secret)
+      // Some keychains accept a write that the same program cannot read back, for example when
+      // macOS rejects an invalid code signature. Only keep the key there if it round-trips.
+      if ((await this.preferred.get(accountId)) === secret) {
         try {
           await this.fallback.delete(accountId)
         } catch {
           // The keychain write succeeded, so stale fallback cleanup is best-effort.
         }
         return
-      } catch (error) {
-        if (!(error instanceof CredentialStoreUnavailableError)) throw error
       }
+      reason = 'the stored key could not be read back'
+    } catch (error) {
+      if (!(error instanceof CredentialStoreUnavailableError)) throw error
+      reason = error.reason
+    }
+    try {
+      await this.preferred.delete(accountId)
+    } catch {
+      // Removing an unusable keychain entry is best-effort.
     }
     await this.fallback.set(accountId, secret)
+    const location = this.fallback instanceof FileCredentialStore ? this.fallback.path : 'a file'
+    this.warn(
+      `The system keychain is unavailable (${reason}); the API key was stored in ${location}.`,
+    )
   }
 
   async delete(accountId: string): Promise<boolean> {
@@ -185,8 +233,11 @@ export class FallbackCredentialStore implements CredentialStore {
   }
 }
 
-export function createCredentialStore(path = defaultCredentialsPath()): CredentialStore {
-  return new FallbackCredentialStore(runtimeBunSecretsStore(), new FileCredentialStore(path))
+export function createCredentialStore(
+  path = defaultCredentialsPath(),
+  warn?: CredentialWarning,
+): CredentialStore {
+  return new FallbackCredentialStore(runtimeBunSecretsStore(), new FileCredentialStore(path), warn)
 }
 
 export function defaultCredentialsPath(

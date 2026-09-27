@@ -1,3 +1,7 @@
+import { mkdtemp, readFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { extractGlobalOptions, runCli } from '../src/command'
@@ -80,6 +84,55 @@ describe('CLI', () => {
     expect(stdout.value).toContain('"logged_in": true')
     expect(stdout.value).not.toContain('sk-secret-value')
     expect(stderr.value).toBe('')
+  })
+
+  it('stores the key in the file and warns when the keychain cannot read it back', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'tqx-cli-keychain-'))
+    const keychain = new Map<string, string>()
+    vi.stubGlobal('Bun', {
+      env: { ...process.env, XDG_CONFIG_HOME: directory },
+      secrets: {
+        get: () =>
+          Promise.reject(Object.assign(new Error('denied'), { code: 'ERR_SECRETS_AUTH_FAILED' })),
+        set: async ({ name, value }: { name: string; value: string }) => {
+          keychain.set(name, value)
+        },
+        delete: async ({ name }: { name: string }) => keychain.delete(name),
+      },
+    })
+    try {
+      const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(apiResponse({ valid: true }))
+      const stdout = new BufferOutput()
+      const stderr = new BufferOutput()
+
+      await runCli(['login', '--api-key=sk-secret-value', '--plain'], {
+        environment: { TQX_BASE_URL: 'https://api.example.test' },
+        fetch,
+        stdout,
+        stderr,
+      })
+
+      const credentialsPath = join(directory, 'tqx', 'credentials.json')
+      expect(stderr.value).toBe(
+        `Warning: The system keychain is unavailable (denied); the API key was stored in ${credentialsPath}.\n`,
+      )
+      expect(stdout.value).toContain('logged_in  true')
+      expect(keychain.size).toBe(0)
+      expect(JSON.parse(await readFile(credentialsPath, 'utf8')).credentials.default).toBe(
+        'sk-secret-value',
+      )
+
+      const jsonStderr = new BufferOutput()
+      await runCli(['logout', '--json'], {
+        environment: { TQX_BASE_URL: 'https://api.example.test' },
+        fetch,
+        stdout: new BufferOutput(),
+        stderr: jsonStderr,
+      })
+      expect(jsonStderr.value).toBe('')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('prints the GATC welcome message after a successful login', async () => {

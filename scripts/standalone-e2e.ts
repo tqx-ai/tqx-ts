@@ -27,7 +27,7 @@ import {
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
 const root = resolve(import.meta.dirname, '..')
@@ -621,10 +621,20 @@ function baseEnvironment(
   }
 }
 
+const KEYCHAIN_FALLBACK_WARNING =
+  // The warning is colored in the default output mode, so ANSI escapes are matched on purpose.
+  // oxlint-disable-next-line no-control-regex
+  /^(?:\u001b\[[0-9;]*m)*Warning(?:\u001b\[[0-9;]*m)*: The system keychain is unavailable .*\n/m
+
 function normalize(text: string, configRoot: string): string {
-  return text
-    .replaceAll(configRoot, '<CONFIG>')
-    .replaceAll(configRoot.replaceAll('\\', '/'), '<CONFIG>')
+  return (
+    text
+      .replaceAll(configRoot, '<CONFIG>')
+      .replaceAll(configRoot.replaceAll('\\', '/'), '<CONFIG>')
+      // Node on Windows reports fs errors for relative paths with the absolute path, while Bun
+      // keeps the relative path. Both refer to the same file in the fixtures working directory.
+      .replaceAll(`${fixtures}${sep}`, '')
+  )
 }
 
 const allowCredentialStore = Boolean(process.env.CI) || process.env.TQX_E2E_CREDENTIAL_STORE === '1'
@@ -655,7 +665,16 @@ for (const testCase of cases) {
       problems.push(`${label}: exit ${expected.code} (node) != ${actual.code} (binary)`)
     for (const stream of ['stdout', 'stderr'] as const) {
       const left = normalize(expected[stream], referenceRoot)
-      const right = normalize(actual[stream], binaryRoot)
+      let right = normalize(actual[stream], binaryRoot)
+      if (stream === 'stderr') {
+        const fallback = right.match(KEYCHAIN_FALLBACK_WARNING)?.[0]
+        if (fallback && process.platform === 'linux') {
+          // Node.js has no keychain. A Linux host without a secret service makes the binary fall
+          // back to the credentials file with a warning; macOS and Windows must keep the keychain.
+          right = right.replace(fallback, '')
+          process.stdout.write(`note - ${testCase.name}: binary used the credentials file\n`)
+        }
+      }
       if (left !== right)
         problems.push(`${label}: ${stream} differs\n--- node\n${left}\n--- binary\n${right}`)
     }

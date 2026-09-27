@@ -201,6 +201,17 @@ signature).
      `macos-latest`, `macos-15-intel`, and `windows-latest`; the GitHub Release is created only
      after all of them pass.
 
+4. **Ad-hoc signing of macOS binaries** (the `compile-macos` job): the first dry run of the release
+   workflow failed the `login flow` case on `macos-15-intel`. `bun build --compile` for darwin-x64
+   keeps Bun's Developer ID signature, which appending the CLI invalidates; macOS then rejects
+   keychain reads with `errSecAuthFailed (-25293)`, so `Bun.secrets` stores the API key but can
+   never read it back and the user appears logged out. This also affects the v0.5.0 Intel macOS
+   binary. The arm64 runtime gets an ad-hoc linker signature and works. macOS binaries are now
+   compiled on a macOS runner and re-signed with `codesign --force --sign -`, which was verified to
+   fix keychain reads for both architectures. The same dry run showed that Node on Windows reports
+   fs errors for relative paths with the absolute path while Bun keeps the relative path; this is a
+   message-only difference that already exists in v0.5.0, so the e2e suite normalizes that prefix.
+
 Local results (built with Bun 1.4.0, Node 26 as the reference):
 
 | Asset               | Checksums + gzip round trip | Differential e2e                                |

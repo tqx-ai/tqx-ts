@@ -51,6 +51,10 @@ Credential lookup order is:
 2. Bun's system keychain through `Bun.secrets`
 3. `$XDG_CONFIG_HOME/tqx/credentials.json` or `~/.config/tqx/credentials.json`
 
+`tqx login` keeps a key in the keychain only if it can read it back. When the keychain is
+unavailable or rejects the read, the key is stored in the credentials file and the CLI prints a
+warning on stderr. The warning is omitted in `--json` mode.
+
 User API commands:
 
 ```text
