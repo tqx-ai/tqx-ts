@@ -4,18 +4,24 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.5.1 - 2026-09-27
+
 ### Added
 
 - Publish a gzip-compressed `.gz` asset beside each standalone binary. It is less than half the
-  download size, and `tqx self-update` prefers it when `SHA256SUMS` covers it.
+  download size, and `tqx self-update` prefers it when `SHA256SUMS` covers it. The raw binaries are
+  still published, so earlier CLIs can keep updating.
 - Verify every standalone release binary on its own platform against the Node.js CLI with a
   differential end-to-end suite before creating the GitHub Release.
+- Support manual dry runs of the release workflow that build and verify every binary without
+  publishing to npm or creating a GitHub Release.
 
 ### Fixed
 
 - Keep the Intel macOS standalone binary logged in after `tqx login`. Its Bun runtime kept an
   invalidated Developer ID signature, so macOS rejected keychain reads; macOS binaries are now
-  compiled on macOS and ad-hoc signed.
+  compiled on macOS and ad-hoc signed. Intel macOS users should run `tqx login` again after
+  upgrading.
 - Verify that `tqx login` can read an API key back from the system keychain; otherwise store it in
   the credentials file and print a warning instead of reporting a login that later reads as logged
   out. Warn when the keychain refuses to return a stored key.
