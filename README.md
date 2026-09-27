@@ -11,6 +11,8 @@ Install the CLI from the latest standalone release (recommended for agents and s
 
 1. Download the asset for your operating system and CPU architecture from the
    [latest GitHub Release](https://github.com/tqx-ai/tqx-ts/releases/latest).
+   Each binary also has a gzip-compressed `.gz` asset that is less than half the download size;
+   decompress it (for example with `gunzip`) to get the same binary.
 2. Put the binary on your `PATH` as `tqx` (`tqx.exe` on Windows).
 3. Verify the installation:
 

@@ -3,6 +3,8 @@ import { spawn as nodeSpawn, type ChildProcess } from 'node:child_process'
 import { chmod, mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
+import { promisify } from 'node:util'
+import { gunzip } from 'node:zlib'
 
 import { getRuntimeEnvironment, getRuntimeProcess, type RuntimeProcess } from './utils/runtime'
 
@@ -13,6 +15,7 @@ const PROCESS_TIMEOUT_MS = 10 * 60_000
 const QUICK_PROCESS_TIMEOUT_MS = 60_000
 const PROCESS_KILL_GRACE_MS = 5_000
 const CLI_PACKAGE = '@tqx-ai/cli'
+const gunzipAsync = promisify(gunzip)
 
 export type UpdateMethod = 'standalone' | 'npm' | 'pnpm' | 'yarn' | 'bun'
 
@@ -467,24 +470,29 @@ async function updateStandalone(
       `Standalone updates are unavailable for ${process.platform}/${process.arch}.`,
     )
   const expectedName = `tqx-v${check.latest_version}-${platform}-${arch}${platform === 'windows' ? '.exe' : ''}`
-  const asset = check.release.assets.find((item) => item.name === expectedName)
+  const rawAsset = check.release.assets.find((item) => item.name === expectedName)
+  const compressedAsset = check.release.assets.find((item) => item.name === `${expectedName}.gz`)
   const sums = check.release.assets.find((item) => item.name === 'SHA256SUMS')
-  if (!asset || !sums)
+  if ((!rawAsset && !compressedAsset) || !sums)
     throw new UpdateError(
       `Release ${check.latest_version} is missing ${expectedName} or SHA256SUMS.`,
     )
   const fileOps = resolveDependencies(deps).fileOps
   const temporaryPath = `${targetPath}.${process.pid}.${(deps.now ?? Date.now)()}.tmp`
   try {
-    const binary = await download(asset.browser_download_url, deps)
     const checksumText = await downloadText(sums.browser_download_url, deps)
-    const expectedHash = checksumText
-      .split(/\r?\n/)
-      .map((line) => line.trim().split(/\s+/, 2))
-      .find((parts) => parts[1] === asset.name)?.[0]
-    const actualHash = createHash('sha256').update(binary).digest('hex')
-    if (!expectedHash || expectedHash.toLowerCase() !== actualHash)
+    const checksums = parseChecksums(checksumText)
+    // Prefer the gzip asset: the download is less than half the size of the raw binary.
+    const asset =
+      compressedAsset && checksums.has(compressedAsset.name) ? compressedAsset : rawAsset
+    if (!asset) throw new UpdateError(`SHA256 checksum mismatch for ${compressedAsset!.name}.`)
+    const downloaded = await download(asset.browser_download_url, deps)
+    if (checksums.get(asset.name) !== sha256(downloaded))
       throw new UpdateError(`SHA256 checksum mismatch for ${asset.name}.`)
+    const binary = asset === compressedAsset ? await decompress(downloaded, asset.name) : downloaded
+    const rawHash = checksums.get(expectedName)
+    if (asset === compressedAsset && rawHash !== undefined && rawHash !== sha256(binary))
+      throw new UpdateError(`SHA256 checksum mismatch for ${expectedName}.`)
     const existingMode = await fileOps
       .stat(targetPath)
       .then((value) => value.mode & 0o777)
@@ -535,6 +543,27 @@ async function updateStandalone(
       `Unable to replace ${targetPath}. Install version ${check.latest_version} manually from the release assets.`,
       { cause: error },
     )
+  }
+}
+
+function parseChecksums(text: string): Map<string, string> {
+  const checksums = new Map<string, string>()
+  for (const line of text.split(/\r?\n/)) {
+    const [hash, name] = line.trim().split(/\s+/, 2)
+    if (hash && name) checksums.set(name.replace(/^\*/, ''), hash.toLowerCase())
+  }
+  return checksums
+}
+
+function sha256(data: Buffer): string {
+  return createHash('sha256').update(data).digest('hex')
+}
+
+async function decompress(data: Buffer, name: string): Promise<Buffer> {
+  try {
+    return await gunzipAsync(data)
+  } catch (error) {
+    throw new UpdateError(`Unable to decompress ${name}.`, { cause: error })
   }
 }
 

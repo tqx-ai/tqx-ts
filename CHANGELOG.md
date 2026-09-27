@@ -4,6 +4,13 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+### Added
+
+- Publish a gzip-compressed `.gz` asset beside each standalone binary. It is less than half the
+  download size, and `tqx self-update` prefers it when `SHA256SUMS` covers it.
+- Verify every standalone release binary on its own platform against the Node.js CLI with a
+  differential end-to-end suite before creating the GitHub Release.
+
 ## 0.5.0 - 2026-09-22
 
 ### Added

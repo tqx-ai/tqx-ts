@@ -7,8 +7,8 @@ the npm distribution requires Node.js 22.18 or newer.
 
 The recommended installation for agents and servers is the standalone binary from the
 [latest GitHub Release](https://github.com/tqx-ai/tqx-ts/releases/latest). Download the asset for
-your operating system and CPU architecture, put it on your `PATH` as `tqx` (`tqx.exe` on Windows),
-and verify it:
+your operating system and CPU architecture (or its smaller `.gz` asset and decompress it), put it
+on your `PATH` as `tqx` (`tqx.exe` on Windows), and verify it:
 
 ```bash
 tqx --version
