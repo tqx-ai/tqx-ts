@@ -4,6 +4,8 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.5.2 - 2026-09-27
+
 ### Changed
 
 - Publish nothing until every standalone binary passes verification, then upload a draft GitHub
@@ -12,8 +14,10 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ### Fixed
 
-- Check out the repository in the release job again so `gh release create` can publish the GitHub
-  Release after the packaging and verification jobs.
+- Create the GitHub Release reliably: every `gh` command in the release workflow now names the
+  repository explicitly and the release job checks out the repository again. The v0.5.1 workflow
+  published npm but failed to create the GitHub Release, which was then created from the verified
+  workflow assets.
 
 ## 0.5.1 - 2026-09-27
 
