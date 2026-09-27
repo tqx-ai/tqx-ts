@@ -332,6 +332,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # gh release create resolves the target repository from the git checkout.
+      - name: Check out the release tag
+        uses: actions/checkout@v7.0.1
+
       - name: Download packaged release assets
         uses: actions/download-artifact@v8.0.1
         with:

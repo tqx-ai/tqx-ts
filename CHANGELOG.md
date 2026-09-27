@@ -4,6 +4,11 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+### Fixed
+
+- Check out the repository in the release job again so `gh release create` can publish the GitHub
+  Release after the packaging and verification jobs.
+
 ## 0.5.1 - 2026-09-27
 
 ### Added
