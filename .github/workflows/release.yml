@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  # Manual runs are dry runs: they build, compress, and verify every binary on its own platform and
+  # keep the results as workflow artifacts, but never publish to npm or create a GitHub Release.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -38,6 +41,7 @@ jobs:
         run: npm install --global npm@11.5.1
 
       - name: Confirm tag and package version agree
+        if: github.event_name == 'push'
         shell: bash
         run: |
           tag_version="${GITHUB_REF_NAME#v}"
@@ -71,6 +75,7 @@ jobs:
           bun pm pack --cwd packages/cli --destination "$GITHUB_WORKSPACE/release-artifacts" --quiet
 
       - name: Publish SDK
+        if: github.event_name == 'push'
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
@@ -80,6 +85,7 @@ jobs:
             --access public --tag "$tag" --provenance
 
       - name: Publish CLI
+        if: github.event_name == 'push'
         shell: bash
         run: |
           version="${GITHUB_REF_NAME#v}"
@@ -88,23 +94,73 @@ jobs:
           npm publish "$GITHUB_WORKSPACE/release-artifacts/tqx-ai-cli-${version}.tgz" \
             --access public --tag "$tag" --provenance
 
-      - name: Compile Linux and macOS standalone binaries
+      - name: Compile Linux standalone binaries
         shell: bash
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="$(node -p "require('./package.json').version")"
           mkdir -p dist-bin
           bun build --compile --target=bun-linux-x64 --outfile="dist-bin/tqx-v${version}-linux-x64" packages/cli/dist/index.mjs
           bun build --compile --target=bun-linux-arm64 --outfile="dist-bin/tqx-v${version}-linux-arm64" packages/cli/dist/index.mjs
-          bun build --compile --target=bun-darwin-x64 --outfile="dist-bin/tqx-v${version}-macos-x64" packages/cli/dist/index.mjs
-          bun build --compile --target=bun-darwin-arm64 --outfile="dist-bin/tqx-v${version}-macos-arm64" packages/cli/dist/index.mjs
 
-      - name: Upload package and Unix release artifacts
+      - name: Upload package and Linux release artifacts
         uses: actions/upload-artifact@v7.0.1
         with:
           name: release-assets-unix
           path: |
             release-artifacts/*.tgz
             dist-bin/*
+          if-no-files-found: error
+
+  compile-macos:
+    name: Compile and sign macOS standalone binaries
+    runs-on: macos-latest
+    env:
+      TQX_BUILD_BASE_URL: ${{ vars.TQX_BUILD_BASE_URL }}
+      TQX_BUILD_TRADING_BASE_URL: ${{ vars.TQX_BUILD_TRADING_BASE_URL }}
+      TQX_BUILD_GET_API_KEY_URL: ${{ vars.TQX_BUILD_GET_API_KEY_URL }}
+
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Write production build configuration
+        shell: bash
+        run: |
+          printf 'TQX_BUILD_BASE_URL=%s\nTQX_BUILD_TRADING_BASE_URL=%s\nTQX_BUILD_GET_API_KEY_URL=%s\n' \
+            "$TQX_BUILD_BASE_URL" "$TQX_BUILD_TRADING_BASE_URL" "$TQX_BUILD_GET_API_KEY_URL" > .env
+          cp .env .env.prod
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build SDK and CLI
+        run: bun run build
+
+      - name: Compile and ad-hoc sign macOS standalone binaries
+        shell: bash
+        run: |
+          version="$(bun -p "require('./package.json').version")"
+          mkdir -p dist-bin
+          for arch in x64 arm64; do
+            binary="dist-bin/tqx-v${version}-macos-${arch}"
+            bun build --compile --target="bun-darwin-${arch}" --outfile="$binary" packages/cli/dist/index.mjs
+            # Appending the CLI invalidates the Bun runtime's embedded signature. The darwin-x64
+            # runtime keeps Bun's Developer ID signature, and macOS then rejects keychain reads
+            # (errSecAuthFailed), so Bun.secrets can store an API key but never read it back.
+            codesign --force --sign - "$binary"
+            codesign --verify --strict --verbose=2 "$binary"
+          done
+
+      - name: Upload macOS release artifacts
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-assets-macos
+          path: dist-bin/*
           if-no-files-found: error
 
   compile-windows:
@@ -143,7 +199,7 @@ jobs:
       - name: Compile Windows standalone binary
         shell: pwsh
         run: |
-          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
           New-Item -ItemType Directory -Force dist-bin | Out-Null
           bun build --compile --target=bun-windows-x64 --windows-icon=packages/cli/assets/tqx.ico --outfile="dist-bin/tqx-v${version}-windows-x64.exe" packages/cli/dist/index.mjs
 
@@ -154,17 +210,15 @@ jobs:
           path: dist-bin/*.exe
           if-no-files-found: error
 
-  release:
-    name: Create GitHub Release
+  package-binaries:
+    name: Compress binaries and generate checksums
     needs:
       - publish
+      - compile-macos
       - compile-windows
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out the release tag
-        uses: actions/checkout@v7.0.1
-
       - name: Download release artifacts
         uses: actions/download-artifact@v8.0.1
         with:
@@ -180,11 +234,109 @@ jobs:
           find release-assets -mindepth 2 -type f -delete
           find release-assets -mindepth 1 -type d -empty -delete
 
+      - name: Compress standalone binaries
+        shell: bash
+        run: |
+          cd release-assets
+          # Raw binaries stay published so older CLIs can still self-update.
+          gzip -9 --keep --no-name tqx-v*
+          ls -l tqx-v*
+
       - name: Generate SHA256 checksums
         shell: bash
         run: |
           cd release-assets
           sha256sum tqx-v* > SHA256SUMS
+
+      - name: Upload packaged release assets
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: release-assets
+          path: release-assets/*
+          if-no-files-found: error
+
+  verify-binaries:
+    name: Verify ${{ matrix.asset }} binary
+    needs: package-binaries
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            asset: linux-x64
+          - runner: ubuntu-24.04-arm
+            asset: linux-arm64
+          - runner: macos-latest
+            asset: macos-arm64
+          - runner: macos-15-intel
+            asset: macos-x64
+          - runner: windows-latest
+            asset: windows-x64.exe
+    env:
+      TQX_BUILD_BASE_URL: ${{ vars.TQX_BUILD_BASE_URL }}
+      TQX_BUILD_TRADING_BASE_URL: ${{ vars.TQX_BUILD_TRADING_BASE_URL }}
+      TQX_BUILD_GET_API_KEY_URL: ${{ vars.TQX_BUILD_GET_API_KEY_URL }}
+
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 22.18.0
+
+      - name: Write production build configuration
+        shell: bash
+        run: |
+          printf 'TQX_BUILD_BASE_URL=%s\nTQX_BUILD_TRADING_BASE_URL=%s\nTQX_BUILD_GET_API_KEY_URL=%s\n' \
+            "$TQX_BUILD_BASE_URL" "$TQX_BUILD_TRADING_BASE_URL" "$TQX_BUILD_GET_API_KEY_URL" > .env
+          cp .env .env.prod
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build the Node.js reference CLI
+        run: bun run build
+
+      - name: Download packaged release assets
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: release-assets
+          path: release-assets
+
+      - name: Verify checksums and gzip asset
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          asset="tqx-v${version}-${{ matrix.asset }}"
+          chmod +x "release-assets/$asset"
+          bun scripts/verify-release-assets.ts release-assets "$asset"
+
+      - name: Compare the binary with Node.js end to end
+        shell: bash
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          bun scripts/standalone-e2e.ts "release-assets/tqx-v${version}-${{ matrix.asset }}"
+
+  release:
+    name: Create GitHub Release
+    needs: verify-binaries
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download packaged release assets
+        uses: actions/download-artifact@v8.0.1
+        with:
+          name: release-assets
+          path: release-assets
 
       - name: Prepare release notes
         shell: bash
@@ -205,6 +357,9 @@ jobs:
           - **macOS Intel**: `tqx-v__VERSION__-macos-x64`
           - **Linux x64**: `tqx-v__VERSION__-linux-x64`
           - **Linux ARM64**: `tqx-v__VERSION__-linux-arm64`
+
+          Each binary also has a gzip-compressed `.gz` asset that is less than half the download size.
+          Decompress it, for example with `gunzip`, to get the same binary.
 
           Standalone binaries include the CLI runtime and do not require Node.js. For installation,
           upgrades, authentication, and architecture details, see the [TQX CLI skill installation guide](https://github.com/tqx-ai/tqx-ts/blob/__TAG__/skills/tqx-trading/references/commands.md). Installed CLIs can check and upgrade themselves with `tqx self-update`.

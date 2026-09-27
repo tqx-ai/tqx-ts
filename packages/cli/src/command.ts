@@ -31,13 +31,16 @@ export async function runCli(
 ): Promise<void> {
   const normalizedArguments = normalizeGlobalArguments(rawArguments)
   const { arguments: commandArguments, mode } = extractGlobalOptions(normalizedArguments)
+  const output = new Output(mode, dependencies.stdout, dependencies.stderr)
   const resolved: ResolvedDependencies = {
     environment: dependencies.environment ?? getRuntimeEnvironment(),
-    credentialStore: dependencies.credentialStore ?? createCredentialStore(),
+    credentialStore:
+      dependencies.credentialStore ??
+      createCredentialStore(undefined, (message) => output.warning(message)),
     fetch: dependencies.fetch,
     stdout: dependencies.stdout ?? getRuntimeProcess().stdout,
     stderr: dependencies.stderr ?? getRuntimeProcess().stderr,
-    output: new Output(mode, dependencies.stdout, dependencies.stderr),
+    output,
   }
 
   const updateDependencies: UpdateDependencies = {

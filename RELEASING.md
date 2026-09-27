@@ -58,6 +58,21 @@ continuing.
 Commit the final version and changelog, then push the release commit to `main`. The release tag
 must point at that exact commit.
 
+## Dry Run
+
+Run the release workflow manually to rehearse a release without publishing anything. A dry run
+runs the release checks, builds and compresses every standalone binary, and verifies each one on
+its own platform, but it skips the tag check, both npm publishes, and the GitHub Release. The
+binaries, gzip assets, npm tarballs, and `SHA256SUMS` are kept as the `release-assets` workflow
+artifact. Push the branch first; the workflow runs the version of `release.yml` on that branch:
+
+```bash
+gh workflow run release.yml --ref <branch>
+gh run list --workflow release.yml --branch <branch> --limit 1
+gh run watch <run-id>
+gh run download <run-id> --name release-assets --dir release-assets
+```
+
 ## Tag And Publish
 
 The tag workflow at `.github/workflows/release.yml` is the only publishing path. It runs the
@@ -75,6 +90,13 @@ git push origin v<version>
 ```
 
 Pushing `v<version>` triggers GitHub Actions. Monitor the workflow to completion before proceeding.
+The workflow also publishes a gzip-compressed `.gz` asset beside each standalone binary, covers both
+in `SHA256SUMS`, and runs `scripts/verify-release-assets.ts` plus the Node.js differential suite
+`scripts/standalone-e2e.ts` on each binary's own platform before it creates the GitHub Release.
+Unit tests cover only the TypeScript source, so these checks are what confirm that each compiled
+binary behaves exactly like the npm CLI on Node.js and that the `.gz` assets `tqx self-update`
+prefers match their checksums. To check a locally compiled binary, run
+`bun scripts/standalone-e2e.ts <binary>` after `bun run build`.
 For a repository configuration failure before publishing, correct the configuration and rerun the
 workflow for the same tag. For a release-content failure, create a new patch version and tag its
 commit. If a package was published, never reuse or overwrite that version.

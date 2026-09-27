@@ -96,18 +96,20 @@ tqx --version
 tqx --help
 ```
 
-macOS or Linux (select exactly one asset URL for the detected architecture):
+macOS or Linux (select exactly one asset URL for the detected architecture). Prefer the
+`<asset>.gz` URL when the release has one; it is less than half the download size:
 
 ```sh
 mkdir -p "$HOME/.local/bin"
-curl --fail --location '<resolved-release-asset-url>' -o "$HOME/.local/bin/tqx"
+curl --fail --location '<resolved-release-asset-url>.gz' | gunzip > "$HOME/.local/bin/tqx"
 chmod +x "$HOME/.local/bin/tqx"
 export PATH="$HOME/.local/bin:$PATH"
 tqx --version
 tqx --help
 ```
 
-Select the matching release asset for macOS or Linux and the detected architecture. Persist the
+Select the matching release asset for macOS or Linux and the detected architecture. For a release
+without `.gz` assets, download the raw asset URL with `-o "$HOME/.local/bin/tqx"` instead. Persist the
 `PATH` export in the user's shell startup file when needed.
 
 If the standalone binary cannot be downloaded, the platform is unsupported, or the global bin directory is not writable, install the resolved npm package version globally instead:

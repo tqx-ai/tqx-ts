@@ -1,8 +1,10 @@
 import type { spawn as nodeSpawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { gzipSync } from 'node:zlib'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
@@ -59,6 +61,35 @@ function hangingChild() {
       return true
     }),
   })
+}
+
+function releaseFetch(bodies: Record<string, string | Buffer>) {
+  return vi.fn<typeof globalThis.fetch>(async (input) => {
+    const body = bodies[String(input)]
+    return body === undefined
+      ? new Response(null, { status: 404 })
+      : new Response(typeof body === 'string' ? body : new Uint8Array(body))
+  })
+}
+
+function standaloneCheck() {
+  return {
+    current_version: '0.3.1',
+    latest_version: '0.4.0',
+    update_available: true,
+    release: release('v0.4.0', {
+      assets: [
+        { name: 'tqx-v0.4.0-linux-x64', browser_download_url: 'https://example.test/tqx' },
+        { name: 'tqx-v0.4.0-linux-x64.gz', browser_download_url: 'https://example.test/tqx.gz' },
+        { name: 'SHA256SUMS', browser_download_url: 'https://example.test/SHA256SUMS' },
+      ],
+    }),
+    checked: true,
+  }
+}
+
+function sha256(data: Buffer): string {
+  return createHash('sha256').update(data).digest('hex')
 }
 
 afterEach(() => vi.restoreAllMocks())
@@ -292,10 +323,10 @@ describe('CLI updates', () => {
     const directory = await mkdtemp(join(tmpdir(), 'tqx-update-'))
     const target = join(directory, 'tqx')
     const binary = Buffer.from('untrusted')
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(new Response(binary))
-      .mockResolvedValueOnce(new Response(`000000  tqx-v0.4.0-linux-x64\n`))
+    const fetch = releaseFetch({
+      'https://example.test/tqx': binary,
+      'https://example.test/SHA256SUMS': `000000  tqx-v0.4.0-linux-x64\n`,
+    })
     const spawn = vi.fn()
     const check = {
       current_version: '0.3.1',
@@ -319,6 +350,75 @@ describe('CLI updates', () => {
     ).rejects.toThrow('SHA256 checksum mismatch')
     expect(spawn).not.toHaveBeenCalled()
     await expect(writeFile(target, binary)).resolves.toBeUndefined()
+  })
+
+  it('prefers the verified gzip asset and installs the decompressed binary', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'tqx-update-'))
+    const target = join(directory, 'tqx')
+    await writeFile(target, 'old binary', { mode: 0o755 })
+    const binary = Buffer.from('new binary')
+    const compressed = gzipSync(binary)
+    const fetch = releaseFetch({
+      'https://example.test/tqx.gz': compressed,
+      'https://example.test/SHA256SUMS': `${sha256(binary)}  tqx-v0.4.0-linux-x64\n${sha256(compressed)}  tqx-v0.4.0-linux-x64.gz\n`,
+    })
+    const spawn = vi.fn(() => completedChild('0.4.0\n'))
+
+    const result = await runUpdate(standaloneCheck(), {
+      process: runtime({ execPath: target, argv: ['tqx'] }),
+      fetch,
+      spawn: spawn as unknown as typeof nodeSpawn,
+    })
+
+    expect(result).toMatchObject({ updated: true, method: 'standalone', install_path: target })
+    expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
+      'https://example.test/SHA256SUMS',
+      'https://example.test/tqx.gz',
+    ])
+    expect(await readFile(target)).toEqual(binary)
+    expect((await stat(target)).mode & 0o777).toBe(0o755)
+  })
+
+  it('rejects a gzip asset whose content does not match the raw binary checksum', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'tqx-update-'))
+    const target = join(directory, 'tqx')
+    const compressed = gzipSync(Buffer.from('tampered binary'))
+    const fetch = releaseFetch({
+      'https://example.test/tqx.gz': compressed,
+      'https://example.test/SHA256SUMS': `${sha256(Buffer.from('expected binary'))}  tqx-v0.4.0-linux-x64\n${sha256(compressed)}  tqx-v0.4.0-linux-x64.gz\n`,
+    })
+    const spawn = vi.fn()
+
+    await expect(
+      runUpdate(standaloneCheck(), {
+        process: runtime({ execPath: target, argv: ['tqx'] }),
+        fetch,
+        spawn,
+      }),
+    ).rejects.toThrow('SHA256 checksum mismatch for tqx-v0.4.0-linux-x64.')
+    expect(spawn).not.toHaveBeenCalled()
+  })
+
+  it('falls back to the raw asset when SHA256SUMS does not cover the gzip asset', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'tqx-update-'))
+    const target = join(directory, 'tqx')
+    const binary = Buffer.from('new binary')
+    const fetch = releaseFetch({
+      'https://example.test/tqx': binary,
+      'https://example.test/SHA256SUMS': `${sha256(binary)}  tqx-v0.4.0-linux-x64\n`,
+    })
+    const spawn = vi.fn(() => completedChild('0.4.0\n'))
+
+    await runUpdate(standaloneCheck(), {
+      process: runtime({ execPath: target, argv: ['tqx'] }),
+      fetch,
+      spawn: spawn as unknown as typeof nodeSpawn,
+    })
+
+    expect(fetch.mock.calls.map(([url]) => String(url))).not.toContain(
+      'https://example.test/tqx.gz',
+    )
+    expect(await readFile(target)).toEqual(binary)
   })
 
   it('refuses package installation when the global bin path cannot be resolved', async () => {
