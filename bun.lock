@@ -21,10 +21,12 @@
         "tqx": "./dist/index.mjs",
       },
       "dependencies": {
-        "@tqx-ai/sdk": "workspace:*",
         "citty": "^0.2.2",
         "picocolors": "^1.1.1",
         "valibot": "^1.4.2",
+      },
+      "devDependencies": {
+        "@tqx-ai/sdk": "workspace:*",
       },
     },
     "packages/sdk": {

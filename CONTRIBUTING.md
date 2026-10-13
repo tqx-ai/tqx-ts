@@ -50,9 +50,10 @@ bun run build
 bun run pack:check
 ```
 
-`bun run build` creates production artifacts in each package's `dist` directory. Use Bun to pack
-and publish this workspace: it replaces local `workspace:*` dependencies with the published package
-version. An npm-created CLI tarball retains `workspace:*` and cannot be installed from the registry.
+`bun run build` creates production artifacts in each package's `dist` directory. The CLI build
+bundles the SDK source, so `@tqx-ai/sdk` is only a CLI dev dependency and is never installed with
+the CLI. Use Bun to pack and publish this workspace: it replaces local `workspace:*` specifiers with
+the published package version.
 
 Run the complete release gate with `bun run release:check`. See [RELEASING.md](./RELEASING.md) for
 the versioning, publishing, verification, and Git tag procedure.

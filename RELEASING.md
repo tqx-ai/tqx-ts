@@ -1,14 +1,14 @@
 # Release Process
 
-The SDK must be published before the CLI because `@tqx-ai/cli` depends on the matching
-`@tqx-ai/sdk` version.
+`@tqx-ai/cli` bundles the `@tqx-ai/sdk` source into its build output and declares the SDK only as a
+dev dependency, so installing the CLI never installs the SDK.
 
 The release being prepared is npm version `0.5.2` with planned Git tag `v0.5.2`.
 
-Use Bun to pack packages. Bun rewrites `workspace:*` to the workspace package version; an
-npm-created CLI tarball does not and will fail to install with `EUNSUPPORTEDPROTOCOL`. The release
-workflow publishes the resulting Bun tarballs through npm Trusted Publishing. The repository is
-public, so both npm publishes use GitHub OIDC and include provenance attestations.
+Use Bun to pack packages. Bun rewrites `workspace:*` specifiers, including the CLI's SDK dev
+dependency, to the workspace package version, so no published manifest contains the workspace
+protocol. The release workflow publishes the resulting Bun tarballs through npm Trusted Publishing.
+The repository is public, so both npm publishes use GitHub OIDC and include provenance attestations.
 
 ## Prerequisites
 
@@ -52,8 +52,8 @@ git status --short
 
 `release:check` validates versions, licenses, changelog metadata, and production URLs, then runs
 formatting, lint, type checks, unit tests, production builds, Node/Bun smoke tests, Bun package dry
-runs, and an isolated npm install of both tarballs. Review both package file lists before
-continuing.
+runs, and a separate isolated npm install of each tarball that confirms the CLI runs without the SDK
+installed. Review both package file lists before continuing.
 
 Commit the final version and changelog, then push the release commit to `main`. The release tag
 must point at that exact commit.

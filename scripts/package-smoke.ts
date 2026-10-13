@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
@@ -7,6 +7,8 @@ const root = resolve(import.meta.dirname, '..')
 const sdkDirectory = resolve(root, 'packages/sdk')
 const cliDirectory = resolve(root, 'packages/cli')
 const temporaryDirectory = mkdtempSync(join(tmpdir(), 'tqx-package-smoke-'))
+const sdkInstallDirectory = resolve(temporaryDirectory, 'sdk-install')
+const cliInstallDirectory = resolve(temporaryDirectory, 'cli-install')
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 
 const sdkPackageJson = readJson(resolve(sdkDirectory, 'package.json'))
@@ -28,30 +30,45 @@ try {
     cliDirectory,
   )
 
+  mkdirSync(sdkInstallDirectory, { recursive: true })
+  mkdirSync(cliInstallDirectory, { recursive: true })
   writeFileSync(
-    resolve(temporaryDirectory, 'package.json'),
-    JSON.stringify({ name: 'tqx-package-smoke', private: true }, null, 2),
+    resolve(sdkInstallDirectory, 'package.json'),
+    JSON.stringify({ name: 'tqx-sdk-package-smoke', private: true }, null, 2),
+  )
+  writeFileSync(
+    resolve(cliInstallDirectory, 'package.json'),
+    JSON.stringify({ name: 'tqx-cli-package-smoke', private: true }, null, 2),
   )
   run(
-    'Install packed SDK and CLI with npm',
+    'Install packed SDK with npm',
     npm,
-    ['install', '--ignore-scripts', '--no-audit', '--no-fund', sdkTarball, cliTarball],
-    temporaryDirectory,
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund', sdkTarball],
+    sdkInstallDirectory,
+  )
+  run(
+    'Install packed CLI with npm without the SDK package',
+    npm,
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund', cliTarball],
+    cliInstallDirectory,
   )
 
   const installedCliPackageJson = readJson(
-    resolve(temporaryDirectory, 'node_modules/@tqx-ai/cli/package.json'),
+    resolve(cliInstallDirectory, 'node_modules/@tqx-ai/cli/package.json'),
   )
-  const installedSdkVersion = installedCliPackageJson.dependencies?.['@tqx-ai/sdk']
-  if (installedSdkVersion !== sdkPackageJson.version) {
-    throw new Error(
-      `CLI dependency was not rewritten to the SDK version: expected ${sdkPackageJson.version}, received ${installedSdkVersion}`,
-    )
+  for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies'] as const) {
+    if (installedCliPackageJson[field] && '@tqx-ai/sdk' in installedCliPackageJson[field]) {
+      throw new Error(`Packed CLI unexpectedly declares @tqx-ai/sdk in ${field}`)
+    }
   }
-  process.stdout.write(`ok - CLI dependency rewritten to ${installedSdkVersion}\n`)
+  if (existsSync(resolve(cliInstallDirectory, 'node_modules/@tqx-ai/sdk'))) {
+    throw new Error('Installing the packed CLI unexpectedly installed @tqx-ai/sdk')
+  }
+  process.stdout.write('ok - Packed CLI installs without @tqx-ai/sdk\n')
 
   for (const packageName of ['sdk', 'cli']) {
-    const licensePath = resolve(temporaryDirectory, `node_modules/@tqx-ai/${packageName}/LICENSE`)
+    const installDirectory = packageName === 'sdk' ? sdkInstallDirectory : cliInstallDirectory
+    const licensePath = resolve(installDirectory, `node_modules/@tqx-ai/${packageName}/LICENSE`)
     if (!existsSync(licensePath)) throw new Error(`Packed ${packageName} is missing LICENSE`)
   }
   process.stdout.write('ok - Packed SDK and CLI include LICENSE\n')
@@ -64,19 +81,19 @@ try {
       '--eval',
       "import('@tqx-ai/sdk').then(m => { if (typeof m.TqxClient !== 'function') process.exit(1) })",
     ],
-    temporaryDirectory,
+    sdkInstallDirectory,
   )
   run(
     'Installed Node CJS SDK require',
     'node',
     ['--eval', "if (typeof require('@tqx-ai/sdk').TqxClient !== 'function') process.exit(1)"],
-    temporaryDirectory,
+    sdkInstallDirectory,
   )
   run(
     'Installed Node CLI version',
     'node',
-    [resolve(temporaryDirectory, 'node_modules/@tqx-ai/cli/dist/index.mjs'), '-V'],
-    temporaryDirectory,
+    [resolve(cliInstallDirectory, 'node_modules/@tqx-ai/cli/dist/index.mjs'), '-V'],
+    cliInstallDirectory,
     cliPackageJson.version,
   )
 } finally {
@@ -105,5 +122,7 @@ function run(
 
 interface PackageJson {
   dependencies?: Record<string, string>
+  optionalDependencies?: Record<string, string>
+  peerDependencies?: Record<string, string>
   version: string
 }
