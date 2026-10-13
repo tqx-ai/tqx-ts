@@ -33,10 +33,17 @@ for (const [name, packageJson] of [
 }
 process.stdout.write('ok - All package licenses are GPL-3.0-only\n')
 
-if (cliPackageJson.dependencies?.['@tqx-ai/sdk'] !== 'workspace:*') {
-  throw new Error('CLI must use workspace:* for its local SDK dependency')
+if (cliPackageJson.devDependencies?.['@tqx-ai/sdk'] !== 'workspace:*') {
+  throw new Error('CLI must use workspace:* for its local SDK dev dependency')
 }
-process.stdout.write('ok - CLI uses the workspace SDK dependency\n')
+for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies'] as const) {
+  if (cliPackageJson[field] && '@tqx-ai/sdk' in cliPackageJson[field]) {
+    throw new Error(`CLI must not publish the bundled SDK in ${field}`)
+  }
+}
+process.stdout.write(
+  'ok - CLI bundles the workspace SDK without publishing it as a runtime dependency\n',
+)
 
 for (const key of [
   'TQX_BUILD_BASE_URL',
@@ -71,6 +78,9 @@ function readJson(path: string): PackageJson {
 
 interface PackageJson {
   dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
   license?: string
+  optionalDependencies?: Record<string, string>
+  peerDependencies?: Record<string, string>
   version: string
 }
