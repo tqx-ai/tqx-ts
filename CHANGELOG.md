@@ -4,6 +4,8 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.5.3 - 2026-10-13
+
 ### Changed
 
 - `@tqx-ai/cli` no longer installs `@tqx-ai/sdk` as a runtime dependency. The CLI already bundles
