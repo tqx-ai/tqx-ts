@@ -234,6 +234,14 @@ const PANDA_DATA_METHODS = [
   ),
 ] as const
 
+// Enum values follow the Qube runtime's tqx_data readers, not the chat agent contract:
+// minute data exists for 1m/5m/10m/60m, and the live, tick, and filing readers name the
+// US market `nb`.
+const QUBE_MINUTE_FREQUENCIES = ['10m', '1m', '5m', '60m'] as const
+const HK_US_MARKET = { market: ['hk', 'us'] } as const
+const DATED_REFERENCE_PARAMS = ['symbol', 'start_date', 'end_date', 'fields', 'market'] as const
+const REFERENCE_PARAMS = ['symbol', 'fields', 'market'] as const
+
 const TQX_DATA_METHODS = [
   method(
     'get_hk_daily',
@@ -253,7 +261,7 @@ const TQX_DATA_METHODS = [
     ['start_date', 'end_date'],
     ['symbol', 'start_date', 'end_date', 'fields', 'frequency'],
     {
-      frequency: ['15m', '1m', '5m', '60m'],
+      frequency: QUBE_MINUTE_FREQUENCIES,
     },
   ),
   method(
@@ -261,7 +269,7 @@ const TQX_DATA_METHODS = [
     ['start_date', 'end_date'],
     ['symbol', 'start_date', 'end_date', 'fields', 'frequency', 'market'],
     {
-      frequency: ['15m', '1m', '5m', '60m'],
+      frequency: QUBE_MINUTE_FREQUENCIES,
       market: ['nb', 'ny'],
     },
   ),
@@ -277,12 +285,13 @@ const TQX_DATA_METHODS = [
     },
   ),
   method('get_live_market_data', ['symbols'], ['symbols', 'count']),
+  // The runtime ignores `market` when `symbol` is given, so `us` stays valid for existing sources.
   method('get_min_data', ['symbol', 'market'], ['symbol', 'count', 'market', 'frequency'], {
-    market: ['hk', 'us'],
-    frequency: ['15m', '1m', '5m', '60m'],
+    market: ['hk', 'nb', 'us'],
+    frequency: QUBE_MINUTE_FREQUENCIES,
   }),
   method('get_tick_data', ['symbol', 'market'], ['symbol', 'market'], {
-    market: ['hk', 'us'],
+    market: ['hk', 'nb'],
   }),
   method(
     'get_factor',
@@ -315,13 +324,43 @@ const TQX_DATA_METHODS = [
     ['market'],
     ['symbol', 'start_date', 'end_date', 'fields', 'market'],
     {
-      market: ['hk', 'us'],
+      market: ['hk', 'nb'],
     },
   ),
   method('get_index_component', ['market'], ['stock_symbol', 'index_symbol', 'market'], {
     market: ['hk', 'us'],
   }),
   method('get_currency', [], ['start_date', 'end_date', 'fields']),
+  // Events, company data, and consensus exist in the Qube backtest runtime and pass the
+  // server's save check. calculate_indicators is excluded: the server rejects tqx_data calls
+  // without a get_ prefix.
+  ...[
+    'get_event_devidend',
+    'get_event_capital_market',
+    'get_event_corporate_actions',
+    'get_event_fina_disclosure',
+    'get_event_investor_relation_activities',
+    'get_company_insider_transaction',
+    'get_company_shareholder_report',
+  ].map((name) =>
+    method(name, ['start_date', 'end_date', 'market'], DATED_REFERENCE_PARAMS, HK_US_MARKET),
+  ),
+  ...[
+    'get_company_concentration',
+    'get_company_top_concentration',
+    'get_company_current',
+    'get_company_imed',
+    'get_company_price_vol',
+    'get_consensus_nonperiod',
+    'get_consensus_recommend',
+  ].map((name) => method(name, ['market'], REFERENCE_PARAMS, HK_US_MARKET)),
+  method('get_company_investor', ['market'], [...REFERENCE_PARAMS, 'max_rank'], HK_US_MARKET),
+  method(
+    'get_company_oper_metrics',
+    ['start_year', 'end_year', 'market'],
+    [...REFERENCE_PARAMS, 'start_year', 'end_year'],
+    HK_US_MARKET,
+  ),
 ] as const
 
 export const PANDA_DATA_CATALOG = buildCatalog(PANDA_DATA_METHODS)

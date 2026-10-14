@@ -237,6 +237,81 @@ def handle_data(context, data):
     expect(error.issues[0]?.message).toContain('market')
   })
 
+  it('accepts the US market and minute frequency names the Qube runtime uses', () => {
+    const code = `
+import tqx_data
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import *
+
+def init_market_data(context):
+    context.latest = tqx_data.get_tick_data(symbol=['XPEV.NB'], market='nb')
+    context.filings = tqx_data.get_filing_announcement(symbol=['XPEV.NB'], market='nb')
+    context.minutes = tqx_data.get_min_data(symbol=['XPEV.NB'], market='nb', frequency='10m')
+
+def initialize(context):
+    init_market_data(context)
+
+def handle_data(context, data):
+    pass
+`
+    expect(() => validateStrategyCode(code, 'us')).not.toThrow()
+  })
+
+  it('accepts event, company, and consensus data in Qube strategies', () => {
+    const code = `
+import tqx_data
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import *
+
+def init_market_data(context):
+    context.dividends = tqx_data.get_event_devidend(
+        symbol=['NIO.NB'], start_date='20260101', end_date='20261012', market='us',
+    )
+    context.investors = tqx_data.get_company_investor(symbol=['NIO.NB'], market='us', max_rank=10)
+    context.metrics = tqx_data.get_company_oper_metrics(
+        symbol=['NIO.NB'], start_year='2024', end_year='2026', market='us',
+    )
+    context.consensus = tqx_data.get_consensus_recommend(symbol=['NIO.NB'], market='us')
+
+def initialize(context):
+    init_market_data(context)
+
+def handle_data(context, data):
+    pass
+`
+    expect(() => validateStrategyCode(code, 'us')).not.toThrow()
+  })
+
+  it.each([
+    ["tqx_data.get_tick_data(symbol=['XPEV.NB'], market='us')", 'market'],
+    ["tqx_data.get_filing_announcement(symbol=['XPEV.NB'], market='us')", 'market'],
+    ["tqx_data.get_min_data(symbol=['XPEV.NB'], market='nb', frequency='15m')", 'frequency'],
+    [
+      "tqx_data.get_event_devidend(symbol=['XPEV.NB'], start_date='20260101', end_date='20261012', market='nb')",
+      'market',
+    ],
+    ['tqx_data.calculate_indicators(market_data={}, indicator_params={})', 'allowlist'],
+  ])('rejects runtime-invalid arguments in %s', (call, keyword) => {
+    const error = expectValidationError(
+      `
+import tqx_data
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import *
+
+def init_market_data(context):
+    context.result = ${call}
+
+def initialize(context):
+    init_market_data(context)
+
+def handle_data(context, data):
+    pass
+`,
+      'us',
+    )
+    expect(error.issues[0]?.message).toContain(keyword)
+  })
+
   it('rejects lifecycle and context-state violations', () => {
     const orderError = expectValidationError(
       `
@@ -293,6 +368,21 @@ def handle_data(context, data):
     expect(hkIndexComponent).toBeDefined()
     expect(stockMarketData).toBeDefined()
     expect(usDaily?.enums.market).toEqual(['nb', 'ny'])
+    const tqxCatalog = catalogForMarket('us').catalog
+    expect(tqxCatalog.get_tick_data?.enums.market).toEqual(['hk', 'nb'])
+    expect(tqxCatalog.get_filing_announcement?.enums.market).toEqual(['hk', 'nb'])
+    for (const name of ['get_hk_min', 'get_us_min', 'get_min_data']) {
+      expect(tqxCatalog[name]?.enums.frequency).toEqual(['10m', '1m', '5m', '60m'])
+    }
+    expect(tqxCatalog.get_event_devidend?.required).toEqual(['start_date', 'end_date', 'market'])
+    expect(tqxCatalog.get_event_devidend?.enums.market).toEqual(['hk', 'us'])
+    expect(tqxCatalog.get_company_oper_metrics?.required).toEqual([
+      'start_year',
+      'end_year',
+      'market',
+    ])
+    expect(Object.keys(tqxCatalog)).toHaveLength(30)
+    expect(tqxCatalog.calculate_indicators).toBeUndefined()
     expect(hkIndexComponent?.required).toEqual(['market'])
     expect(stockMarketData?.enums.type).toEqual(['future', 'index', 'stock'])
   })

@@ -4,7 +4,7 @@ Use this reference when this Skill was loaded from a temporary network URL, or w
 
 ## Selection rule
 
-Use this order for all three TQX Skills:
+Use this order for all four TQX Skills:
 
 1. Inspect the current harness. If the requested Skill is already loaded or a usable local copy exists, use it directly and do not install or fetch another copy.
 2. Identify the harness's native Skill manager and use it when available.
@@ -20,7 +20,7 @@ The public source repository is:
 https://github.com/tqx-ai/tqx-ts
 ```
 
-The three skill names are `tqx-research`, `tqx-trading`, and `what-is-tqx`.
+The four skill names are `tqx-data`, `tqx-research`, `tqx-trading`, and `what-is-tqx`.
 
 ## Bug report
 
@@ -72,10 +72,11 @@ List the skills discovered in the repository:
 npx skills add tqx-ai/tqx-ts --list
 ```
 
-Install all three Skills in one selected scope. Set `--agent` to the agent matching the current harness (for example the CLI or IDE agent you are running in); do not assume a specific one. For a project installation, use:
+Install all four Skills in one selected scope. Set `--agent` to the agent matching the current harness (for example the CLI or IDE agent you are running in); do not assume a specific one. For a project installation, use:
 
 ```bash
 npx skills add tqx-ai/tqx-ts \
+  --skill tqx-data \
   --skill tqx-research \
   --skill tqx-trading \
   --skill what-is-tqx \
@@ -87,6 +88,7 @@ For a global installation, use this instead, never in addition to the project co
 
 ```bash
 npx skills add tqx-ai/tqx-ts \
+  --skill tqx-data \
   --skill tqx-research \
   --skill tqx-trading \
   --skill what-is-tqx \
@@ -95,11 +97,11 @@ npx skills add tqx-ai/tqx-ts \
   --yes
 ```
 
-The CLI also supports `--skill '*'` to install every discovered skill, but prefer the three explicit names above so unrelated future skills in the repository are not installed accidentally.
+The CLI also supports `--skill '*'` to install every discovered skill, but prefer the four explicit names above so unrelated future skills in the repository are not installed accidentally.
 
 ## Verify
 
-After installation, verify that all three `SKILL.md` files exist in the selected agent directory and that their frontmatter contains `name` and `description`. Reload the agent if it does not discover newly installed skills immediately.
+After installation, verify that all four `SKILL.md` files exist in the selected agent directory and that their frontmatter contains `name` and `description`. Reload the agent if it does not discover newly installed skills immediately.
 
 ## Temporary network access
 

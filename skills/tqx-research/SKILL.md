@@ -1,6 +1,6 @@
 ---
 name: tqx-research
-description: Use TQX Qube's Hong Kong and US stock investment research infrastructure, including CLI installation and API-key onboarding, @tqx-ai/cli, @tqx-ai/sdk, factors, factor analysis, strategies, backtesting, panda_backtest market API, tqx_data, time-series strategies, cross-sectional strategies, and Qube simulation or agent decision-support environments. Use when users mention Qube, TQX Agent Quant, tqx research, Research API, factor analysis, strategy backtesting, Hong Kong or US stock strategies, tqx_data, or Qube Python strategy code. Do not use for trading balances, positions, orders, fills, PAPER/LIVE trading accounts, mainland China stocks, futures, or the old QuantFlow workflow.
+description: Use TQX Qube's Hong Kong and US stock investment research infrastructure, including CLI installation and API-key onboarding, @tqx-ai/cli, @tqx-ai/sdk, factors, factor analysis, strategies, backtesting, panda_backtest market API, tqx_data in Qube strategy source, time-series strategies, cross-sectional strategies, and Qube simulation or agent decision-support environments. Use when users mention Qube, TQX Agent Quant, tqx research, Research API, factor analysis, strategy backtesting, Hong Kong or US stock strategies, tqx_data in a strategy, or Qube Python strategy code. Do not use for trading balances, positions, orders, fills, PAPER/LIVE trading accounts, the local tqx-data Python package or a TQX data account (use tqx-data), mainland China stocks, futures, or the old QuantFlow workflow.
 ---
 
 # TQX Research
@@ -43,7 +43,7 @@ This Skill is served from the moving `main` branch and must not be treated as a 
 - Generate or modify strategy source code: first read [Strategy Templates](references/strategy_templates.md), then read the corresponding [Hong Kong Stock API](references/stock_hk_api.md) or [US Stock API](references/stock_us_api.md) corresponding to the market.
 - Generate time-series strategies: also read [Time-Series Strategies](references/time_series_strategies.md).
 - Generate cross-sectional strategies, dynamic stock universes, or fundamental filters: also read [Cross-Sectional Strategies](references/cross_sectional_strategies.md).
-- When strategy code calls `tqx_data` directly, read [Quick Reference](references/tqx_data_quick_reference.md), [Market Matrix](references/tqx_data_market_matrix.md), and the complete [Data API](references/tqx_data_usage.md) in that order. The full API reference is the sole authority for fields, parameters, and market restrictions.
+- When strategy code calls `tqx_data` directly, read [Quick Reference](references/tqx_data_quick_reference.md), [Market Matrix](references/tqx_data_market_matrix.md), and the complete [Data API](references/tqx_data_usage.md) in that order. The full API reference is the sole authority for fields, parameters, and market restrictions. Qube strategies may call only the methods that the Quick Reference lists as available; for data outside that list, use [`tqx-data`](../tqx-data/SKILL.md) locally instead of adding the call to strategy source.
 - To confirm the CLI's local source inspection boundaries, read [Strategy Source Constraints](references/strategy-source.md).
 
 ## How to work

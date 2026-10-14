@@ -4,6 +4,23 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+### Added
+
+- Qube strategy validation accepts the event, company, and consensus methods that the Qube
+  backtest runtime provides: the five `get_event_*` methods, the nine `get_company_*` methods, and
+  `get_consensus_nonperiod` and `get_consensus_recommend`, with `market="hk"` or `"us"`.
+  `calculate_indicators` stays rejected because the Qube server accepts only `tqx_data` methods
+  whose names start with `get_`.
+
+### Fixed
+
+- Qube strategy validation now matches the values the Qube runtime accepts. US
+  `get_tick_data`, `get_filing_announcement`, and `get_min_data` calls accept `market="nb"`, and
+  minute data accepts `frequency="10m"`. `market="us"` for `get_tick_data` and
+  `get_filing_announcement`, and `frequency="15m"`, are now rejected because the runtime refuses
+  them; `get_min_data` still accepts `market="us"` because the runtime ignores it when a symbol is
+  given.
+
 ## 0.5.3 - 2026-10-13
 
 ### Changed
