@@ -4,6 +4,8 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.5.4 - 2026-10-14
+
 ### Added
 
 - Qube strategy validation accepts the event, company, and consensus methods that the Qube
