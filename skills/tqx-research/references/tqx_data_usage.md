@@ -2,7 +2,9 @@
 >
 > **维护**：接口说明由本仓库审阅与修订；变更时直接更新本文件并更新下方日期。
 >
-> **修订日期**：2026-04-21
+> **修订日期**：2026-10-14
+>
+> **Qube 可用范围**：本文档中除 `calculate_indicators` 以外的方法都可以写进 Qube 策略源码（服务端拒绝不以 `get_` 开头的 `tqx_data` 调用）。`get_company_*` 与 `get_consensus_*` 中没有日期参数的方法返回的是最新快照，没有历史版本，放进回测会产生前视偏差，只能用于当前状态筛选；事件类数据须按公告日期过滤。若保存策略时 `get_event_devidend` 或 `market="nb"` 被拒（`quality_gate_failed`），说明 Qube 服务端尚未更新，可暂时在用户本机用 tqx-data（`skills/tqx-data`）获取分红事件。
 >
 > --- 
 
@@ -48,7 +50,7 @@
 | pre_close    | double | 前一日收盘价          |
 | name         | str    | 股票名称              |
 | trade_status | int    | 交易状态代码          |
-| alt_close    | double | 调整收市价（同close） |
+| alt_close    | double | 备用收市价，与 close 相同；未做除权除息调整，不能当复权价使用 |
 | acvol_uns    | double | 成交股数（同volume）  |
 | bid          | double | 买盘价                |
 | ask          | double | 卖盘价                |

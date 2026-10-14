@@ -1,0 +1,4 @@
+interface:
+  display_name: "TQX Data"
+  short_description: "Query TQX HK/US stock data locally with tqx-data"
+  default_prompt: "Use $tqx-data to set up tqx-data on this computer and query Hong Kong or US stock data. Ask me for my TQX data account email and password only if no login is saved yet, save it so I am not asked again, and never repeat the password."
