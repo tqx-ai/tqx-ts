@@ -377,6 +377,7 @@ Constraints:
 - `quantity` must be a positive integer string.
 - When `orderType` is omitted, the CLI defaults to `MARKET`.
 - `LIMIT` must contain a positive number `price`; `MARKET` must not contain `price`.
+- US stocks (`.US`) trade in whole shares with no board lot. A US `price` must be a multiple of $0.01 at $1.00 or more and of $0.0001 below $1.00; neither the CLI nor the server rounds it. See "US stock quantity and price increments" in the Skill.
 - `reason` can be up to 512 characters long.
 - `timeInForce` currently supports `DAY` and defaults to `DAY`; the order expires at the current market session close.
 - `--yes` confirms submitting the order.

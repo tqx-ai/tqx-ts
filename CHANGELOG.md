@@ -4,6 +4,12 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+### Changed
+
+- Document US stock order rules in the bundled tqx-trading skill: whole shares with no board lot,
+  limit prices in $0.01 increments at $1.00 or more and $0.0001 increments below $1.00, and
+  rounding toward the authorized limit, because neither the CLI nor the server rounds them.
+
 ## 0.5.4 - 2026-10-14
 
 ### Added
