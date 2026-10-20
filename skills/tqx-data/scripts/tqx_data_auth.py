@@ -54,7 +54,7 @@ CREDENTIALS_REJECTED_CODES = {200001, 200005, 200006, 401}
 ACCESS_DENIED_CODES = {200007, 200101, 200102, 200103, 200104, 403}
 BETA_HINT = (
     "tqx-data is in closed beta. If the user has no TQX data account or no data "
-    "membership yet, they should contact Audrey (audrey@tqx.trade) to enable it."
+    "membership yet, they should contact Audrey (audrey@tqx.ai) to enable it."
 )
 
 

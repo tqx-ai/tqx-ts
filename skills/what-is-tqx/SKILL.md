@@ -23,7 +23,7 @@ Present TQX as the umbrella for two separate systems:
 - **Qube research system**: Support factors, strategies, backtests, analyses, and research-assisted decisions through Qube and its local research CLI/API access.
 - **Trading system**: Support balances, positions, orders, fills, and order operations through a separate account-based service. Do not describe this service as Qube.
 
-Alongside them, the **tqx-data** Python package gives Hong Kong and US market, reference, event, and fundamental data on the user's own computer. It is in closed beta and needs a TQX data account, an email and password that come with a data membership; Audrey ([audrey@tqx.trade](mailto:audrey@tqx.trade)) enables access. This account is separate from the trading API key, and tqx-data is neither Qube nor a trading channel. Route its setup, login, and queries to [`tqx-data`](../tqx-data/SKILL.md).
+Alongside them, the **tqx-data** Python package gives Hong Kong and US market, reference, event, and fundamental data on the user's own computer. It is in closed beta and needs a TQX data account, an email and password that come with a data membership; Audrey ([audrey@tqx.ai](mailto:audrey@tqx.ai)) enables access. This account is separate from the trading API key, and tqx-data is neither Qube nor a trading channel. Route its setup, login, and queries to [`tqx-data`](../tqx-data/SKILL.md).
 
 Use this skill only for the overview and routing. Keep installation, authentication, and operational instructions in the selected specialized skill.
 

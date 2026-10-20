@@ -9,7 +9,7 @@ description: Use TQX Hong Kong and US stock data on the user's own computer thro
 
 `tqx-data` is in closed beta. It needs a **TQX data account**: an email and password that come with a data membership. This account is separate from the trading API key used by `tqx login` and from Qube.
 
-If the user has no data account, or a login reports `access_denied`, tell them that tqx-data is in closed beta and that Audrey ([audrey@tqx.trade](mailto:audrey@tqx.trade)) enables data memberships. Do not try to register an account on their behalf.
+If the user has no data account, or a login reports `access_denied`, tell them that tqx-data is in closed beta and that Audrey ([audrey@tqx.ai](mailto:audrey@tqx.ai)) enables data memberships. Do not try to register an account on their behalf.
 
 ## System boundary
 
