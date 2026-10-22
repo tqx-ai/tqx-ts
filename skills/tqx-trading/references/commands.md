@@ -1,16 +1,13 @@
 # TQX Trading CLI Reference
 
-This reference describes the current CLI command shape and is updated with the source. Resolve the latest standalone release at task start from GitHub Releases metadata with an available HTTP client, without requiring Node.js or npm. Use `npm view @tqx-ai/cli version --json` only when npm is already available. The version shown in any older example is illustrative and must not override that runtime check. Current order parameters use
-camelCase: `--orderType`, `--idempotencyKey`, and `--orderId`. Resolve one release version at task
-start and use that same version for installation, execution, and verification.
+This reference describes the current CLI command shape and is updated with the source. Current order parameters use
+camelCase: `--orderType`, `--idempotencyKey`, and `--orderId`. When the installed CLI disagrees with
+this file, `tqx <command> --help` wins.
 
 ## Table of contents
 
-- [Package Manager Selection](#package-manager-selection)
-- [Version and License](#version-and-license)
 - [Install CLI](#install-cli)
 - [Install SDK](#install-sdk)
-- [Registry Troubleshooting](#registry-troubleshooting)
 - [Command Entry](#command-entry)
 - [Environment and Authentication](#environment-and-authentication)
 - [Global Output](#global-output)
@@ -18,116 +15,15 @@ start and use that same version for installation, execution, and verification.
 - [Write Trading Commands](#write-trading-commands)
 - [Diagnostic Help](#diagnostic-help)
 
-## Package manager selection
-
-- For the CLI, check for an existing global `tqx` first. When it is missing or the version is wrong, prefer the matching GitHub Release standalone binary because it is the supported global installation path and does not require Node.js.
-- When there is a `pnpm-lock.yaml` or the user explicitly uses pnpm, pnpm will be used. For new documents, write `pnpm dlx` first; `pnpx`
-  is the equivalent shortcut that can be retained.
-- Use Bun when the project has `bun.lock`, the user explicitly uses Bun, or you are developing the `tqx-ts` source. The repository's development toolchain is pinned to Bun 1.4.2.
-- Existing projects always use the package manager corresponding to their lockfile, and do not mix multiple lockfiles.
-- CLI should normally be installed globally; SDK is only installed to specific application projects, not installed globally. Temporary runners are an explicit fallback for isolated or one-time execution.
-
-The npm package requires Node.js 22.18 or higher, but the preferred standalone CLI does not require Node.js. Check this only when using the npm fallback:
-
-```powershell
-node --version
-```
-
-## Version and License
-
-- Resolve the current npm and standalone release versions at task start; do not rely on a version
-  remembered from an older Skill or example.
-- Both packages use the GNU General Public License v3.0, with the SPDX flag `GPL-3.0-only`.
-- Check the package name, version and registry at the same time during installation and troubleshooting to avoid misuse of packages with the same name or floating versions.
-
 ## Install CLI
 
-For a normal agent task, install the CLI globally so the `tqx` command remains available across commands and sessions.
+Install, update, verify, and troubleshoot the `tqx` command only with [`install.md`](install.md) in
+this directory (the same protocol is published at
+`https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md`). It covers the
+standalone binary for every platform, the npm fallback, `tqx self-update`, authentication, and the
+known error messages.
 
-First check the existing installation:
-
-```powershell
-tqx --version
-tqx --help
-```
-
-If `tqx` is already installed, upgrade it with the built-in updater instead of manually downloading
-release assets:
-
-```powershell
-tqx self-update
-tqx self-update --check --json
-tqx self-update --version=<version>
-```
-
-Automatic checks run at most once every 24 hours before business commands. `tqx self-update` verifies
-`SHA256SUMS` before replacing standalone binaries and upgrades detected global package-manager
-installations. Temporary `npx`, `bunx`, and `pnpm dlx` executions must be installed globally
-before they can be updated.
-Automatic checks are skipped for `--json` and CI environments. Set `TQX_UPDATE_CHECK=0` to disable automatic checks. A custom `TQX_UPDATE_RELEASES_URL` is trusted
-input and must provide authentic release metadata and SHA256SUMS.
-
-Always upgrade an installed but outdated CLI with `tqx self-update`. The manual download steps below
-apply only when the `tqx` command is missing entirely; using them to replace an existing installation
-bypasses the checksum verification and the installation-method detection.
-
-If `tqx` is not installed, resolve the latest release without requiring Node.js:
-
-```powershell
-$release = Invoke-RestMethod 'https://api.github.com/repos/tqx-ai/tqx-ts/releases/latest'
-$version = $release.tag_name.TrimStart('v')
-```
-
-Then install the matching latest GitHub Release standalone binary for the user's OS and CPU
-architecture. Place the binary in a user-owned bin directory on `PATH`, and verify it. Windows ARM64 has no standalone asset and should use the npm fallback.
-
-Windows x64 PowerShell:
-
-```powershell
-$binDir = Join-Path $HOME '.local\bin'
-New-Item -ItemType Directory -Force $binDir | Out-Null
-curl.exe -L --fail '<resolved-release-asset-url>' -o (Join-Path $binDir 'tqx.exe')
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if ($userPath -notlike "*$binDir*") {
-  [Environment]::SetEnvironmentVariable('Path', "$userPath;$binDir", 'User')
-}
-$env:Path = "$binDir;$env:Path"
-tqx --version
-tqx --help
-```
-
-macOS or Linux (select exactly one asset URL for the detected architecture). Prefer the
-`<asset>.gz` URL when the release has one; it is less than half the download size:
-
-```sh
-mkdir -p "$HOME/.local/bin"
-curl --fail --location '<resolved-release-asset-url>.gz' | gunzip > "$HOME/.local/bin/tqx"
-chmod +x "$HOME/.local/bin/tqx"
-export PATH="$HOME/.local/bin:$PATH"
-tqx --version
-tqx --help
-```
-
-Select the matching release asset for macOS or Linux and the detected architecture. For a release
-without `.gz` assets, download the raw asset URL with `-o "$HOME/.local/bin/tqx"` instead. Persist the
-`PATH` export in the user's shell startup file when needed.
-
-If the standalone binary cannot be downloaded, the platform is unsupported, or the global bin directory is not writable, install the resolved npm package version globally instead:
-
-```powershell
-npm install --global @tqx-ai/cli@<version>
-tqx --help
-```
-
-Use the equivalent `pnpm add -g @tqx-ai/cli@<version>` or `bun add --global @tqx-ai/cli@<version>` only when that
-package manager is the user's chosen environment. Do not execute multiple installation commands
-consecutively.
-If pnpm reports that the global bin directory cannot be found, run `pnpm setup` from the agent
-context and use a fresh agent process if the PATH needs to be reloaded before installing.
-
-Only when the user explicitly requests isolation, the task is one-time, or global installation is
-impossible, use the resolved version with a temporary runner such as `npx --yes @tqx-ai/cli@<version>`,
-`pnpm dlx @tqx-ai/cli@<version>`, or `bunx @tqx-ai/cli@<version>`.
+Both packages use the GNU General Public License v3.0 (`GPL-3.0-only`).
 
 ## Install SDK
 
@@ -139,7 +35,9 @@ pnpm add @tqx-ai/sdk@<version>
 bun add @tqx-ai/sdk@<version>
 ```
 
-Do not install `@tqx-ai/sdk` globally. Follow the project's lockfile when reproducible builds are
+Resolve the version with `npm view @tqx-ai/sdk version` and pin it. If the registry returns 404,
+check `npm config get registry` (expected `https://registry.npmjs.org/`) and do not guess a private
+registry. Do not install `@tqx-ai/sdk` globally. Follow the project's lockfile when reproducible builds are
 required; pin the resolved version in the project manifest or lockfile rather than in this Skill.
 
 Minimum SDK access:
@@ -156,33 +54,6 @@ const account = await client.trading.getAccount()
 
 Do not write the API key into the source code. If the release package does not have a built-in default API address, it must be provided through `baseUrl` or the build environment.
 `TQX_DEFAULT_BASE_URL`.
-
-## Registry Troubleshooting
-
-Before installation, you need to confirm that the package is visible in the current registry:
-
-```powershell
-npm view @tqx-ai/cli@<version> version license
-npm view @tqx-ai/sdk@<version> version license
-```
-
-If 404 is returned, it usually means that the package has not been released yet, the package is a private package, the current account does not have permission, or the scope uses another registry.
-pnpm, npm, and Bun all consume the npm registry by default; switching package managers usually doesn't resolve 404s. First check the registry and login status:
-
-```powershell
-npm config get registry
-pnpm config get registry
-bun pm whoami
-```
-
-If Bun reports `missing authentication`, do not ask the user to open a terminal or provide an npm password or OTP in chat. Use an already authenticated package-manager context if available; otherwise report that the package registry authentication is the environment blocker.
-
-```powershell
-bunx npm login
-bun pm whoami
-```
-
-Modify `.npmrc` or registry configuration only if your organization explicitly provides a private registry, do not guess the address.
 
 ## Command entry
 

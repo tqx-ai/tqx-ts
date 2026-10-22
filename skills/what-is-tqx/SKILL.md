@@ -1,20 +1,29 @@
 ---
 name: what-is-tqx
-description: Explain TQX as an umbrella for two separate systems, Qube investment research and account-based trading, plus the closed-beta tqx-data package for local market data, and route ambiguous introductory requests without conflating their simulation concepts. Use only for overview or routing questions such as what TQX is or how Qube relates to TQX. For "帮我参赛", "夺得冠军", "交易大赛", "投资比赛", "help me compete", account access, API-key authentication, balances, positions, orders, or trading operations, immediately hand off to tqx-trading and do not answer from this overview Skill alone. Use tqx-research for Qube, factor, strategy, analysis, or backtest tasks. Use tqx-data for the tqx-data Python package, a TQX data account, or market data outside Qube.
+description: Explain TQX as an umbrella for two separate systems, Qube investment research and account-based trading, plus the closed-beta tqx-data package for local market data, and route ambiguous introductory requests without conflating their simulation concepts. Use only for overview or routing questions such as what TQX is or how Qube relates to TQX. To install, update, or repair the `tqx` CLI or the TQX Skills, follow the install protocol (INSTALL.md) linked in this Skill. For "帮我参赛", "夺得冠军", "交易大赛", "投资比赛", "help me compete", account access, API-key authentication, balances, positions, orders, or trading operations, immediately hand off to tqx-trading and do not answer from this overview Skill alone. Use tqx-research for Qube, factor, strategy, analysis, or backtest tasks. Use tqx-data for the tqx-data Python package, a TQX data account, or market data outside Qube.
 ---
 
 # What Is TQX
 
-## Temporary network access and local installation
+## Install the TQX CLI and Skills first
 
-Before installing, updating, or fetching a TQX Skill, inspect the current harness's loaded Skills and its native Skill-management capability. If the requested TQX Skill is already loaded or available locally, use that copy directly. Do not reinstall it or fetch a remote copy. The TQX skill set contains:
+If the user asks to install, update, verify, or fix the `tqx` command-line tool or the TQX Skills (for example "安装 tqx 最新版 CLI"), read the install protocol now and follow it from Step 1, before anything else in this Skill:
+
+- Fetched from a URL: `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md` (use `curl` or another non-browser client).
+- Installed locally: [`../tqx-trading/references/install.md`](../tqx-trading/references/install.md), the same file.
+
+It installs the CLI, installs the four TQX Skills into this agent's Skills directory, logs in with the user's API key, and runs the first account check. Then continue with `tqx-trading` (accounts, positions, orders) or `tqx-research` (Qube).
+
+## The TQX Skills
+
+A Skill read from a URL in this conversation is a temporary copy, not an installation. Install the Skills locally with Step 5 of the install protocol whenever they are missing from this agent's Skills directory, including when the user only asked for the CLI. If the TQX Skills already exist there, Step 5 updates them to the latest version and saves the previous copies in `~/.tqx/skills-backup/`. The TQX skill set contains:
 
 - `tqx-data`
 - `tqx-research`
 - `tqx-trading`
 - `what-is-tqx`
 
-When a local installation is actually needed, read [Installation Commands](references/commands.md). Use the harness's native manager when it is available. Otherwise, check `npx` and use `npx skills`; only when `npx` is unavailable, check SkillHub. Do not install another manager, install both project and global copies, or overwrite a same-named local Skill automatically. Fetch the repository's remote `main` only for temporary network access when no usable local version exists.
+Install them with Step 5 of the install protocol. Use [Installation Commands](references/commands.md) only when the user asks for a specific Skills manager (`npx skills`, SkillHub) or a project-scoped installation. Do not install both project and global copies.
 
 ## Overview
 
@@ -41,14 +50,14 @@ If the user asks where to get an API key, direct them to complete these steps in
 
 After the competition instance is created, the user can provide the generated API key directly in the current conversation. Never ask them to paste it into source code, public logs, or a repository.
 
-When a user asks how to install or update these skills, read [Installation Commands](references/commands.md). Follow its local-first, native-manager-first selection order; do not install both `npx skills` and SkillHub for the same task.
+When a user asks how to install or update these Skills, follow Step 5 of the install protocol; read [Installation Commands](references/commands.md) only for a specific manager the user names.
 
 ## Mandatory handoff for operational requests
 
 This is a router, not a fallback trading agent. If the user's request includes competition participation, autonomous trading, global TQX CLI installation for account access, an API key for account access, a PAPER/LIVE account, balances, positions, orders, fills, signals, or any order operation:
 
 1. Stop the overview response.
-2. Apply an already loaded or otherwise usable local `tqx-trading` Skill. Only when no local version is available and temporary network access is needed, fetch the current `main` version from the canonical repository URL with `curl`, `Invoke-RestMethod`, or another non-browser HTTP client:
+2. If the CLI is missing, outdated, or the user asked to install it, follow the install protocol in "Install the TQX CLI first" before anything else. Then apply an already loaded or otherwise usable local `tqx-trading` Skill. Only when no local version is available and temporary network access is needed, fetch the current `main` version from the canonical repository URL with `curl`, `Invoke-RestMethod`, or another non-browser HTTP client:
    `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/skills/tqx-trading/SKILL.md`.
    Never open the URL in a browser.
 3. Continue with the trading Skill's authentication and account workflow. Do not merely tell the user to use another Skill or ask them to choose one.
@@ -64,6 +73,7 @@ Use this table to select the next skill:
 | --- | --- |
 | A Qube, factor, strategy, backtest, analysis, or research-code task, including data calls inside Qube strategy source | [`tqx-research`](../tqx-research/SKILL.md) / `$tqx-research` |
 | The `tqx-data` package, a TQX data account or data membership, or HK/US market data queried on the user's computer outside Qube | [`tqx-data`](../tqx-data/SKILL.md) / `$tqx-data` |
+| Installing, updating, or repairing the `tqx` CLI | The install protocol in "Install the TQX CLI first", then the Skill for the user's goal |
 | A generic "帮我参赛", "夺得冠军", or "help me compete" request | Fetch the canonical `tqx-trading` URL above; verify CLI authentication and query the account before discussing strategy |
 | Accounts, balances, positions, orders, fills, trading signals, PAPER/LIVE accounts, or order placement/modification/cancellation | Fetch and apply the canonical `tqx-trading` URL above |
 | A general explanation of TQX or an ambiguous introductory question | Continue with `$what-is-tqx`, explain the two systems and tqx-data, and ask which one the user needs |

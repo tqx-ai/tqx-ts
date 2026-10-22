@@ -11,6 +11,8 @@
     "bump-version": "lerna version --no-git-tag-version",
     "build": "bun run --env-file=.env --env-file=.env.prod --filter '@tqx-ai/*' build",
     "dev": "bun run --env-file=.env --env-file=.env.dev tsdown --workspace --out-dir output --watch",
+    "docs:check": "bun scripts/sync-install-docs.ts --check",
+    "docs:sync": "bun scripts/sync-install-docs.ts",
     "format": "oxfmt --threads=4 .",
     "format:check": "oxfmt --threads=4 --check .",
     "lint": "oxlint --deny-warnings .",
@@ -23,7 +25,7 @@
     "test:unit": "vitest run",
     "test:smoke": "bun scripts/smoke.ts",
     "test:package": "bun scripts/package-smoke.ts",
-    "test": "bun run format:check && bun run lint && bun run typecheck && bun run test:unit && bun run build && bun run test:smoke"
+    "test": "bun run docs:check && bun run format:check && bun run lint && bun run typecheck && bun run test:unit && bun run build && bun run test:smoke"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -2,6 +2,8 @@
 
 Use this reference when this Skill was loaded from a temporary network URL, or when the user asks to install or update the TQX skill set locally.
 
+The default way to install the Skills is Step 5 of the install protocol, which needs no Node.js. Use this file only when the user asks for a specific Skills manager or a project-scoped installation. To install, update, or repair the `tqx` CLI, follow [`../../tqx-trading/references/install.md`](../../tqx-trading/references/install.md) (published at `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md`).
+
 ## Selection rule
 
 Use this order for all four TQX Skills:

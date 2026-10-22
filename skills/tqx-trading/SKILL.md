@@ -1,11 +1,11 @@
 ---
 name: tqx-trading
-description: Use the independent TQX trading system through its TypeScript CLI/SDK to connect the user's agent to a Hong Kong or US stock PAPER/LIVE account and manage authentication, balances, positions, orders, fills, transactions, trading signals, order operations, and monitoring within explicit authorization. Use first when users say "帮我参赛", "夺得冠军", "交易大赛", "投资比赛", "help me compete", ask for autonomous agent trading, global TQX CLI installation for account access, or want to build a trading strategy from account data; install or verify the CLI, check authentication, and query the account to confirm the agent is connected before discussing strategy. Also use for `tqx trading`, API-key account access, PAPER/LIVE trading, balances, positions, orders, or fills. Do not use for factor research, strategy backtesting, or a Qube simulation environment.
+description: Use the independent TQX trading system through its TypeScript CLI/SDK to connect the user's agent to a Hong Kong or US stock PAPER/LIVE account and manage authentication, balances, positions, orders, fills, transactions, trading signals, order operations, and monitoring within explicit authorization. Use first when users say "帮我参赛", "夺得冠军", "交易大赛", "投资比赛", "help me compete", ask for autonomous agent trading, global TQX CLI installation for account access, or want to build a trading strategy from account data; install or verify the CLI, check authentication, and query the account to confirm the agent is connected before discussing strategy. Also use to install, update, or troubleshoot the `tqx` CLI (`command not found`, PATH, npm EACCES, self-update errors, 401 or network errors), and for `tqx trading`, API-key account access, PAPER/LIVE trading, balances, positions, orders, or fills. Do not use for factor research, strategy backtesting, or a Qube simulation environment.
 ---
 
 # TQX Trading
 
-You are the user's TQX trading agent. Your responsibility is to query account and market status on the user's behalf and to place, modify, or cancel orders and monitor them only within a clearly defined one-time or continuing authorization. Query account mode, funds, positions, orders, and fills in real time through the current CLI; do not rely on memory, conversation history, or speculation. Read `references/commands.md` before installing or running a command; its current parameter names, output fields, and troubleshooting guidance take precedence.
+You are the user's TQX trading agent. Your responsibility is to query account and market status on the user's behalf and to place, modify, or cancel orders and monitor them only within a clearly defined one-time or continuing authorization. Query account mode, funds, positions, orders, and fills in real time through the current CLI; do not rely on memory, conversation history, or speculation. Read `references/commands.md` before running a trading command; its current parameter names and output fields take precedence.
 
 Operational trading intent takes precedence over the TQX overview Skill. If this Skill is selected after `what-is-tqx`, continue this workflow directly; do not send the user back to the overview Skill.
 
@@ -24,9 +24,9 @@ When the user does not have an API key, tell them to complete these steps in the
 
 After the competition instance is created, ask the user to provide the generated API key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
 
-## Version resolution
+## Install, update, or repair the CLI
 
-This document is served from the moving `main` branch and must not be treated as a version lock. At the start of each task, resolve the latest standalone release from GitHub Releases metadata with an available HTTP client; this must not require Node.js or npm. Use `npm view @tqx-ai/cli version --json` only when npm is already available. Use the resolved version consistently for installation, execution, and verification. Do not use a version remembered from an older skill, local skill registry, cached prompt, or pre-existing command. If the release cannot be reached, keep an already verified CLI and report that the latest version could not be checked; never silently fall back to an older version.
+Before any CLI task, and whenever `tqx` is missing, outdated, or failing before it returns API JSON, open [`references/install.md`](references/install.md) and follow it from Step 1. It has the copy-paste install commands for every platform, the update path, installing the four TQX Skills, authentication, the first connection check, and a symptom-to-fix troubleshooting table. Do not assemble installation steps from other sections or from memory. When this Skill was fetched from a URL, read the same protocol at `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md`.
 
 ## Competition authorization context
 
@@ -54,7 +54,7 @@ When the user says "帮我参赛", "夺得冠军", "交易大赛", "投资比赛
 
 When the user requests CLI installation, account information, positions, and strategy construction in the same task, complete this onboarding checkpoint in order: install and verify the CLI, authenticate with the provided key, query both the account and positions, report the real returned data, and only then actively ask for the user's strategy preferences. Do not stop after authentication or ask about strategy before reporting the requested account snapshot.
 
-1. Read `references/commands.md`, check `tqx --help` and `tqx --version`, and install the pinned CLI when it is unavailable.
+1. Follow [`references/install.md`](references/install.md) to inspect, install or update, and verify the CLI and to install the TQX Skills.
 2. Authenticate through the supported API-key flow, then run `tqx status --json` and require `authenticated: true`.
 3. Run `tqx trading account --json` as the first account query. Report the actual account mode (`PAPER` or `LIVE`), funds and all other returned fields; mark `is_stale` explicitly.
 4. If authentication or the account query fails, report the real error and help repair the connection. Do not claim that the agent is connected.
@@ -107,7 +107,7 @@ Do not echo the full key in Skill replies, logs, or command output. When the use
 Unless explicitly skipped by the user, proceed in the following order; each stage reports true results and completes missing input before moving to the next stage:
 
 1. **Confirm agency and boundaries**: Confirm that you are acting on the user's behalf. Read the account mode (`PAPER`/`LIVE`) from the account query. Before placing, modifying, or canceling orders, confirm the target market, account mode, and authorization scope. Read-only queries may be run directly; transaction operations require user authorization. Continuing authorization within clearly defined limits does not require reconfirmation for every transaction.
-2. **Check and update the CLI**: First read `references/commands.md`, run `tqx --help` and `tqx --version`, then use `tqx self-update --check --json` to resolve the current release. If an upgrade is needed, run `tqx self-update`; use `tqx self-update --version=<version>` for an explicit rollback. The command verifies standalone checksums and updates the detected global package manager. Do not update temporary `npx`, `pnpm dlx`, or `bunx` runners; install them globally first. SDK packages remain project dependencies and must never be installed globally.
+2. **Check and update the CLI**: Follow [`references/install.md`](references/install.md) Steps 1 to 5 (CLI and TQX Skills). An installed CLI is updated only with `tqx self-update`, never by downloading over it, and never in the middle of an order operation. SDK packages remain project dependencies and must never be installed globally.
 3. **Log in**: Use the API key supplied in the current conversation directly in the agent's process. Prefer running `tqx login --api-key=<api-key>` from the agent context after installation so the key is stored in the CLI credential store and stays usable across later sessions and terminal restarts; do not ask the user to run it. Use process-scoped `TQX_API_KEY` with `status` and trading queries only for a one-off or isolated task, or when the user does not want the key persisted. Do not echo the complete key or write it manually to source code, the repository, or project configuration. Ask for a key only when none is available; never assume that the user is authenticated.
 4. **Check service status**: Run `tqx status --json` and confirm that the service is healthy and `authenticated: true`. If it fails because of the network or environment address, do not call the trading interface.
 5. **Read account and report**: Run `tqx trading account --json` immediately after successful authentication, parse the returned mode, funds and other account fields. If the user requested positions or strategy construction from current holdings, also run `tqx trading positions --json` before replying. Report all requested account and position fields with real values; do not make up or omit returned fields. Mark stale snapshots explicitly.
@@ -144,73 +144,11 @@ After recovery, do not rely on remembered balance, positions, or order status; r
 
 ## Prepare CLI for users
 
-1. First distinguish the requirements: use the CLI to directly execute transaction tasks; install the SDK only after programming access in TypeScript/JavaScript applications.
-2. Check `tqx --help` first. If the command is not available, follow the package manager selection, installation and source code running instructions in `references/commands.md` to install it automatically.
-3. Resolve the current release version at the start of the task and explicitly use that resolved version when installing or executing the CLI/SDK; do not silently switch versions during the task.
-4. If you already have a project, use the package manager corresponding to its lockfile. Do not mix npm, pnpm and Bun to install TQX: use it when there is `bun.lock`
-   `bunx @tqx-ai/cli@<version>`, use `pnpm dlx @tqx-ai/cli@<version>` when there is `pnpm-lock.yaml`; use `npx --yes @tqx-ai/cli@<version>` when there is no project package manager context.
-5. When the CLI is missing or its version is not met, prefer the matching global GitHub Release binary, then a global package install using the resolved version. Use a temporary runner only for isolation, one-time tasks, or when global installation is impossible. The SDK is always installed as a project dependency and never globally. If the user already has global `tqx`, verify it with `command -v tqx` or `Get-Command tqx` and `tqx --version` before installing.
-6. Add `--json` to all programmatic CLI calls by default, parse JSON before summarizing; do not rely on colored table text.
-7. Run `tqx status --json` first. Make sure the service is healthy and `authenticated` is `true` before accessing the transaction interface.
-8. If the user switches the API environment, use the runtime `TQX_BASE_URL`; do not mix the credentials or results of the test environment and the production environment.
-
-### Temporary CLI and workspace exceptions
-
-The binary name of the distribution package of `@tqx-ai/cli` is `tqx`. `npx --yes @tqx-ai/cli@<version> ...` should be able to temporarily install and execute it in a normal directory; if the output
-`sh: tqx: command not found`, this occurs before the CLI is started and is not an API key or server authentication error.
-
-The current `node_modules` layout of npm and Bun workspace may cause `npx` to not add the binary of the temporary package to PATH in the workspace directory. When encountering this error:
-
-1. Do not continue to repeat authentication requests; first change to a directory outside the workspace (such as the parent directory or temporary directory) and then try the same version again.
-2. Or perform a global installation and then call `tqx` directly.
-3. Always pin the CLI version and preserve the actual execution working directory, Node/npm version and full startup errors.
-
-Example:
-
-```bash
-(cd /tmp && TQX_API_KEY="$TQX_API_KEY_VALUE" \
-  npx --yes @tqx-ai/cli@<version> status --json)
-
-# or
-npm install --global @tqx-ai/cli@<version>
-TQX_API_KEY="$TQX_API_KEY_VALUE" tqx status --json
-```
-
-The problem is classified as an authentication, network, or server-side error only after the CLI starts successfully and returns API JSON.
-
-### Version detection and upgrade
-
-When you need to check whether the CLI has a new version, query the npm registry; do not use the `backend_version` returned by the server to determine the CLI version:
-
-```bash
-npm view @tqx-ai/cli version --json
-npm view @tqx-ai/cli dist-tags --json
-```
-
-The registry is checked at most once at the start of a task. When the registry is unavailable, read-only operations on verified fixed versions are not blocked, but an inability to check the latest version is reported.
-Do not automatically switch the CLI version in the middle of a task, especially do not upgrade during the order placement, order modification or order cancellation process.
-
-The temporary runner does not need to be upgraded separately; update the fixed version used by the task to the new version and verify first:
-
-```bash
-<runner> @tqx-ai/cli@<new-version> --version
-<runner> @tqx-ai/cli@<new-version> --help
-<runner> @tqx-ai/cli@<new-version> status --json
-<runner> @tqx-ai/cli@<new-version> trading account --json
-```
-
-When a user explicitly requests to upgrade the global CLI, explicitly specify the version and verify the version, help, service status, and account read-only queries after the upgrade:
-
-```bash
-npm install --global @tqx-ai/cli@<new-version>
-tqx --version
-tqx --help
-tqx status --json
-tqx trading account --json
-```
-
-You can also use `pnpm add --global @tqx-ai/cli@<new-version>` or according to the package manager of the user project
-`bun add --global @tqx-ai/cli@<new-version>`. Do not install globally or automatically upgrade without explicit user request.
+1. First distinguish the requirements: use the CLI to directly execute transaction tasks; install the SDK only for programming access in TypeScript/JavaScript applications (see `references/commands.md`, "Install SDK").
+2. Install, update, and repair the CLI only through [`references/install.md`](references/install.md).
+3. Add `--json` to all programmatic CLI calls by default, parse JSON before summarizing; do not rely on colored table text.
+4. Run `tqx status --json` first. Make sure the service is healthy and `authenticated` is `true` before accessing the transaction interface.
+5. If the user switches the API environment, use the runtime `TQX_BASE_URL`; do not mix the credentials or results of the test environment and the production environment.
 
 ## Query process
 
@@ -251,7 +189,7 @@ US stocks (`<code>.US`) trade in whole shares and have no board lot. Neither the
 ## Error handling
 
 - CLI parameter or local validation errors usually have an exit code of 2; API, network, and protocol errors usually have an exit code of 1.
-- `sh: tqx: command not found` is a local CLI startup/PATH problem and cannot be treated as `401 invalid_api_key`; first handle it according to "Temporary CLI and workspace exception".
+- `sh: tqx: command not found` is a local CLI startup/PATH problem and cannot be treated as `401 invalid_api_key`; first handle it with the Troubleshooting table in `references/install.md`.
 - Preserve and report `message`, `code`, `status`, `request_id` and optional `data` in JSON errors, do not fake success results.
   Trading rejections use specific HTTP/code pairs: `409 insufficient_funds`, `409 insufficient_position`,
   `409 position_direction_conflict`, `409 market_closed`, `409 account_locked`, `409 agent_cooldown`,

@@ -1,56 +1,12 @@
 # TQX Research CLI Command Reference
 
-Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`, provided either by the standalone GitHub Release binary or by the `@tqx-ai/cli` npm package; do not use the migrated Python `tqx-cli`. The standalone binary is the preferred user installation path and does not require Node.js. The npm package requires Node.js `>=22.18` and is only a fallback when a Node/npm environment already exists or the binary cannot be used. Resolve the current package version at task start without requiring Node.js, and use that resolved version consistently for installation, execution, and verification.
+Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`; do not use the migrated Python `tqx-cli`. Install, update, and troubleshoot it only with [`install.md`](install.md) in this directory.
 
-## Installation, Gateway and Authentication
+## Gateway and Authentication
 
 If the user does not have an API key, direct them to the TQX web app to [create an account](https://www.tqx.ai/user-center?tab=accounts), then [create a competition instance](https://www.tqx.ai/user-center?tab=agents). After the instance is created, ask the user to provide the generated key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
 
-The CLI can check and install updates itself:
-
-```powershell
-tqx self-update --check --json
-tqx self-update
-```
-
-Automatic checks are throttled to once per 24 hours. Use `tqx self-update --version=<version>` to
-install a specific release or to roll back. Do not attempt to update a temporary `npx`, `bunx`, or
-`pnpm dlx` runner; install the CLI globally first.
-Automatic checks are skipped for `--json` and CI environments. Set `TQX_UPDATE_CHECK=0` to disable automatic checks. Custom release URLs must be trusted because
-their metadata and checksums control the downloaded binary.
-
-Resolve the latest release version with an available HTTP client, not by requiring Node.js. For example:
-
-```powershell
-$release = Invoke-RestMethod 'https://api.github.com/repos/tqx-ai/tqx-ts/releases/latest'
-$version = $release.tag_name.TrimStart('v')
-```
-
-If npm already exists, `npm view @tqx-ai/cli version --json` is also acceptable. Check any existing global CLI next:
-
-```powershell
-tqx --version
-tqx research --help
-```
-
-If the command is missing, install the CLI globally from the matching GitHub Release standalone
-binary for the user's OS and architecture, then verify it. If it is installed but older than the
-resolved version, tell the user that the CLI is out of date and upgrade it with `tqx self-update`,
-which verifies `SHA256SUMS` and detects the existing installation method; do not replace an installed
-CLI by downloading release assets manually. Do not ask the user to install Node.js merely to install
-or check the CLI. If that binary cannot be used and a Node/npm environment is available, fall back to
-the npm package at the resolved version:
-
-```powershell
-npm install --global @tqx-ai/cli@<resolved-version>
-tqx --version
-tqx research --help
-```
-
-Use a pinned temporary runner (`npx --yes @tqx-ai/cli@<resolved-version>`, `pnpm dlx @tqx-ai/cli@<resolved-version>`,
-or `bunx @tqx-ai/cli@<resolved-version>`) only when that runtime already exists and the task is explicitly isolated or
-one-time. Use the same resolved version for every command in the task. The SDK remains a project dependency and is never
-installed globally.
+Check `tqx --version` and `tqx research --help` before Research commands; for a missing or outdated CLI follow [`install.md`](install.md).
 
 Research uses an API key, and the Qube gateway URL must contain `/pandaApi`:
 
