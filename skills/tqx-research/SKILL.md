@@ -31,12 +31,13 @@ TQX Research has two well-defined layers:
 - **Resource management and execution**: Use `@tqx-ai/cli` or `@tqx-ai/sdk` published by `tqx-ts` to access the `/pandaApi` gateway with an API key. Do not use the Python `tqx-cli`, account/password login, session tokens, or `workflow_*`.
 - **Strategy runtime and data research**: `panda_backtest` and `tqx_data` remain available in Qube Python strategy source. They are not replacements for the TypeScript Research client; they are domain infrastructure that must be verified when generating, reviewing, and running strategies.
 
-## Version resolution
+## Install, update, or repair the CLI
 
-This Skill is served from the moving `main` branch and must not be treated as a version lock. At the start of a CLI task, run `tqx self-update --check --json` when a global CLI is available, then run `tqx --version`. If an older CLI is installed, run `tqx self-update` before Research commands; use `tqx self-update --version=<version>` only when an explicit release is required. Temporary `npx`, `bunx`, and `pnpm dlx` runners cannot self-update and must be installed globally first. Do not ask the user to install Node.js merely to check a standalone binary. If the update check cannot be reached, use only an already verified CLI and report that the latest version could not be checked.
+Before a CLI task, and whenever `tqx` is missing, outdated, or failing before it returns API JSON, open [`references/install.md`](references/install.md) and follow it from Step 1. It has the copy-paste install commands for every platform (the standalone binary needs no Node.js), the `tqx self-update` path, installing the four TQX Skills, authentication, and a symptom-to-fix troubleshooting table. Do not assemble installation steps from other files or from memory. When this Skill was fetched from a URL, read the same protocol at `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md`.
 
 ## Read by task
 
+- Installing, updating, or troubleshooting the CLI: read [Install protocol](references/install.md).
 - All CLI operations, authentication, parameters, status and output: read [Commands Reference](references/commands.md).
 - Writing Node.js/TypeScript integrations, confirming SDK types, or polling: read [SDK reference](references/sdk.md).
 - Generate or modify factor source code: first read [Factor Creation Guide](references/factor-creation.md), then read the local [Factor Operators](references/factor-operators.md) and the data/code docs from the authoritative factor references.
@@ -77,6 +78,7 @@ Make the description as detailed as possible so developers can reproduce and fix
 
 When the user provides only a remote `SKILL.md`, continue by reading the raw reference files from the same revision. Keep the following paths stable:
 
+- `references/install.md`
 - `references/commands.md`
 - `references/strategy_templates.md`
 - `references/stock_us_api.md`

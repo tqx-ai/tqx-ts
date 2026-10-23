@@ -4,6 +4,11 @@ TQX provides the Node.js-compatible `@tqx-ai/sdk` and the Citty-based `@tqx-ai/c
 
 ## Installation
 
+**Using an AI agent?** Give it this instruction: "Read
+https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md and install the TQX
+CLI." [INSTALL.md](./INSTALL.md) is the step-by-step install, update, and troubleshooting protocol
+written for agents.
+
 The standalone CLI binary does not require Node.js. The npm distribution requires Node.js 22.18
 or newer.
 
