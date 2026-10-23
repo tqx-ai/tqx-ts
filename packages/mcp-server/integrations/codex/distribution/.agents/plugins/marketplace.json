@@ -1,0 +1,12 @@
+{
+  "name": "tqx-local-acceptance",
+  "interface": { "displayName": "TQX Local Acceptance" },
+  "plugins": [
+    {
+      "name": "tqx-readonly",
+      "source": { "source": "local", "path": "./plugins/tqx-readonly" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
+      "category": "Productivity"
+    }
+  ]
+}

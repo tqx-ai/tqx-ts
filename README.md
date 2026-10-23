@@ -2,6 +2,11 @@
 
 TQX provides the Node.js-compatible `@tqx-ai/sdk` and the Citty-based `@tqx-ai/cli`.
 
+The MCP resource server lives in [`packages/mcp-server`](./packages/mcp-server/README.md) and
+uses the SDK from this Bun workspace. Its source is included here for open development; the
+package is private and is not included in the SDK/CLI npm publication commands. See its README
+for local setup and the current v2 work in progress.
+
 ## Installation
 
 **Using an AI agent?** Give it this instruction: "Read

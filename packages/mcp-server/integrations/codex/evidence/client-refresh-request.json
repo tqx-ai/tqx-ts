@@ -1,0 +1,46 @@
+{
+  "case": "actual-codex-synthetic-refresh-request",
+  "pass": true,
+  "forcedLocalExpiry": true,
+  "request": {
+    "fieldNames": ["client_id", "grant_type", "refresh_token", "resource", "scope"],
+    "fieldTypes": {
+      "grant_type": "string",
+      "refresh_token": "string",
+      "scope": "string",
+      "client_id": "string",
+      "resource": "string"
+    },
+    "scope": "trade:read",
+    "resource": "http://127.0.0.1:50675/mcp",
+    "authenticationScheme": "none"
+  },
+  "dcrFieldNames": [
+    "application_type",
+    "client_name",
+    "grant_types",
+    "redirect_uris",
+    "response_types",
+    "scope",
+    "token_endpoint_auth_method"
+  ],
+  "dcrMetadata": {
+    "client_name": "Codex",
+    "application_type": "native",
+    "redirect_uris": ["http://127.0.0.1:50689/callback"],
+    "token_endpoint_auth_method": "none",
+    "grant_types": ["authorization_code", "refresh_token"],
+    "response_types": ["code"],
+    "scope": "trade:read"
+  },
+  "dcrFieldTypes": {
+    "client_name": "string",
+    "application_type": "string",
+    "redirect_uris": "array",
+    "token_endpoint_auth_method": "string",
+    "grant_types": "array",
+    "response_types": "array",
+    "scope": "string"
+  },
+  "identity": "synthetic"
+}

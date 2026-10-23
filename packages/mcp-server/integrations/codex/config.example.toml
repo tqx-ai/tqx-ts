@@ -1,0 +1,11 @@
+# Copy into an isolated CODEX_HOME, never overwrite the user's global config.
+mcp_oauth_credentials_store = "file"
+
+[mcp_servers.tqx]
+url = "http://127.0.0.1:3002/mcp"
+scopes = ["trade:read"]
+enabled_tools = ["getAccount", "listPositions"]
+startup_timeout_sec = 20
+tool_timeout_sec = 30
+# No client secret: Codex is a public OAuth client using PKCE and DCR.
+# Do not set a fixed callback port; use the actual callback printed by Codex.

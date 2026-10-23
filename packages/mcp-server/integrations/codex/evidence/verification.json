@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-23",
+  "timezone": "Asia/Shanghai",
+  "desktopPackage": "26.1016.8622.0",
+  "installedCliAppServer": "0.163.0-alpha.11.2",
+  "repositoryCheck": {
+    "command": "bun run check",
+    "result": "passed",
+    "tests": 130,
+    "testFiles": 6,
+    "includes": ["Biome", "strict TypeScript", "Vitest", "Node build"]
+  },
+  "integrationTypecheck": "passed",
+  "builtNodeHealthMetadataUnauthenticated401": "passed on isolated ephemeral loopback",
+  "actualOwnerAutoDcr": "passed; synthetic identity and Web decision; actual AS/MCP/SDK/Trading; fake broker",
+  "actualOwnerRefreshAndGrantRevocation": "passed; forced own-cache expiry; pre-refresh derived 200; old M/T 401; grant health 200/protected 401 controls",
+  "strictCompatibilityRunner": {
+    "exitCode": 1,
+    "reason": "installed alpha client accepts duplicate identical iss"
+  },
+  "pluginDefaultScopeProbe": {
+    "exitCode": 1,
+    "reason": "unscoped login requests broad AS-advertised scopes; explicit trade:read config is the accepted path"
+  },
+  "desktopUi": "not tested; manual step required",
+  "realJavaBrowserLogin": "not tested",
+  "realAccountBroker": "not tested",
+  "globalCodexConfigOrLoginChanged": false,
+  "committedPushedOrDeployed": false
+}

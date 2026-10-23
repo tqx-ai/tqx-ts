@@ -1,0 +1,245 @@
+{
+  "identity": "synthetic",
+  "surface": "isolated installed Codex app-server; desktop UI untested",
+  "evidence": [
+    {
+      "case": "built-node-health-discovery-401",
+      "pass": true
+    },
+    {
+      "case": "dcr-issuer-bound",
+      "pass": true,
+      "expectedCallbackAccepted": true,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "DCR",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback",
+      "redirectUri": "http://127.0.0.1:55704/callback",
+      "registrationRequest": {
+        "client_name": "Codex",
+        "redirect_uris": ["http://127.0.0.1:55704/callback"],
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "scope": "trade:read"
+      },
+      "dynamicPort": true,
+      "issuerBound": true,
+      "callbackAccepted": true,
+      "tools": ["getAccount", "listPositions"],
+      "authStatus": "oAuth",
+      "account": {
+        "mode": "PAPER",
+        "as_of": "2026-10-23T00:00:00Z",
+        "is_stale": true,
+        "decimalAndNullPreserved": true
+      },
+      "structuredContentPresent": false,
+      "dependencyRecoveryAndRevocation": true,
+      "disconnectedAndReconnectedUsingOwnCachedOAuth": true
+    },
+    {
+      "case": "dcr-callback-specific",
+      "pass": true,
+      "expectedCallbackAccepted": true,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "DCR",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback/LU1TabdXW918",
+      "redirectUri": "http://127.0.0.1:55731/callback/LU1TabdXW918",
+      "registrationRequest": {
+        "client_name": "Codex",
+        "redirect_uris": ["http://127.0.0.1:55731/callback/LU1TabdXW918"],
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "scope": "trade:read"
+      },
+      "dynamicPort": true,
+      "issuerBound": false,
+      "callbackAccepted": true,
+      "tools": ["getAccount", "listPositions"],
+      "authStatus": "oAuth",
+      "account": {
+        "mode": "PAPER",
+        "as_of": "2026-10-23T00:00:00Z",
+        "is_stale": true,
+        "decimalAndNullPreserved": true
+      },
+      "structuredContentPresent": false
+    },
+    {
+      "case": "cimd-stable-selection",
+      "pass": true,
+      "expectedCallbackAccepted": true,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "CIMD selection only",
+      "clientId": "https://chatgpt.com/oauth/codex/client.json",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback",
+      "redirectUri": "http://127.0.0.1:55745/callback",
+      "dynamicPort": true,
+      "issuerBound": true,
+      "callbackAccepted": true,
+      "tools": ["getAccount", "listPositions"],
+      "authStatus": "oAuth",
+      "account": {
+        "mode": "PAPER",
+        "as_of": "2026-10-23T00:00:00Z",
+        "is_stale": true,
+        "decimalAndNullPreserved": true
+      },
+      "structuredContentPresent": false
+    },
+    {
+      "case": "cimd-specific-selection",
+      "pass": true,
+      "expectedCallbackAccepted": true,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "CIMD selection only",
+      "clientId": "https://chatgpt.com/oauth/codex/LU1TabdXW918/client.json",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback/LU1TabdXW918",
+      "redirectUri": "http://127.0.0.1:55760/callback/LU1TabdXW918",
+      "dynamicPort": true,
+      "issuerBound": false,
+      "callbackAccepted": true,
+      "tools": ["getAccount", "listPositions"],
+      "authStatus": "oAuth",
+      "account": {
+        "mode": "PAPER",
+        "as_of": "2026-10-23T00:00:00Z",
+        "is_stale": true,
+        "decimalAndNullPreserved": true
+      },
+      "structuredContentPresent": false
+    },
+    {
+      "case": "public-preregistered",
+      "pass": true,
+      "expectedCallbackAccepted": true,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "pre-registered public",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback",
+      "redirectUri": "http://127.0.0.1:55775/callback",
+      "dynamicPort": true,
+      "issuerBound": true,
+      "callbackAccepted": true,
+      "tools": ["getAccount", "listPositions"],
+      "authStatus": "oAuth",
+      "account": {
+        "mode": "PAPER",
+        "as_of": "2026-10-23T00:00:00Z",
+        "is_stale": true,
+        "decimalAndNullPreserved": true
+      },
+      "structuredContentPresent": false
+    },
+    {
+      "case": "deny",
+      "pass": true,
+      "expectedCallbackAccepted": false,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "DCR",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback",
+      "redirectUri": "http://127.0.0.1:55789/callback",
+      "registrationRequest": {
+        "client_name": "Codex",
+        "redirect_uris": ["http://127.0.0.1:55789/callback"],
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "scope": "trade:read"
+      },
+      "dynamicPort": true,
+      "issuerBound": true,
+      "callbackAccepted": false
+    },
+    {
+      "case": "duplicate-issuer",
+      "pass": false,
+      "expectedCallbackAccepted": false,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "DCR",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback",
+      "redirectUri": "http://127.0.0.1:55800/callback",
+      "registrationRequest": {
+        "client_name": "Codex",
+        "redirect_uris": ["http://127.0.0.1:55800/callback"],
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "scope": "trade:read"
+      },
+      "dynamicPort": true,
+      "issuerBound": true,
+      "callbackAccepted": true
+    },
+    {
+      "case": "wrong-state",
+      "pass": true,
+      "expectedCallbackAccepted": false,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "DCR",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback",
+      "redirectUri": "http://127.0.0.1:55811/callback",
+      "registrationRequest": {
+        "client_name": "Codex",
+        "redirect_uris": ["http://127.0.0.1:55811/callback"],
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "scope": "trade:read"
+      },
+      "dynamicPort": true,
+      "issuerBound": true,
+      "callbackAccepted": false
+    },
+    {
+      "case": "wrong-issuer",
+      "pass": true,
+      "expectedCallbackAccepted": false,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "DCR",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback",
+      "redirectUri": "http://127.0.0.1:61389/callback",
+      "registrationRequest": {
+        "client_name": "Codex",
+        "redirect_uris": ["http://127.0.0.1:61389/callback"],
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "scope": "trade:read"
+      },
+      "dynamicPort": true,
+      "issuerBound": true,
+      "callbackAccepted": false
+    },
+    {
+      "case": "missing-issuer",
+      "pass": true,
+      "expectedCallbackAccepted": false,
+      "client": "Codex Desktop/0.163.0-alpha.11.2 (Windows 10.0.26200; x86_64) dumb (tqx_codex_compatibility; 0.1.0)",
+      "registration": "DCR",
+      "redirectHost": "127.0.0.1",
+      "redirectPath": "/callback",
+      "redirectUri": "http://127.0.0.1:58559/callback",
+      "registrationRequest": {
+        "client_name": "Codex",
+        "redirect_uris": ["http://127.0.0.1:58559/callback"],
+        "token_endpoint_auth_method": "none",
+        "grant_types": ["authorization_code", "refresh_token"],
+        "response_types": ["code"],
+        "scope": "trade:read"
+      },
+      "dynamicPort": true,
+      "issuerBound": true,
+      "callbackAccepted": false
+    }
+  ]
+}
