@@ -235,6 +235,78 @@ describe('CLI', () => {
     expect(stdout.value).toContain('items')
   })
 
+  it('lists cash flows with date, currency and pagination arguments', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stdout = new BufferOutput()
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValue(apiResponse({ items: [], next_cursor: null }))
+
+    await runCli(
+      [
+        'trading',
+        'cash-flows',
+        '--start=2026-10-01',
+        '--end=2026-10-21',
+        '--currency=usd',
+        '--limit=10',
+        '--json',
+      ],
+      {
+        environment: { TQX_BASE_URL: 'https://api.example.test' },
+        credentialStore: store,
+        fetch,
+        stdout,
+      },
+    )
+
+    const url = new URL(String(fetch.mock.calls[0]?.[0]))
+    expect(url.pathname).toBe('/openapi/v1/trading/cash-flows')
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      start_date: '2026-10-01',
+      end_date: '2026-10-21',
+      currency: 'USD',
+      limit: '10',
+    })
+    expect(JSON.parse(stdout.value)).toEqual({ items: [], next_cursor: null })
+  })
+
+  it('fails with cash_flows_unsupported instead of printing an empty list', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stdout = new BufferOutput()
+    const stderr = new BufferOutput()
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      Response.json(
+        {
+          code: 'cash_flows_unsupported',
+          message: 'cash flows are not available for this trading channel',
+          data: { feature: 'cash_flows' },
+          request_id: 'request-unsupported',
+          timestamp: 1,
+        },
+        { status: 501 },
+      ),
+    )
+
+    await runCli(['trading', 'cash-flows', '--json'], {
+      environment: { TQX_BASE_URL: 'https://api.example.test' },
+      credentialStore: store,
+      fetch,
+      stdout,
+      stderr,
+    })
+
+    expect(stdout.value).toBe('')
+    expect(JSON.parse(stderr.value).error).toMatchObject({
+      code: 'cash_flows_unsupported',
+      status: 501,
+    })
+    expect(process.exitCode).not.toBe(0)
+    expect(process.exitCode).toBeDefined()
+  })
+
   it('reports the field and rule when SDK input validation fails', async () => {
     const store = new MemoryStore()
     store.value = 'stored-key'

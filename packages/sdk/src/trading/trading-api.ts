@@ -4,6 +4,8 @@ import { TqxValidationError } from '../errors'
 import {
   AccountOptionsSchema,
   CancelOrderDataSchema,
+  CashFlowsDataSchema,
+  CashFlowsOptionsSchema,
   ModifyOrderDataSchema,
   ModifyOrderInputSchema,
   OrderDataSchema,
@@ -18,6 +20,8 @@ import {
   TradingAccountDataSchema,
   type AccountOptions,
   type CancelOrderData,
+  type CashFlowsData,
+  type CashFlowsOptions,
   type ModifyOrderData,
   type ModifyOrderInput,
   type OrderData,
@@ -44,6 +48,12 @@ export interface TradingApi {
   /** Acknowledges a cancellation request; it does not confirm `CANCELLED`. */
   cancelOrder(orderId: string): Promise<CancelOrderData>
   listTrades(options?: TradesOptions): Promise<TradesData>
+  /**
+   * Lists broker cash-ledger rows in their native currency. Rejects with
+   * `TqxApiError` code `cash_flows_unsupported` when the account's channel
+   * cannot provide a complete ledger; an empty list is never used for that.
+   */
+  listCashFlows(options?: CashFlowsOptions): Promise<CashFlowsData>
   getSignal(signalId: string): Promise<SignalData>
 }
 
@@ -144,6 +154,20 @@ export class TradingApiClient implements TradingApi {
       query: {
         market: input.market,
         order_id: input.orderId,
+        limit: input.limit,
+        cursor: input.cursor,
+      },
+    })
+  }
+
+  async listCashFlows(options: CashFlowsOptions = {}): Promise<CashFlowsData> {
+    const input = parseInput(CashFlowsOptionsSchema, options)
+    return this.#request(APIs.CASH_FLOWS, {
+      schema: CashFlowsDataSchema,
+      query: {
+        start_date: input.startDate,
+        end_date: input.endDate,
+        currency: input.currency,
         limit: input.limit,
         cursor: input.cursor,
       },

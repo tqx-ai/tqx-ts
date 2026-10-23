@@ -9,6 +9,8 @@ import {
   TqxProtocolError,
   TqxValidationError,
   type TqxClientOptions,
+  PositionDataSchema,
+  TradeDataSchema,
   TradingAccountDataSchema,
 } from '../src/index'
 
@@ -908,5 +910,176 @@ describe('TqxClient', () => {
     expect(fetch.mock.calls[3]?.[1]?.method).toBe('PATCH')
     expect(fetch.mock.calls[4]?.[1]?.method).toBe('DELETE')
     expect(String(fetch.mock.calls[5]?.[0])).toContain('order_id=order%2F1')
+  })
+
+  it('lists cash flows with snake_case query parameters', async () => {
+    const flow = {
+      flow_id: 'LPabc',
+      currency: 'USD',
+      amount: '-338.20',
+      direction: 'OUT',
+      category: null,
+      symbol: 'AVGO.US',
+      occurred_at: '2026-10-21T14:31:02Z',
+      business_date: null,
+      settle_date: null,
+      settlement_status: null,
+      reference_id: null,
+      order_id: null,
+      broker_type: null,
+      business_name: 'BuyContract-Stocks',
+      description: 'AVGO',
+    }
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(response({ items: [flow], next_cursor: 'next' }))
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    await expect(
+      client.trading.listCashFlows({
+        startDate: '2026-10-01',
+        endDate: '2026-10-21',
+        currency: 'USD',
+        limit: 20,
+      }),
+    ).resolves.toEqual({ items: [flow], next_cursor: 'next' })
+
+    const url = new URL(String(fetch.mock.calls[0]?.[0]))
+    expect(url.pathname).toBe('/openapi/v1/trading/cash-flows')
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      start_date: '2026-10-01',
+      end_date: '2026-10-21',
+      currency: 'USD',
+      limit: '20',
+    })
+  })
+
+  it('rejects malformed cash flow dates before sending a request', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>()
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    await expect(client.trading.listCashFlows({ startDate: '2026/10/01' })).rejects.toBeInstanceOf(
+      TqxValidationError,
+    )
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('surfaces cash_flows_unsupported as an API error instead of an empty list', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(
+      Response.json(
+        {
+          code: 'cash_flows_unsupported',
+          message: 'cash flows are not available for this trading channel',
+          data: { feature: 'cash_flows' },
+          request_id: 'request-unsupported',
+          timestamp: 1,
+        },
+        { status: 501 },
+      ),
+    )
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    await expect(client.trading.listCashFlows()).rejects.toMatchObject({
+      code: 'cash_flows_unsupported',
+      status: 501,
+    })
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('trade fee fields', () => {
+  const trade = {
+    trade_id: 'trade-1',
+    order_id: 'order-1',
+    symbol: '02015.HK',
+    symbol_name: 'Li Auto',
+    market: 'HK',
+    currency: 'HKD',
+    side: 'SELL',
+    quantity: '100',
+    price: '44.9',
+    amount: '4490',
+    commission: '3.0',
+    executed_at: now,
+  }
+
+  it('accepts trades from servers that do not send fee fields', () => {
+    expect(safeParse(TradeDataSchema, trade).success).toBe(true)
+  })
+
+  it('accepts total and itemized fees, or null when unavailable', () => {
+    expect(
+      safeParse(TradeDataSchema, {
+        ...trade,
+        total_fees: '23.57',
+        fees: { commission: '3.0', stamp_duty: '5.0' },
+      }).success,
+    ).toBe(true)
+    expect(safeParse(TradeDataSchema, { ...trade, total_fees: null, fees: null }).success).toBe(
+      true,
+    )
+  })
+
+  it('rejects non-string fee amounts', () => {
+    expect(safeParse(TradeDataSchema, { ...trade, fees: { commission: 3 } }).success).toBe(false)
+  })
+})
+
+describe('additive currency and cash fields', () => {
+  const account = {
+    account_id: 'LBPT10100047',
+    mode: 'LIVE',
+    base_currency: 'HKD',
+    total_assets: '13742308.18',
+    cash: '8524679.52',
+    available_cash: '-1827995.3',
+    frozen_cash: '0.0',
+    buying_power: '11021745.41',
+    market_value: '5515583.2187',
+    unrealized_pnl: '-429204.8021',
+    as_of: now,
+    is_stale: false,
+  }
+
+  it('accepts accounts with or without per-currency cash balances', () => {
+    expect(safeParse(TradingAccountDataSchema, account).success).toBe(true)
+    expect(safeParse(TradingAccountDataSchema, { ...account, cash_balances: null }).success).toBe(
+      true,
+    )
+    expect(
+      safeParse(TradingAccountDataSchema, {
+        ...account,
+        cash_balances: [
+          {
+            currency: 'USD',
+            available_cash: '601202.10',
+            frozen_cash: '0',
+            settling_cash: null,
+            withdrawable_cash: null,
+          },
+        ],
+      }).success,
+    ).toBe(true)
+  })
+
+  it('accepts a position price currency that differs from the amount currency', () => {
+    const position = {
+      symbol: 'XPEV.US',
+      symbol_name: 'XPeng',
+      market: 'US',
+      currency: 'HKD',
+      side: 'LONG',
+      quantity: '18700',
+      available_quantity: '18700',
+      average_cost: '10.64',
+      last_price: '9.07',
+      market_value: '1328835.6323',
+      unrealized_pnl: '-230018.9573',
+      unrealized_pnl_ratio: '-0.147556',
+      as_of: now,
+    }
+    expect(safeParse(PositionDataSchema, position).success).toBe(true)
+    expect(safeParse(PositionDataSchema, { ...position, price_currency: 'USD' }).success).toBe(true)
+    expect(safeParse(PositionDataSchema, { ...position, price_currency: null }).success).toBe(true)
   })
 })

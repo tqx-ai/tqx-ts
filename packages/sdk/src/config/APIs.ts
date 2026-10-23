@@ -9,6 +9,7 @@ const APIs = {
   POSITIONS: '/openapi/v1/trading/positions',
   ORDERS: '/openapi/v1/trading/orders',
   TRADES: '/openapi/v1/trading/trades',
+  CASH_FLOWS: '/openapi/v1/trading/cash-flows',
   SIGNALS: '/openapi/v1/trading/signals',
 
   // Research API

@@ -217,6 +217,16 @@ tqx trading trades --orderId=<order-id> --json
 tqx trading trades --cursor=<next-cursor> --limit=100 --json
 ```
 
+Cash flows (broker cash ledger, per currency):
+
+```powershell
+tqx trading cash-flows --json
+tqx trading cash-flows --start=2026-10-01 --end=2026-10-21 --currency=USD --json
+tqx trading cash-flows --cursor=<next-cursor> --limit=100 --json
+```
+
+Dates are Hong Kong calendar days (default: the last 7 days, at most 90). Each row keeps the broker's native `currency` and a signed `amount` (positive = inflow, negative = outflow); amounts are never converted. `category` (`TRADE`, `FEE`, `TRANSFER`, `FX`, ...), `occurred_at`, `business_date`, `settle_date`, `settlement_status` and `order_id` are `null` when the broker does not provide them; never read `null` as zero or as "settled". `reference_id` is a broker business reference, not an order ID. If the command fails with `cash_flows_unsupported`, the account's channel cannot provide a complete ledger: report that cash movements cannot be verified through TQX, and do not treat it as "no cash flows". An empty `items` list means the channel is supported and had no cash movements in the range.
+
 Signal:
 
 ```powershell
@@ -280,6 +290,7 @@ tqx trading orders --help
 tqx trading orders place --help
 tqx trading orders modify --help
 tqx trading trades --help
+tqx trading cash-flows --help
 ```
 
 Exit code convention: usage or input verification error is 2, API/network/protocol error is 1, success is 0.

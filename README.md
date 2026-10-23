@@ -93,8 +93,11 @@ tqx trading orders place --symbol=<symbol> --side=BUY|SELL --quantity=<quantity>
 tqx trading orders modify <order-id> --price=<price>
 tqx trading orders cancel <order-id>
 tqx trading trades [--market=HK|US] [--orderId=<id>] [--limit=<n>] [--cursor=<cursor>]
+tqx trading cash-flows [--start=YYYY-MM-DD] [--end=YYYY-MM-DD] [--currency=<code>] [--limit=<n>] [--cursor=<cursor>]
 tqx trading signals get <signal-id>
 ```
+
+`cash-flows` lists the broker's cash ledger in each row's native currency with a signed `amount` (positive is an inflow). Fields the broker does not provide are `null`, never `0`. Channels that cannot provide a complete ledger fail with the API error `cash_flows_unsupported` (HTTP 501); an empty `items` list only means the channel is supported and has no rows in the range.
 
 Order submission returns a signal response. Its `state=ACCEPTED` means the signal was accepted, not that the linked order was submitted or filled. The linked order lifecycle is reported separately through `order_status` when available and through `orders get` / `trades --orderId=<id>`; `accepted=true` from modify/cancel acknowledges only the operation request.
 

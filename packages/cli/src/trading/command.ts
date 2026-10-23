@@ -141,6 +141,29 @@ export function createTradingCommand(runtime: CommandRuntime) {
             }),
           ),
       }),
+      'cash-flows': defineCommand({
+        meta: {
+          name: 'cash-flows',
+          description:
+            'List broker cash-ledger rows in native currency (fails with cash_flows_unsupported when the channel has no complete ledger)',
+        },
+        args: {
+          start: { type: 'string', description: 'Start date YYYY-MM-DD (Hong Kong time)' },
+          end: { type: 'string', description: 'End date YYYY-MM-DD (Hong Kong time)' },
+          currency: { type: 'string', description: 'Native currency filter, e.g. USD' },
+          ...paginationArgs,
+        },
+        run: ({ args }) =>
+          runtime.trading((client) =>
+            client.trading.listCashFlows({
+              startDate: args.start,
+              endDate: args.end,
+              currency: args.currency?.trim().toUpperCase(),
+              limit: optionalNumber(args.limit),
+              cursor: args.cursor,
+            }),
+          ),
+      }),
       signals: defineCommand({
         meta: { name: 'signals', description: 'Inspect trading signals' },
         subCommands: {
