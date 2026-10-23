@@ -26,6 +26,10 @@ function runtime(overrides: Partial<RuntimeProcess> = {}): RuntimeProcess {
   }
 }
 
+function configurationEnvironment(directory: string): NodeJS.ProcessEnv {
+  return { XDG_CONFIG_HOME: directory, LOCALAPPDATA: directory, APPDATA: directory }
+}
+
 function release(tag_name: string, overrides: Partial<ReleaseInfo> = {}): ReleaseInfo {
   return {
     tag_name,
@@ -121,7 +125,10 @@ describe('CLI updates', () => {
     )
 
     await runCli(['status', '--plain'], {
-      environment: { TQX_BASE_URL: 'https://api.example.test', XDG_CONFIG_HOME: directory },
+      environment: {
+        ...configurationEnvironment(directory),
+        TQX_BASE_URL: 'https://api.example.test',
+      },
       credentialStore: {
         get: async () => null,
         set: async () => undefined,
@@ -151,7 +158,7 @@ describe('CLI updates', () => {
       .mockResolvedValue(Response.json([release('v0.6.0')]))
 
     await runCli(['self-update', '--check', '--json'], {
-      environment: { XDG_CONFIG_HOME: directory },
+      environment: configurationEnvironment(directory),
       fetch,
       stdout,
     })
@@ -244,7 +251,7 @@ describe('CLI updates', () => {
       .fn<typeof globalThis.fetch>()
       .mockResolvedValue(Response.json([release('v0.4.0')]))
     const deps = {
-      environment: { XDG_CONFIG_HOME: directory },
+      environment: configurationEnvironment(directory),
       process: runtime(),
       fetch,
       now: () => 100,
@@ -270,7 +277,7 @@ describe('CLI updates', () => {
       )
 
     const result = await checkForUpdates({
-      environment: { XDG_CONFIG_HOME: directory },
+      environment: configurationEnvironment(directory),
       process: runtime(),
       fetch,
       now: () => 100,
@@ -286,14 +293,14 @@ describe('CLI updates', () => {
     )
   })
 
-  it('throttles automatic checks for 24 hours', async () => {
+  it.each(['linux', 'win32'])('throttles automatic checks for 24 hours on %s', async (platform) => {
     const directory = await mkdtemp(join(tmpdir(), 'tqx-update-'))
     const fetch = vi
       .fn<typeof globalThis.fetch>()
       .mockResolvedValue(Response.json([release('v0.4.0')]))
     const deps = {
-      environment: { XDG_CONFIG_HOME: directory },
-      process: runtime(),
+      environment: configurationEnvironment(directory),
+      process: runtime({ platform }),
       fetch,
       now: () => 100,
     }
@@ -307,7 +314,7 @@ describe('CLI updates', () => {
     const directory = await mkdtemp(join(tmpdir(), 'tqx-update-'))
     const fetch = vi.fn<typeof globalThis.fetch>().mockRejectedValue(new Error('offline'))
     const deps = {
-      environment: { XDG_CONFIG_HOME: directory },
+      environment: configurationEnvironment(directory),
       process: runtime(),
       fetch,
       now: () => 100,
@@ -356,6 +363,7 @@ describe('CLI updates', () => {
     const directory = await mkdtemp(join(tmpdir(), 'tqx-update-'))
     const target = join(directory, 'tqx')
     await writeFile(target, 'old binary', { mode: 0o755 })
+    const existingMode = (await stat(target)).mode & 0o777
     const binary = Buffer.from('new binary')
     const compressed = gzipSync(binary)
     const fetch = releaseFetch({
@@ -376,7 +384,7 @@ describe('CLI updates', () => {
       'https://example.test/tqx.gz',
     ])
     expect(await readFile(target)).toEqual(binary)
-    expect((await stat(target)).mode & 0o777).toBe(0o755)
+    expect((await stat(target)).mode & 0o777).toBe(existingMode)
   })
 
   it('rejects a gzip asset whose content does not match the raw binary checksum', async () => {

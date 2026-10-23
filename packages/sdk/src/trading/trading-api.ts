@@ -4,6 +4,7 @@ import { TqxValidationError } from '../errors'
 import {
   AccountOptionsSchema,
   CancelOrderDataSchema,
+  CancelOrderOptionsSchema,
   CashFlowsDataSchema,
   CashFlowsOptionsSchema,
   ModifyOrderDataSchema,
@@ -20,6 +21,7 @@ import {
   TradingAccountDataSchema,
   type AccountOptions,
   type CancelOrderData,
+  type CancelOrderOptions,
   type CashFlowsData,
   type CashFlowsOptions,
   type ModifyOrderData,
@@ -46,7 +48,7 @@ export interface TradingApi {
   placeOrder(input: PlaceOrderInput): Promise<SignalData>
   modifyOrder(input: ModifyOrderInput): Promise<ModifyOrderData>
   /** Acknowledges a cancellation request; it does not confirm `CANCELLED`. */
-  cancelOrder(orderId: string): Promise<CancelOrderData>
+  cancelOrder(orderId: string, options?: CancelOrderOptions): Promise<CancelOrderData>
   listTrades(options?: TradesOptions): Promise<TradesData>
   /**
    * Lists broker cash-ledger rows in their native currency. Rejects with
@@ -136,14 +138,24 @@ export class TradingApiClient implements TradingApi {
     return this.#request(`${APIs.ORDERS}/${encodeIdentifier(parsed.orderId, 'order ID')}`, {
       schema: ModifyOrderDataSchema,
       method: 'PATCH',
+      headers:
+        parsed.idempotencyKey === undefined
+          ? undefined
+          : { 'Idempotency-Key': parsed.idempotencyKey },
       body: { price: parsed.price },
     })
   }
 
-  cancelOrder(orderId: string): Promise<CancelOrderData> {
-    return this.#request(`${APIs.ORDERS}/${encodeIdentifier(orderId, 'order ID')}`, {
+  cancelOrder(orderId: string, options: CancelOrderOptions = {}): Promise<CancelOrderData> {
+    const encodedOrderId = encodeIdentifier(orderId, 'order ID')
+    const parsed = parseInput(CancelOrderOptionsSchema, options)
+    return this.#request(`${APIs.ORDERS}/${encodedOrderId}`, {
       schema: CancelOrderDataSchema,
       method: 'DELETE',
+      headers:
+        parsed.idempotencyKey === undefined
+          ? undefined
+          : { 'Idempotency-Key': parsed.idempotencyKey },
     })
   }
 

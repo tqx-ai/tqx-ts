@@ -163,6 +163,11 @@ const signal = await client.trading.placeOrder({
 All requests use the native Fetch API. Public request and response schemas are exported as
 Valibot schemas alongside their inferred TypeScript types.
 
+The SDK also accepts `bearerToken` for backends supporting API access tokens. It is mutually
+exclusive with `apiKey`; health requests send neither credential. Callers obtain and renew the
+token. See [SDK authentication](./packages/sdk/README.md#bearer-authentication) for token audience
+requirements. CLI login continues to use API keys.
+
 ## License
 
 Licensed under the [GNU General Public License v3.0](./LICENSE).

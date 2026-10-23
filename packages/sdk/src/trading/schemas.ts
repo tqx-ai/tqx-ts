@@ -267,6 +267,16 @@ export const CashFlowsOptionsSchema = v.strictObject({
   cursor: v.optional(v.pipe(v.string(), v.maxLength(512))),
 })
 
+const idempotencyKey = v.pipe(
+  v.string(),
+  v.minLength(8, 'Must be at least 8 characters'),
+  v.maxLength(128, 'Must be at most 128 characters'),
+  v.regex(
+    /^[A-Za-z0-9][A-Za-z0-9._:-]+$/,
+    'Must start with a letter or number and contain only letters, numbers, periods, underscores, colons, or hyphens',
+  ),
+)
+
 export const PlaceOrderInputSchema = v.pipe(
   v.strictObject({
     symbol: v.pipe(
@@ -286,15 +296,7 @@ export const PlaceOrderInputSchema = v.pipe(
       ),
     ),
     timeInForce: v.optional(TimeInForceSchema),
-    idempotencyKey: v.pipe(
-      v.string(),
-      v.minLength(8, 'Must be at least 8 characters'),
-      v.maxLength(128, 'Must be at most 128 characters'),
-      v.regex(
-        /^[A-Za-z0-9][A-Za-z0-9._:-]+$/,
-        'Must start with a letter or number and contain only letters, numbers, periods, underscores, colons, or hyphens',
-      ),
-    ),
+    idempotencyKey,
   }),
   v.check(
     (input) =>
@@ -307,6 +309,11 @@ export const PlaceOrderInputSchema = v.pipe(
 export const ModifyOrderInputSchema = v.strictObject({
   orderId: v.pipe(v.string(), v.minLength(1), v.maxLength(128)),
   price: positiveDecimalString,
+  idempotencyKey: v.optional(idempotencyKey),
+})
+
+export const CancelOrderOptionsSchema = v.strictObject({
+  idempotencyKey: v.optional(idempotencyKey),
 })
 
 export type TradingAccountData = v.InferOutput<typeof TradingAccountDataSchema>
@@ -330,6 +337,7 @@ export type TradesOptions = v.InferInput<typeof TradesOptionsSchema>
 export type CashFlowsOptions = v.InferInput<typeof CashFlowsOptionsSchema>
 export type PlaceOrderInput = v.InferInput<typeof PlaceOrderInputSchema>
 export type ModifyOrderInput = v.InferInput<typeof ModifyOrderInputSchema>
+export type CancelOrderOptions = v.InferInput<typeof CancelOrderOptionsSchema>
 export type Market = v.InferOutput<typeof MarketSchema>
 export type OrderSide = v.InferOutput<typeof OrderSideSchema>
 export type OrderType = v.InferOutput<typeof OrderTypeSchema>

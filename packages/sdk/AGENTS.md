@@ -11,15 +11,16 @@
 
 ## Transport And Paths
 
-- `TqxClient` owns Fetch calls, URL construction, API-key headers, timeouts/error translation, and
+- `TqxClient` owns Fetch calls, URL construction, authentication headers, timeouts/error translation, and
   response decoding. Domain clients receive an injected typed request function and do not fetch
   directly.
 - Add all service paths to `src/config/APIs.ts`. Trading/OpenAPI paths are root-relative; Qube paths
   are relative to a `baseUrl` ending in `/pandaApi`, for example `agent_quant/api/factors`.
 - OpenAPI responses use the strict `ApiEnvelopeSchema`. Qube gateway responses can be raw resource
   data or a gateway envelope; retain its `data`, business code, message, and request ID in errors.
-- All authenticated requests use `X-API-Key`. Research must use the same API-key transport as
-  trading, not legacy session, token-refresh, or YAML configuration code.
+- Authenticated requests use either `apiKey` (`X-API-Key`) or `bearerToken`
+  (`Authorization: Bearer`), never both. Health carries neither. Callers obtain and refresh Bearer tokens; the SDK
+  does not exchange tokens. Research still uses API keys until its backend supports Bearer.
 
 ## Schemas And Domain Clients
 
