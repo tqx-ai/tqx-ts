@@ -1,11 +1,11 @@
-import { createServer } from 'node:http'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { decodeJwt, SignJWT } from 'jose'
 import { fixture } from './fixture'
 
 // Entire AS, Trading data, credentials and accounts in this fixture are synthetic.
 export async function tradingFixture(
-  options: { exchangeTimeoutMs?: number; tradingTimeoutMs?: number } = {},
+  options: { exchangeTimeoutMs?: number; tradingTimeoutMs?: number; writesEnabled?: boolean } = {},
 ) {
   const state = {
     exchange: [] as {
@@ -27,6 +27,7 @@ export async function tradingFixture(
     tradingStatus: 200,
     invalidTradingData: false,
     tradingRedirect: false,
+    handleTrading: undefined as ((req: IncomingMessage, res: ServerResponse) => void) | undefined,
   }
   const trading = createServer((req, res) => {
     state.activeTrading++
@@ -37,6 +38,10 @@ export async function tradingFixture(
     const payload = token ? decodeJwt(token) : {}
     const subject = String(payload.sub)
     state.trading.push({ url: req.url ?? '', token, subject })
+    if (state.handleTrading) {
+      state.handleTrading(req, res)
+      return
+    }
     if (state.tradingRedirect) {
       res.writeHead(302, { Location: '/synthetic-redirect-trap' }).end()
       return
@@ -105,6 +110,7 @@ export async function tradingFixture(
   const tradingBase = `http://127.0.0.1:${(trading.address() as AddressInfo).port}`
   const f = await fixture({}, undefined, {
     MCP_TRADING_TOOLS_ENABLED: 'true',
+    MCP_TRADING_WRITE_TOOLS_ENABLED: String(options.writesEnabled ?? false),
     MCP_EXCHANGE_CLIENT_SECRET: 'synthetic-secret: +/=',
     MCP_API_RESOURCE: `${tradingBase}/api`,
     MCP_TRADING_BASE_URL: tradingBase,
@@ -160,7 +166,7 @@ export async function tradingFixture(
           jti: `synthetic-derived-${++sequence}`,
           iat: now,
           exp,
-          scope: 'trade:read',
+          scope: form.get('scope') ?? '',
           ...state.claims,
         }
         const token = await new SignJWT(payload)
@@ -172,7 +178,7 @@ export async function tradingFixture(
             issued_token_type: 'urn:ietf:params:oauth:token-type:access_token',
             token_type: 'Bearer',
             expires_in: exp - now,
-            scope: 'trade:read',
+            scope: form.get('scope') ?? '',
             ...state.envelope,
           }),
         )

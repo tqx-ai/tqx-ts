@@ -1,4 +1,9 @@
-import { TqxClient, TqxValidationError } from '@tqx-ai/sdk'
+import {
+  resolveTqxEndpoints,
+  TqxClient,
+  TqxValidationError,
+  type TqxResolvedEndpoints,
+} from '@tqx-ai/sdk'
 
 import { resolveApiKey, type CredentialStore } from '../credentials'
 import { Output, type WritableOutput } from '../output'
@@ -19,6 +24,7 @@ export interface CommandRuntime {
   run<T>(operation: () => Promise<T>, successMessage?: string): Promise<void>
   createClient(apiKey?: string): TqxClient
   getApiKey(): Promise<string | null>
+  getEndpoints(): TqxResolvedEndpoints
   trading<T>(operation: (client: TqxClient) => Promise<T>): Promise<void>
   research<T>(operation: (client: TqxClient) => Promise<T>): Promise<void>
   user<T>(operation: (client: TqxClient) => Promise<T>): Promise<void>
@@ -28,18 +34,18 @@ export function createCommandRuntime(dependencies: CommandRuntimeDependencies): 
   const fetch = withLoadingIndicator(dependencies.fetch ?? globalThis.fetch, dependencies.output)
 
   const createClient = (apiKey?: string): TqxClient => {
-    const baseUrl = dependencies.environment.TQX_BASE_URL?.trim() || undefined
+    const legacy = dependencies.environment.TQX_ENV === undefined
+    const baseUrl = legacy ? dependencies.environment.TQX_BASE_URL?.trim() || undefined : undefined
     const defaultBaseUrl = __TQX_BUILD_DEFAULT_BASE_URL__.trim() || undefined
-    const tradingBaseUrl =
-      baseUrl || __TQX_BUILD_DEFAULT_TRADING_BASE_URL__.trim() || defaultBaseUrl || undefined
-    if (!baseUrl && !defaultBaseUrl) {
+    if (legacy && !baseUrl && !defaultBaseUrl) {
       throw new CliUsageError(
         'TQX_BASE_URL is required because this CLI was built without TQX_BUILD_BASE_URL',
       )
     }
+    const endpoints = resolveTqxEndpoints({}, dependencies.environment)
     return new TqxClient({
-      baseUrl,
-      tradingBaseUrl,
+      ...endpoints,
+      runtimeEnvironment: dependencies.environment,
       apiKey,
       clientMac: getLocalMacAddress(),
       clientVersion: __TQX_BUILD_CLI_VERSION__,
@@ -63,6 +69,7 @@ export function createCommandRuntime(dependencies: CommandRuntimeDependencies): 
     run,
     createClient,
     getApiKey,
+    getEndpoints: () => resolveTqxEndpoints({}, dependencies.environment),
     trading: (operation) =>
       run(async () => {
         const apiKey = await getApiKey()

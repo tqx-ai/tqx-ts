@@ -24,6 +24,18 @@
       "rules": { "no-shadow": "off", "unicorn/no-array-sort": "off" }
     },
     {
+      "files": [
+        "packages/mcp-server/integrations/codex/callback-login.mjs",
+        "packages/mcp-server/integrations/codex/deployment-environment.mjs"
+      ],
+      "rules": {
+        "no-shadow": "off",
+        "unicorn/no-array-sort": "off",
+        "no-await-in-loop": "off",
+        "unicorn/consistent-function-scoping": "off"
+      }
+    },
+    {
       "files": ["packages/mcp-server/src/app.ts"],
       "rules": { "oxc/no-async-endpoint-handlers": "off" }
     },

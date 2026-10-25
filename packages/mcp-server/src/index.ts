@@ -1,15 +1,27 @@
-import { loadEnvFile } from 'node:process'
+import { readFileSync } from 'node:fs'
+import { parseEnv } from 'node:util'
 import { loadConfig } from './config'
+import { mcpEnvironment, mcpEnvironmentFile, mergeMcpEnvironment } from './environment'
 import { installShutdownHandlers, startService } from './runtime'
 
 try {
-  // Bun also auto-loads .env.local; Node start uses the same optional runtime file.
-  try {
-    loadEnvFile('.env.local')
-  } catch (error) {
-    if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error
+  const optionalEnvironment = (path: string): NodeJS.ProcessEnv => {
+    try {
+      return parseEnv(readFileSync(path, 'utf8'))
+    } catch (error) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return {}
+      throw error
+    }
   }
-  const config = loadConfig()
+  const inherited = { ...process.env }
+  const local = optionalEnvironment('.env.local')
+  const environment = mcpEnvironment(mergeMcpEnvironment(inherited, local))
+  const selected =
+    environment === 'local' ? {} : optionalEnvironment(mcpEnvironmentFile(environment))
+  const effective = mergeMcpEnvironment(inherited, local, selected)
+  for (const [name, value] of Object.entries(effective))
+    if (value !== undefined) process.env[name] = value
+  const config = loadConfig(effective)
   const service = await startService(config)
   const removeSignals = installShutdownHandlers(service.close)
   service.server.on('error', () => {
@@ -19,6 +31,9 @@ try {
     void service.close()
   })
   console.info(`MCP listening at ${config.resource}; healthz checks process liveness only`)
+  console.info(
+    `MCP environment=${config.environment}; issuer=${config.issuer}; api=${config.apiResource}; trading=${config.tradingBaseUrl}`,
+  )
 } catch (error) {
   const code = error instanceof Error && 'code' in error ? error.code : undefined
   console.error(

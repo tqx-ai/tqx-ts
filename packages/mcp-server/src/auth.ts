@@ -199,6 +199,12 @@ export function authMiddleware(config: Config) {
       next()
     } catch (error) {
       if (res.destroyed || disconnected.signal.aborted) return
+      // AS/JWKS waits can outlive the source. A derived-token error must not hide
+      // the refresh challenge once the presented source credential has expired.
+      if (principal.expiresAt <= Math.floor(Date.now() / 1000)) {
+        rejectAuthorization(config, res, 401)
+        return
+      }
       const failure =
         error instanceof UpstreamError ? error : new UpstreamError(503, 'exchange_unavailable')
       if (failure.status === 401 || failure.status === 403)

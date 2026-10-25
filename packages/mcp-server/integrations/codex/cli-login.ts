@@ -3,6 +3,9 @@ import { spawn } from 'node:child_process'
 import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { syntheticFixture } from './synthetic-fixture'
+import { assertLiveIntegrationAllowed } from './local-policy'
+
+assertLiveIntegrationAllowed()
 
 const repo = resolve(import.meta.dirname, '../..')
 const root = resolve(repo, 'work/codex/runs')

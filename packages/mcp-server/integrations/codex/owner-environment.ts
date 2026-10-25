@@ -4,6 +4,9 @@ import { resolve } from 'node:path'
 import { CodexClient, type RecordValue } from './client'
 import { clientTarget, expectedTools, targetConfig } from './target'
 import { ownerReady } from './v2-ready'
+import { assertLiveIntegrationAllowed } from './local-policy'
+
+assertLiveIntegrationAllowed()
 
 // Opt-in runner for the already-running Owner environment. Never starts or seeds services.
 const target = clientTarget()
@@ -40,7 +43,7 @@ const home = await mkdtemp(resolve(runs, 'owner-'))
 const useProvidedClient = process.argv.includes('--provided-public-client')
 let publicClientId: string | undefined
 if (useProvidedClient) {
-  const registration = await fetch(`${issuer}/oauth/register`, {
+  const registration = await fetch(new URL('/oauth/register', issuer), {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -87,7 +90,7 @@ try {
     const tx = consentUrl.searchParams.get('tx')
     assert(tx, 'Expected TQX web consent transaction')
     const decision: Response = await fetch(
-      `${issuer}/oauth/tx/${encodeURIComponent(tx)}/decision`,
+      new URL(`/oauth/tx/${encodeURIComponent(tx)}/decision`, issuer),
       {
         method: 'POST',
         headers: {

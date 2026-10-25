@@ -4,6 +4,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { resolve } from 'node:path'
 import { exportJWK, generateKeyPair, jwtVerify, SignJWT } from 'jose'
+import { assertLiveIntegrationAllowed } from './local-policy'
 
 const ACCESS = 'urn:ietf:params:oauth:token-type:access_token'
 const EXCHANGE = 'urn:ietf:params:oauth:grant-type:token-exchange'
@@ -23,6 +24,7 @@ async function listen(server: ReturnType<typeof createServer>) {
   return `http://127.0.0.1:${address.port}`
 }
 export async function syntheticFixture(repo: string) {
+  assertLiveIntegrationAllowed()
   const keys = await generateKeyPair('RS256')
   const publicKey = {
     ...(await exportJWK(keys.publicKey)),

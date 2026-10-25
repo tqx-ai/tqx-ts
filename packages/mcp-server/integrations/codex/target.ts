@@ -22,6 +22,7 @@ export interface ClientTarget {
 export function loopbackUrl(value: string, path?: string): string {
   assert(value && !/[\s\\]/.test(value), 'Invalid fixture URL')
   const url = new URL(value)
+  assert(value.slice(7).split('/')[0] === url.host, 'Fixture authority must be canonical')
   assert.equal(url.protocol, 'http:', 'Only local HTTP fixtures are supported')
   assert(
     ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname),
@@ -86,5 +87,5 @@ export function expectedTools(target: ClientTarget): string[] {
   ].sort()
 }
 export function targetConfig(target: ClientTarget): string {
-  return `mcp_oauth_credentials_store = "file"\n[mcp_servers.tqx]\nurl = ${JSON.stringify(target.resource)}\nscopes = ${JSON.stringify(target.scopes)}\nenabled_tools = ${JSON.stringify(expectedTools(target))}\n`
+  return `mcp_oauth_credentials_store = "file"\n[analytics]\nenabled = false\n[mcp_servers.tqx]\nurl = ${JSON.stringify(target.resource)}\nscopes = ${JSON.stringify(target.scopes)}\n`
 }

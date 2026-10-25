@@ -1,5 +1,8 @@
 # MCP / OAuth / Trading 最小对接契约 v0.2
 
+当前 v2 工具范围、批量结果和剩余验收见 [V2_CONTRACT.md](V2_CONTRACT.md)。
+下文保留 v1 已收敛的身份/撤销/exchange 历史决策；仅账户/持仓的开发范围已由 Owner 的 v2 授权替代。
+
 迁址说明：本文件保留历史 v1 决策；当前目录为 `tqx-ts/packages/mcp-server`，
 SDK 使用 `workspace:*`。指定 checkpoint 含未验证 v2 WIP；本次仅迁入，未重验或扩展该契约。
 

@@ -42,12 +42,21 @@
 
 ## Tests And Release Checks
 
+- On 2026-10-25 the human authorized continuing with local and test environments, including
+  isolated persistence and actual-client acceptance. Production, real funds/broker orders,
+  deployment, destructive cleanup and overwriting unrelated business data remain out of scope.
+  Live runners require explicit opt-in, a fresh Owner READY and independent private test homes;
+  never reuse the old 2026-10-23 READY or load `.env.prod`. Keep credentials out of source/logs.
+  The dedicated `test:memory:*` lanes retain their strict runtime I/O guards and remain available.
+
 - Add focused Vitest coverage for URL selection, HTTP method, headers, body mapping, query
   serialization, validation failures, and CLI output/exit status.
 - Unit tests resolve `@tqx-ai/sdk` to source through `vitest.config.ts`; do not rely on local
   `dist` output. Build and smoke checks cover package behavior.
 - Root `typecheck`, `test:unit`, and `test:smoke` also run the MCP package checks. MCP has its own
   strict TypeScript and Vitest configuration; root formatting and linting cover all packages.
+- `test:unit` includes the Codex runner's offline contract checks through `test:codex`. Actual
+  client OAuth uses the separately opted-in test lane and a newly verified Owner environment.
 - MCP lint overrides preserve ordered stream reads, polling, and fixture steps; do not parallelize
   those loops. The Express 5 route supports async handlers. Other scoped exceptions cover existing
   helper placement, fixture-local sorting/callback names, and SDK/protocol underscore identifiers.

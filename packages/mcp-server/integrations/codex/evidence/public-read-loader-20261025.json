@@ -1,0 +1,105 @@
+{
+  "date": "2026-10-25",
+  "fixture": "PUBLIC_SYNTHETIC_PAPER_READ_FIXTURE",
+  "pluginId": "tqx-public-read-56804f8d9faa407180395d9b210934bb",
+  "url": "http://127.0.0.1:52527/mcp",
+  "ownerHostObservationBeforeFix": {
+    "installedByOwner": true,
+    "exactPluginRefChatsAttempted": 2,
+    "fixtureDiscovered": false,
+    "fixtureAuditCalls": 0,
+    "actualModelDataConsumption": false
+  },
+  "readOnlyCliObservation": {
+    "installed": true,
+    "enabled": true,
+    "reportedVersion": "local",
+    "sourceVersion": "0.1.0",
+    "mcpGet": "server not found",
+    "mcpListIncludesFixture": false
+  },
+  "sourceDefect": "Generated root plugin.json and mcp.json omitted Agent Plugins 1.0 $schema discriminators. Prior protocol/SDK selfchecks did not exercise the Codex plugin loader.",
+  "minimalFix": {
+    "pluginSchema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+    "mcpSchema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+    "generatorUpdated": true,
+    "sameSourceIdAndUrl": true,
+    "serviceRestarted": false,
+    "profileOrCacheModifiedByThisLine": false,
+    "staticContractAndCatalogRegression": "1 passed, 32 skipped; not host acceptance",
+    "typecheckLintDiffCheck": "passed"
+  },
+  "afterSourceFixBeforeOwnerReinstall": {
+    "cliVersionStillLocal": true,
+    "fixtureStillAbsentFromMcpList": true,
+    "hostRecoveryVerified": false
+  },
+  "ownerVerifiedAfterSupportedCliReinstall": {
+    "samePluginId": true,
+    "sameUrl": true,
+    "reportedVersion": "0.1.0",
+    "mcpGetServerFound": true,
+    "transportEnabled": true,
+    "cliLoaderRecoveryVerified": true,
+    "schemaOmissionCauseConfirmedAtCliLayer": true,
+    "longServerNameUnchanged": true,
+    "existingTwoChatsResumedByOwner": true,
+    "actualModelDiscoveryAndConsumptionVerified": true
+  },
+  "actualModelDiscovery": true,
+  "actualModelConsumption": true,
+  "ownerVerifiedActualSessionSnapshot": {
+    "verificationSource": "Owner independently read the two chats' mcpToolCall records and the separate fixture audit",
+    "sessionC1ToolCalls": 10,
+    "sessionC2ToolCalls": 14,
+    "fixtureAuditCallsAtSnapshot": 24,
+    "callCountsMatch": true,
+    "serverNameMatchesOriginalLongName": true,
+    "expectedOrderMissingAndServiceErrorsIncluded": true,
+    "semanticJsonReview": "pending Owner review",
+    "remainingC20ThroughC28": "scheduled in the existing C1 chat",
+    "overall28CaseResult": "pending"
+  },
+  "lengthCandidateResolution": "The original long server name is successfully used by actual model calls in both chats. The length suspicion is contradicted by this run and is not a current blocker. No shortening was needed.",
+  "ownerVerifiedFinalAcceptance": {
+    "layer": "C: actual model consumption of public synthetic MCP data",
+    "semanticCasesPassed": 28,
+    "semanticCaseMcpCalls": 34,
+    "additionalCrossSessionReadCalls": 4,
+    "totalMcpCalls": 38,
+    "auditBaseline": 0,
+    "auditFinal": 38,
+    "everyToolAndCanonicalArgsShaMatched": true,
+    "writeCalls": 0,
+    "otherServersUsed": false,
+    "typedResultsAndExplanationsReviewedByOwner": true,
+    "paginationPrecisionNullStaleCanaryErrorsReviewed": true,
+    "clientFourRequestCommonInflightOverlapMs": 39,
+    "serverProcessingPeakMeasured": false,
+    "initialSchemaBlockerAndSameIdRecoveryVerified": true,
+    "overall28CaseResult": "passed",
+    "realBrokerOrLayerBProof": false,
+    "ownerEvidenceReferences": [
+      "outputs/TQX-READ合成实际调用证据-2026-10-25.json",
+      "outputs/TQX-READ会话独立核验-2026-10-25.json"
+    ],
+    "publicFinalAudit": "evidence/public-read-final-audit-20261025.json"
+  },
+  "cleanup": {
+    "uniqueFixturePluginAndMarketplaceRemovedByOwnerSupportedCli": true,
+    "mainPluginPreservedByOwner": true,
+    "ownedSession": 6273,
+    "ownedPid": 67260,
+    "ownedPort": 52527,
+    "stopAction": "Ctrl+C to owned exec session; no Stop-Process or taskkill",
+    "execExitCode": 1,
+    "finalStopEventObserved": false,
+    "gracefulHookCompletionClaimed": false,
+    "pidStillRunning": false,
+    "portStillListening": false,
+    "auditSavedBeforeStop": 38,
+    "sourceAndEvidencePreserved": true,
+    "otherServiceOrProfileActionsByThisLine": false
+  },
+  "pending": "None for layer C. Public synthetic model-layer acceptance and bounded fixture cleanup completed. Real account/broker evidence and layer B remain separate."
+}

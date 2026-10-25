@@ -4,6 +4,9 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { resolve, sep } from 'node:path'
 import { createRemoteJWKSet, type JWTPayload, jwtVerify } from 'jose'
 import { CodexClient, type RecordValue } from './client'
+import { assertLiveIntegrationAllowed } from './local-policy'
+
+assertLiveIntegrationAllowed()
 
 // Authorized only for a home freshly created by owner-environment.ts and the
 // Owner's isolated synthetic grant. No real login or global credential changes.

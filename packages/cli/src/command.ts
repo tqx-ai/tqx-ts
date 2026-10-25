@@ -50,6 +50,7 @@ export async function runCli(
   }
   const isExplicitUpdate = commandArguments[0] === 'self-update'
   const autoCheckEnabled =
+    commandArguments[0] !== 'config' &&
     (dependencies.autoUpdateCheck ?? dependencies.fetch === undefined) &&
     !['0', 'false', 'no'].includes(
       resolved.environment.TQX_UPDATE_CHECK?.trim().toLowerCase() ?? '',
@@ -158,6 +159,22 @@ function createMainCommand(
             return { ...status, authenticated: verification.valid }
           }),
       }),
+      config: defineCommand({
+        meta: {
+          name: 'config',
+          description: 'Show effective public deployment endpoints without authentication',
+        },
+        run: () =>
+          runtime.run(async () => {
+            const endpoints = runtime.getEndpoints()
+            return {
+              environment: endpoints.environment ?? 'legacy',
+              requested_environment: endpoints.requestedEnvironment ?? null,
+              base_url: publicEndpoint(endpoints.baseUrl),
+              trading_base_url: publicEndpoint(endpoints.tradingBaseUrl),
+            }
+          }),
+      }),
       'self-update': defineCommand({
         meta: { name: 'self-update', description: 'Check for and install a newer CLI version' },
         args: {
@@ -197,6 +214,28 @@ function createMainCommand(
       bug: createBugCommand(runtime),
     },
   })
+}
+
+function publicEndpoint(value: string | undefined): string | null {
+  if (value === undefined) return null
+  const url = new URL(value)
+  let redacted = false
+  if (url.username || url.password) {
+    url.username = 'redacted'
+    url.password = ''
+    redacted = true
+  }
+  if (url.hash) {
+    url.hash = 'redacted'
+    redacted = true
+  }
+  for (const key of url.searchParams.keys()) {
+    if (/key|token|password|secret|credential|authorization/i.test(key)) {
+      url.searchParams.set(key, 'redacted')
+      redacted = true
+    }
+  }
+  return redacted ? url.toString().replace(/\/$/, '') : value
 }
 
 function normalizeGlobalArguments(rawArguments: string[]): string[] {

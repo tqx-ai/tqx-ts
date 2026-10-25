@@ -9,6 +9,11 @@ import {
   type HealthData,
 } from './schemas'
 import APIs from './config/APIs'
+import {
+  resolveTqxEndpoints,
+  type TqxEndpointOptions,
+  type TqxRuntimeEnvironment,
+} from './config/environment'
 import { ResearchApiClient, type ResearchApi } from './research/api'
 import { TradingApiClient, type TradingApi } from './trading/trading-api'
 import { UserApiClient, type UserApi } from './user/user-api'
@@ -17,10 +22,17 @@ import { BugsApiClient, type BugsApi } from './bug-report/bug-report-api'
 export type { TradingApi } from './trading/trading-api'
 export type { UserApi } from './user/user-api'
 export type { BugsApi } from './bug-report/bug-report-api'
+export { resolveTqxEndpoints } from './config/environment'
+export type {
+  TqxEndpointOptions,
+  TqxEnvironment,
+  TqxResolvedEndpoints,
+  TqxRuntimeEnvironment,
+} from './config/environment'
 
-export interface TqxClientOptions {
-  baseUrl?: string
-  tradingBaseUrl?: string
+export interface TqxClientOptions extends TqxEndpointOptions {
+  /** Injectable public endpoint environment; credentials are never read from this object. */
+  runtimeEnvironment?: TqxRuntimeEnvironment
   /** Sent as X-API-Key. Mutually exclusive with bearerToken. */
   apiKey?: string
   /** Raw API access token, without the Bearer prefix. Acquisition and renewal belong to the caller. */
@@ -65,17 +77,9 @@ export class TqxClient {
   readonly #fetch: typeof globalThis.fetch
 
   constructor(clientOptions: TqxClientOptions) {
-    const runtimeBaseUrl = process.env.TQX_BASE_URL?.trim() || undefined
-    const defaultBaseUrl =
-      clientOptions.baseUrl !== undefined
-        ? clientOptions.baseUrl
-        : (runtimeBaseUrl ?? __TQX_BUILD_DEFAULT_BASE_URL__)
-    this.#baseUrl = defaultBaseUrl === undefined ? undefined : normalizeBaseUrl(defaultBaseUrl)
-    this.#tradingBaseUrl = normalizeBaseUrl(
-      runtimeBaseUrl ??
-        clientOptions.tradingBaseUrl ??
-        (__TQX_BUILD_DEFAULT_TRADING_BASE_URL__.trim() || this.#baseUrl),
-    )
+    const endpoints = resolveTqxEndpoints(clientOptions, clientOptions.runtimeEnvironment)
+    this.#baseUrl = endpoints.baseUrl
+    this.#tradingBaseUrl = endpoints.tradingBaseUrl
     if (clientOptions.apiKey !== undefined && clientOptions.bearerToken !== undefined) {
       throw new TqxConfigurationError('apiKey and bearerToken are mutually exclusive')
     }
@@ -401,23 +405,4 @@ function gatewayMessage(record: Record<string, unknown> | undefined, fallback: s
   if (typeof record.message === 'string') return record.message
   if (typeof record.msgKey === 'string') return record.msgKey
   return fallback
-}
-
-function normalizeBaseUrl(baseUrl: string | undefined): string {
-  const trimmed = baseUrl?.trim().replace(/\/+$/, '')
-  if (!trimmed) {
-    throw new TqxConfigurationError(
-      'baseUrl is required because the SDK was built without TQX_BUILD_BASE_URL',
-    )
-  }
-  let parsed: URL
-  try {
-    parsed = new URL(trimmed)
-  } catch {
-    throw new TqxConfigurationError('baseUrl must be an absolute HTTP(S) URL')
-  }
-  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-    throw new TqxConfigurationError('baseUrl must use HTTP or HTTPS')
-  }
-  return parsed.toString().replace(/\/$/, '')
 }

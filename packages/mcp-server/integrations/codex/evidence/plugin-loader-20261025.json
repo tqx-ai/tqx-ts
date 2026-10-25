@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-25",
+  "clientVersion": "0.164.0-alpha.11.1",
+  "executionProfile": "fresh isolated non-user homes",
+  "pluginId": "tqx-trading-local@tqx-local",
+  "observations": [
+    {
+      "mcpVariant": "portable extensions.com.openai.auth",
+      "pluginInstalledAndEnabled": true,
+      "mcpServersLoaded": []
+    },
+    {
+      "mcpVariant": "bare type and url",
+      "pluginInstalledAndEnabled": true,
+      "mcpServersLoaded": ["tqx"],
+      "authenticationStatus": "not_logged_in",
+      "mcpGetConfirmed": true
+    },
+    {
+      "mcpVariant": "direct scopes field",
+      "pluginInstalledAndEnabled": true,
+      "mcpServersLoaded": []
+    }
+  ],
+  "resourceMetadata": {
+    "status": 200,
+    "scopesSupported": ["trade:read", "order:write"]
+  },
+  "authorizationServerMetadata": {
+    "status": 200,
+    "scopesSupported": [
+      "research:read",
+      "research:write",
+      "research:run",
+      "trade:read",
+      "order:write",
+      "ranking:read"
+    ]
+  },
+  "userProfileModifiedByThisProbe": false,
+  "oauthStartedByThisProbe": false,
+  "actualAppPluginReadVerifiedByThisProbe": false,
+  "cloudCustomMcpFormVerifiedByThisProbe": false,
+  "limitation": "Package installation and loader compatibility only; Owner separately installs to the user profile and verifies human consent plus actual plugin reads."
+}

@@ -1,10 +1,12 @@
 import { isIP } from 'node:net'
+import { mcpEnvironment, type McpEnvironment } from './environment'
 
 export const REQUIRED_SCOPE = 'trade:read'
 export const WRITE_SCOPE = 'order:write'
 export const EXCHANGE_CLIENT_ID = 'tqx_mcp_server'
 
 export interface Config {
+  environment: McpEnvironment
   host: string
   port: number
   resource: string
@@ -146,6 +148,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   )
     fail('MCP_EXCHANGE_CLIENT_SECRET')
   return {
+    environment: mcpEnvironment(env),
     host,
     port,
     resource,

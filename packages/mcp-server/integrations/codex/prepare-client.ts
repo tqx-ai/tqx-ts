@@ -1,5 +1,8 @@
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
+import { assertLiveIntegrationAllowed } from './local-policy'
+
+assertLiveIntegrationAllowed()
 
 // Creates a fresh isolated home; never writes to the default user home or keyring.
 const repo = resolve(import.meta.dirname, '../..')

@@ -27,7 +27,7 @@ describe('synthetic AS -> MCP -> SDK -> Trading', () => {
       'MCP_EXCHANGE_CLIENT_SECRET',
     )
   })
-  it('initializes, lists only two readOnly tools, calls SDK methods, and preserves exact data', async () => {
+  it('initializes, lists seven readOnly tools, calls SDK methods, and preserves exact data', async () => {
     const f = await tradingFixture()
     const { client, token } = await connect(f)
     try {
@@ -35,7 +35,15 @@ describe('synthetic AS -> MCP -> SDK -> Trading', () => {
       const tools = await client.listTools()
       // The SDK may concurrently probe GET /mcp; it is protected and exchanges too.
       expect(f.state.exchange.length).toBeGreaterThan(previous)
-      expect(tools.tools.map((t) => t.name)).toEqual(['getAccount', 'listPositions'])
+      expect(tools.tools.map((t) => t.name)).toEqual([
+        'getAccount',
+        'listPositions',
+        'listOrders',
+        'getOrder',
+        'listTrades',
+        'listCashFlows',
+        'getSignal',
+      ])
       expect(
         tools.tools.every(
           (t) => t.annotations?.readOnlyHint === true && t.annotations.destructiveHint === false,
@@ -211,6 +219,67 @@ describe('synthetic AS -> MCP -> SDK -> Trading', () => {
       await f.close()
     }
   })
+})
+
+describe('source expiry during exchange', () => {
+  it('returns a refreshable 401 when the source expires before derived-token verification', async () => {
+    const f = await tradingFixture()
+    const start = Math.floor(Date.now() / 1000)
+    const exp = start + 5
+    const nativeFetch = globalThis.fetch
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(start * 1000)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const response = await nativeFetch(input, init)
+      const url = input instanceof Request ? input.url : String(input)
+      // AS has signed a valid T bounded by M.exp; simulate transit/JWKS delay before verification.
+      if (url === `${f.issuer}/oauth/token`) vi.setSystemTime((exp + 1) * 1000)
+      return response
+    })
+    try {
+      const response = await fetch(f.config.resource, {
+        method: 'POST',
+        headers: { ...rpcHeaders, Authorization: `Bearer ${await f.sign({ exp })}` },
+        body: listBody,
+      })
+      expect(response.status).toBe(401)
+      expect(await response.json()).toEqual({ error: 'invalid_token' })
+      expect(response.headers.get('www-authenticate')).toContain('error="invalid_token"')
+      expect(response.headers.get('www-authenticate')).toContain(
+        `resource_metadata="${f.base}/.well-known/oauth-protected-resource/mcp"`,
+      )
+      expect(f.state.exchange).toHaveLength(1)
+      expect(f.state.trading).toHaveLength(0)
+    } finally {
+      fetchSpy.mockRestore()
+      vi.useRealTimers()
+      await f.close()
+    }
+  })
+  it.each(['expired', 'malformed'] as const)(
+    'keeps a bad derived token as 502 when the source is valid: %s',
+    async (kind) => {
+      const f = await tradingFixture()
+      const exp = Math.floor(Date.now() / 1000) + 120
+      if (kind === 'expired') f.state.claims = { exp: Math.floor(Date.now() / 1000) - 1 }
+      else f.state.envelope = { access_token: 'synthetic-malformed-token' }
+      try {
+        const response = await fetch(f.config.resource, {
+          method: 'POST',
+          headers: { ...rpcHeaders, Authorization: `Bearer ${await f.sign({ exp })}` },
+          body: listBody,
+        })
+        expect(response.status).toBe(502)
+        expect(await response.json()).toEqual({ error: 'upstream_protocol_error' })
+        expect(response.headers.get('www-authenticate')).toBeNull()
+        expect(exp).toBeGreaterThan(Math.floor(Date.now() / 1000))
+        expect(f.state.exchange).toHaveLength(1)
+        expect(f.state.trading).toHaveLength(0)
+      } finally {
+        await f.close()
+      }
+    },
+  )
 })
 
 describe('synthetic exchange failures', () => {

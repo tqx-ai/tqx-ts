@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "defaultEnvironment": "local",
+  "selectionSource": "explicit input, then existing public configuration, then local defaults; NODE_ENV is not a deployment selector",
+  "missingDeploymentValues": "retain existing/default effective values and display them; null remote entries are override placeholders, not startup requirements",
+  "environments": {
+    "local": {
+      "resource": "http://127.0.0.1:3004/mcp",
+      "issuer": "http://127.0.0.1:26825",
+      "webOrigin": "http://127.0.0.1:3000"
+    },
+    "test": { "resource": null, "issuer": null, "webOrigin": null },
+    "prod": { "resource": null, "issuer": null, "webOrigin": null }
+  }
+}

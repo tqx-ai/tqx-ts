@@ -1,5 +1,7 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import { createInterface } from 'node:readline'
+import { assertClientIsolation, isolatedClientEnvironment, type LivePermit } from './local-policy'
+import { closeOwnedProcess } from './owned-process'
 
 export type RecordValue = Record<string, unknown>
 export class CodexClient {
@@ -24,13 +26,9 @@ export class CodexClient {
     }
   >()
   readonly notifications: { method: string; params: RecordValue }[] = []
-  constructor(home: string, cwd: string) {
-    const env = {
-      ...process.env,
-      CODEX_HOME: home,
-      NO_PROXY: '127.0.0.1,localhost,::1',
-      no_proxy: '127.0.0.1,localhost,::1',
-    }
+  constructor(home: string, cwd: string, permit?: LivePermit) {
+    assertClientIsolation(permit, home, cwd)
+    const env = isolatedClientEnvironment(home)
     this.process = spawn(
       process.env.TQX_CODEX_BIN ?? 'codex',
       ['app-server', '--stdio', '--strict-config'],
@@ -136,20 +134,7 @@ export class CodexClient {
   async close() {
     if (this.closed) return
     this.closed = true
-    this.process.stdin.end()
-    if (this.process.exitCode === null)
-      await Promise.race([
-        new Promise<void>((resolve) => this.process.once('exit', () => resolve())),
-        new Promise<void>((resolve) =>
-          setTimeout(() => {
-            this.process.kill()
-            resolve()
-          }, 1500),
-        ),
-      ])
-    this.process.stdout.destroy()
-    this.process.stderr.destroy()
-    this.process.stdin.destroy()
-    this.process.unref()
+    this.rejectAll()
+    await closeOwnedProcess(this.process)
   }
 }

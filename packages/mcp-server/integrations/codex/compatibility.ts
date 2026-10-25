@@ -3,6 +3,9 @@ import { mkdir, mkdtemp, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { CodexClient, type RecordValue } from './client'
 import { syntheticFixture } from './synthetic-fixture'
+import { assertLiveIntegrationAllowed } from './local-policy'
+
+assertLiveIntegrationAllowed()
 
 const repo = resolve(import.meta.dirname, '../..')
 const privateRoot = resolve(repo, 'work/codex/runs')

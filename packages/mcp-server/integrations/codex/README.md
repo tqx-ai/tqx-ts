@@ -1,5 +1,79 @@
 # Codex first-client acceptance
 
+**Layer C public READ session fixture:** [PUBLIC_READ_FIXTURE.md](PUBLIC_READ_FIXTURE.md)
+describes the independent ephemeral loopback service, 28-case matrix, three session
+groups, unique temporary plugin source and in-memory audit. Its 33 preparation
+selfchecks pass; actual desktop model consumption is a separate Owner-run step.
+The first host discovery attempt was blocked; the portable schema source fix and
+Owner refresh restored CLI loading. Owner's final review passed all 28 semantic
+cases: 34 real MCP calls plus four cross-session reads, all 38 matching the fixture
+audit by tool and canonical argument hash. The unchanged long server name worked.
+This proves layer C public synthetic model consumption, not real broker or layer B
+service/storage behavior. The temporary plugin/marketplace were removed by Owner;
+the owned fixture PID/port are closed and its 38-call audit is preserved.
+See evidence/public-read-loader-20261025.json.
+No user-profile installation or human authorization was changed by this line.
+
+**Current standalone installation handoff:** give Codex
+[INSTALL_LOCAL_PLUGIN_WITH_CODEX.md](INSTALL_LOCAL_PLUGIN_WITH_CODEX.md).
+It supports local/test/prod with compatible defaults/existing configuration,
+optional new-source names, portable templates and complete Node selector/helper;
+no author checkout, Bun or sibling file is required. See
+[DEPLOYMENT_ENVIRONMENTS.md](DEPLOYMENT_ENVIRONMENTS.md) for the source-only checks
+and client/backend URL boundaries. DEPLOYMENT_COMPATIBILITY_REVIEW.md records the
+withdrawal of this round's added deployment gates. Existing local0.2.0 remains intact.
+The local plugin
+path remains distinct from the cloud custom-MCP Server URL/Tunnel form.
+
+Owner has verified human OAuth and actual plugin getAccount/listPositions reads
+for the local plugin. Preserve that valid personal grant. The new same-window
+callback UX has separate synthetic evidence: Node approve, deny and repeat login
+in the same already-authenticated temporary home passed; 17 boundary tests pass.
+See [evidence/callback-stdin-20261025.json](evidence/callback-stdin-20261025.json).
+Its final human browser UX remains pending Owner-coordinated consent; this line
+must not start another personal login. Source: callback-login.ts/callback-proxy.ts;
+self-contained runtime: callback-login.mjs.
+
+The direct-configuration setup notes below describe the earlier installation
+path and its historical timeout, not the current local plugin login state.
+See [PLUGIN_LOCAL.md](PLUGIN_LOCAL.md) and `distribution-v2/` for packaging.
+
+**Give this to your Codex to configure the connection automatically:**
+[CONNECT_WITH_CODEX.md](CONNECT_WITH_CODEX.md). It covers endpoint selection,
+idempotent config merging, human OAuth consent and actual read-tool verification.
+It is standalone; no test fixture, private HOME or sibling file is required.
+For this same-machine development service, give Codex the standalone
+[CONNECT_WITH_CODEX_LOCAL.md](CONNECT_WITH_CODEX_LOCAL.md) with its URL prefilled.
+The earlier temporary personal login timed out; configuration exists, personal
+OAuth is incomplete, and the old link must not be reused.
+
+**Connect your own Codex:** start with [USER_SETUP.md](USER_SETUP.md). The current
+personal entry is `tqx_local` at `http://127.0.0.1:3004/mcp`; the ready-to-merge
+table is [tqx-local.config.toml](tqx-local.config.toml). Owner has added the entry;
+the user still completes their own Web/Agent consent and verifies a new local
+chat. Do not restart the current service host before Owner coordinates reload.
+Do not use the acceptance runner or its private test credentials as installation.
+
+2026-10-25: the user reopened isolated local/test execution. The v2 runner stays
+plan-only by default; real CLI/app-server OAuth and tool execution require an
+explicit isolated-test opt-in, independently matched generation/namespace, and
+a newly issued schema-v2 Owner READY. Each run creates a private ignored HOME,
+configuration and runtime directories. See [V2_RUNNER.md](V2_RUNNER.md). The pure
+--memory runner retains its no-network/no-persistence guards. Production,
+real-money broker commands, deployment and destructive cleanup are excluded.
+
+Actual installed 0.164.0-alpha.11.1 acceptance now passes app-server 45/45 and
+CLI login/app-server tools 45/45 on separate inputs. A separate actual-client
+refresh also passes; after Owner-controlled exact-grant revocation, independent
+checks confirmed both still-unexpired signed sources were rejected with MCP 401.
+See [ACCEPTANCE.md](ACCEPTANCE.md) for results and remaining surface limits.
+
+V2 preparation now lives in [V2_RUNNER.md](V2_RUNNER.md): 45 actual-client cases,
+the private READY/fixture IPC contract, and workspace-root offline commands.
+The runner is plan-only by default and provides an explicitly labeled memory-only
+mode. Offline/model checks do not establish a v2 backend, desktop or real-identity
+pass. Historical v1 executables remain gated; use v2-run.ts for the new contract.
+
 Migration note (2026-10-23): this directory now lives under
 `tqx-ts/packages/mcp-server/integrations/codex`. Historical evidence below is
 unchanged and has not been rerun after migration or the checkpoint's v2 WIP.
@@ -32,10 +106,10 @@ API using an explicitly synthetic Web fixture. It does not visit the browser
 consent page, sign in through Java, or execute a model turn. The source fixture
 file is read in place; credentials are never copied to delivery artifacts.
 
-## Run
+## Historical v1 commands (remain gated)
 
-From the MCP package directory, with Bun and Node on PATH, after the Owner completes
-the root workspace install and SDK/package builds:
+The commands below document the older v1 run. They do not accept a v2 live permit
+and must not be used for current acceptance. Current commands are in V2_RUNNER.md.
 
 ```powershell
 bun run check

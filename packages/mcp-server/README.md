@@ -3,17 +3,22 @@
 Node/Bun workspace resource server using the official MCP TypeScript SDK **1.32.1** and
 JOSE **6.2.13**. It reuses tqx-oauth as the authorization server (AS); it does not issue tokens.
 The default-off mode proves protocol connectivity and JWT validation with an empty tool list.
-An optional Owner-approved v1 integration enables two read-only tools through request-local token
-exchange and the workspace Bearer SDK. Historical verification uses synthetic AS/Trading fixtures.
+An optional trading integration enables seven read tools and, behind a second default-off gate,
+four write tools through request-local token exchange and the workspace Bearer SDK.
+Verification uses synthetic AS/Trading fixtures; it does not prove real account authorization.
 
 This is the private `@tqx-ai/mcp-server` package in the tqx-ts workspace.
-The historical v1 results predate the current unverified v2 scope groundwork and
-client harness scaffolding; they do not establish v2 tool support.
+The current v2 tool and batch contract is documented in [V2_CONTRACT.md](V2_CONTRACT.md).
+Historical v1 and migration results remain separate from current v2 acceptance.
 
 For coordination, start with [HANDOFF.md](HANDOFF.md): review fixes, verification evidence,
 current boundaries, and the remaining AS/Agent/Trading integration contracts.
 The decisions and system boundaries are in [INTEGRATION_CONTRACT_DRAFT.md](INTEGRATION_CONTRACT_DRAFT.md).
 It records which earlier proposals were adopted or deferred by the primary Owner.
+The seven-tool READ acceptance runner and its current phase gates are documented in
+[READ_ACCEPTANCE_PLAN.md](READ_ACCEPTANCE_PLAN.md). It defaults to plan-only; actual B runs require
+a fresh isolated-primary permit, private source/manifest inputs and coordinated Trading readiness.
+Its offline checks and synthetic history ledger are separate from desktop/provider acceptance.
 
 ## Run locally
 
@@ -29,15 +34,31 @@ cd packages/mcp-server
 bun run dev
 ```
 
-Defaults need no environment file. Copy `.env.example` to ignored `.env.local` to override them.
-Bun auto-loads local environment files. Run from this package directory so paths stay package-local. The Node entry loads optional `.env.local` relative to the
-working directory; process environment takes precedence. After installation, build the workspace
+Defaults need no environment file. Copy `.env.example` (or `.env.local.example`) to ignored
+`.env.local` to override them. TQX_ENV selects local/test/prod; missing or unknown selectors preserve
+local behavior, dev/development remain local and pro/production select prod. Optional templates
+`.env.test.example` and `.env.prod.example` document deployment overrides without guessing addresses.
+
+Precedence is process environment, then optional `.env.<selected environment>`, then the original
+`.env.local`, then the existing runtime defaults. Missing test/prod files do not prevent startup or
+introduce new required settings. Selecting prod alone does not change an endpoint or enable tools;
+startup displays the final environment and effective public resource/issuer/API/Trading URLs. Existing
+URL, Host/Origin, TLS-pair and enabled-tool secret validation applies unchanged to all selections.
+Credentials/key contents remain private and are not displayed.
+
+Run from this package directory so paths stay package-local. Bun may populate process variables
+through its own automatic env loading; `bun --no-env-file src/index.ts` uses this entry's file
+selection directly. Node start uses the same optional file chain. After installation, build the workspace
 SDK first from the tqx-ts root (`bun run --cwd packages/sdk build`), then from this package:
 
 ```sh
 bun run build
 bun run start
 ```
+
+For example, set TQX_ENV=test (PowerShell: `$env:TQX_ENV='test'`) and run `node dist/index.mjs`.
+Explicit MCP_* process values keep precedence over all files. This configuration change does not
+rewrite a user's Codex authentication/profile, restart a service or contact a production endpoint.
 
 The default endpoint is `http://127.0.0.1:3002/mcp`. Default issuer is
 `http://127.0.0.1:26823`; default JWKS is its `/.well-known/jwks.json` endpoint. Health and metadata
@@ -136,24 +157,26 @@ Mongo, session state, Trading, or deployment readiness. No deployment is include
 
 ## Verification and boundaries
 
-### Optional account and positions integration
+### Optional trading integration
 
 Set `MCP_TRADING_TOOLS_ENABLED=true` and a private `MCP_EXCHANGE_CLIENT_SECRET` matching OAuth's
 `OAUTH_MCP_EXCHANGE_CLIENT_SECRET`. No secret is shipped in `.env.example` or the binary. Missing
 secret prevents enabled startup; false requires no service secret and preserves the empty tools.
 
-| Variable                     | Default / meaning                                                         |
-| ---------------------------- | ------------------------------------------------------------------------- |
-| `MCP_TRADING_TOOLS_ENABLED`  | `false`                                                                   |
-| `MCP_API_RESOURCE`           | `http://127.0.0.1:8100/api`; exact API JWT audience and exchange resource |
-| `MCP_TRADING_BASE_URL`       | `http://127.0.0.1:8100`; Trading origin, independently configured         |
-| `MCP_EXCHANGE_CLIENT_SECRET` | Unset; private Basic credential for fixed `tqx_mcp_server`                |
-| `MCP_EXCHANGE_TIMEOUT_MS`    | `5000`; complete exchange and derived-token verification budget           |
-| `MCP_TRADING_TIMEOUT_MS`     | `10000`; one SDK tool operation budget                                    |
+| Variable                          | Default / meaning                                                         |
+| --------------------------------- | ------------------------------------------------------------------------- |
+| `MCP_TRADING_TOOLS_ENABLED`       | `false`; master gate for all tools                                        |
+| `MCP_TRADING_WRITE_TOOLS_ENABLED` | `false`; enables writes only when the master gate is on                   |
+| `MCP_API_RESOURCE`                | `http://127.0.0.1:8100/api`; exact API JWT audience and exchange resource |
+| `MCP_TRADING_BASE_URL`            | `http://127.0.0.1:8100`; Trading origin, independently configured         |
+| `MCP_EXCHANGE_CLIENT_SECRET`      | Unset; private Basic credential for fixed `tqx_mcp_server`                |
+| `MCP_EXCHANGE_TIMEOUT_MS`         | `5000`; complete exchange and derived-token verification budget           |
+| `MCP_TRADING_TIMEOUT_MS`          | `10000`; one SDK tool operation budget                                    |
 
 After local JWT/body-expiry checks, **every protected HTTP request** exchanges M at the configured
 issuer's `/oauth/token`, including initialize, listTools, notifications, and method probes. It uses
-client_secret_basic and the RFC8693 form with explicit `scope=trade:read`. No introspection endpoint
+client_secret_basic and the RFC8693 form with the exact intersection of the source token's scopes
+and enabled `trade:read`/`order:write` scopes. No introspection endpoint
 or shared Redis/Mongo connection is introduced. The AS validates session, grant, source jti and scope;
 Trading independently checks grant/session/source-and-derived jti and authoritative Agent ownership.
 Web logout only revokes Web sessions; explicit external-authorization revocation targets the OAuth
@@ -165,16 +188,35 @@ and matching expires_in/scope. It enforces the 300-second maximum and source tok
 the shorter session/grant expiry. account_id/parent_jti are not required. Same HTTP request reuses T;
 there is no cross-request token cache, refresh, direct MCP-token forwarding, or API-key fallback.
 
-| Tool            | Strict input                                                                 | SDK method / data                                                            |
-| --------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `getAccount`    | Optional currency HKD/USD                                                    | trading.getAccount; decimal strings, null, mode, as_of/is_stale preserved    |
-| `listPositions` | Optional symbol (1-128), market HK/US, limit (1-100 integer), cursor (1-512) | trading.listPositions; items/next_cursor and decimal strings/nulls preserved |
+| Scope                        | Tools                                                                                 |
+| ---------------------------- | ------------------------------------------------------------------------------------- |
+| `trade:read`                 | getAccount, listPositions, listOrders, getOrder, listTrades, listCashFlows, getSignal |
+| `order:write` and both gates | placeOrder, modifyOrder, cancelOrder, placeOrders                                     |
 
-Both tools advertise readOnlyHint=true, destructiveHint=false, idempotentHint=true. There are no
-uid/Agent overrides, writes, auth.verify activation, or embedded UI. Unknown arguments are rejected.
-SDK read retries retain the SDK policy; every attempt remains deadline/cancellation and token-expiry
-bounded. Native fetch never follows AS/Trading redirects. AS JSON is capped at 64 KiB, Trading bodies
-at 1 MiB. An ambient TQX_BASE_URL pointing to a different origin fails closed before a bearer is sent.
+Each request lists only tools allowed by its scopes. Write-only tokens cannot read; read-only tokens
+cannot write. Tool arguments are strict and cannot override identity or account binding. Position
+symbols accept 3..32 characters; optional cursors allow empty strings and are at most 512 characters.
+Read outputs preserve SDK data. Writes require a stable 8..128 character idempotency key and return
+explicit submission status; acceptance never means a fill or a completed cancellation.
+
+`placeOrders` accepts 1..20 instructions, validates and normalizes every item with the SDK before
+any submission, rejects duplicate keys, and submits sequentially. It stops on the first failed or
+unknown outcome and marks all later items not_submitted. See [V2_CONTRACT.md](V2_CONTRACT.md) for
+exact input/result fields and reconciliation rules. Unsupported cash ledgers retain the explicit
+`cash_flows_unsupported` error rather than returning an empty list.
+
+Read annotations are readOnly=true/destructive=false; write annotations are readOnly=false/
+destructive=true. All tools declare idempotent=true/openWorld=true; write idempotency depends on
+preserving each intent's required key and the backend's durable idempotency contract.
+SDK GET/keyed retries retain SDK policy; MCP adds no retry and creates no keys. Every attempt is
+bounded by cancellation, the per-item deadline and derived-token expiry. Native fetch never follows
+AS/Trading redirects. AS JSON is capped at 64 KiB and Trading bodies at 1 MiB. An ambient TQX_BASE_URL
+pointing to another origin fails closed before a bearer is sent.
+
+If the source token expires while waiting for exchange or derived-token verification, MCP returns
+401 invalid_token with the normal metadata challenge so the client can refresh. An unexpired source
+with a malformed/expired derived token remains 502 upstream_protocol_error. No expiry tolerance,
+authorization bypass or MCP-managed token refresh is introduced.
 
 Before SDK dispatch, invalid_grant maps to HTTP 401 with metadata challenge; invalid_scope to 403;
 service credential/target configuration, rate limit or AS unavailability to 503; malformed/contradictory
@@ -198,6 +240,18 @@ The package is private; source availability does not authorize npm publication.
 No standalone deployment or clean-clone build has been verified after migration.
 
 ### Checks
+
+Local/test persistence and service validation are explicitly authorized as of 2026-10-25, using fresh
+isolated test configuration/fixtures only. Default gates remain off; production, real funds/brokers,
+deployment and destructive cleanup remain excluded. Ignore stale READY and never load .env.prod.
+
+The optional memory-only validation lane uses [MEMORY_ONLY.md](MEMORY_ONLY.md) and its explicit
+Node/Vitest entry, which installs guards and loads no runtime .env file. The normal commands below
+are outside that lane and must not be run under its no-persistence/no-subprocess boundary.
+For the built Node baseline without loading a checkout's .env.local, build from this package and run
+`node tests/isolated-built.smoke.mjs`. It uses a fresh empty ignored directory, a minimal synthetic
+child environment, disabled tool flags and a temporary port, then closes the child and removes only
+its own empty directory. This does not start the Owner's MCP3004 or contact real AS/Trading services.
 
 From this package directory after installing and building the workspace:
 
@@ -223,12 +277,11 @@ then stops its child through the registered SIGTERM handler. Set `MCP_SMOKE_PORT
 specific free port. Both Trading tool flags are forced off; an occupied port fails startup
 before any HTTP probes, so this check cannot silently target another running service.
 
-Implemented on the MCP side: default-off tool gate, Agent/grant claims, request-local online exchange,
-and two SDK read-only tools. Still unverified: actual OAuth/Trading service interoperability, real user
-consent, account/broker connectivity, Linux/TLS/ingress and production SDK packaging. AS/Trading own
-the live shared state and authoritative binding checks; the synthetic fixtures cannot prove them.
-The migrated package retains the checkpoint's unfinished v2 scope groundwork.
-Only the two v1 read tools are registered; the write flag does not establish write tool support.
+Implemented on the MCP side: two default-off gates, Agent/grant claims, request-local online exchange,
+seven read tools, four write tools and sequential batch outcomes. Full v2 cross-service and actual
+client acceptance remain pending, as do real consent, accounts/brokers and Linux/TLS deployment.
+AS/Trading own live revocation, binding, quotas and durable idempotency. Synthetic fixtures exercise
+the MCP contract and cannot establish those backends' production behavior.
 
 Protocol references: [official v1 TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk/tree/v1.x),
 [MCP 2025-11-25 authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization),

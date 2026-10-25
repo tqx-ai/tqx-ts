@@ -1,5 +1,68 @@
 # Codex client acceptance status
 
+2026-10-25 environment compatibility revision: this round's newly added deployment
+gates were withdrawn on the human's clarification. local/test/prod and legacy labels
+use explicit inputs > existing public configuration > known local defaults; output
+displays effective URLs and sources. Missing remote inputs, HTTP/loopback, existing
+aliases/versions or absent new binding files no longer impose selector gates.
+Original callback/auth validation remains unchanged. Eight compatibility checks
+and Node-only source/plan checks pass; MD embeds exact helper/selector and matching
+templates. No profile, credentials, installation, login, production contact or
+service changed. See DEPLOYMENT_COMPATIBILITY_REVIEW.md and
+evidence/deployment-environments-20261025.json. Owner owns final commit/push.
+
+Layer C host follow-up: Owner's installed fixture was not discovered in two chats;
+CLI showed version local and no fixture server, audit zero. Missing portable
+$schema discriminators in generated plugin.json/mcp.json were corrected in source
+and generator under the same ID/URL. Static regression passes. Owner's supported
+same-ID refresh now reports version 0.1.0 and mcp get finds the enabled original-URL
+server, confirming CLI-loader recovery. Owner independently verified actual model
+calls C1=10/C2=14 against the intermediate 24-call audit snapshot. Final independent
+review now passes all 28 semantic cases: 34 calls plus four cross-session READs,
+all 38 matching tool/argument hashes against the fixture audit. No writes or other
+servers were used. Four client requests overlapped for 39ms; server processing peak
+was not measured. This is public synthetic model-layer C, not a broker/layer B result.
+Owner removed the unique plugin/marketplace; owned PID67260 and port52527 are closed,
+with the 38-call audit saved before stop. See
+evidence/public-read-loader-20261025.json. No cache/profile or app restart by this line.
+
+2026-10-25 layer C preparation: PUBLIC_READ_FIXTURE.md and read-fixture*.ts provide
+a public synthetic read-only fixture without touching the actual human connection.
+Current createProtocolServer/SDK are reused without core edits; seven exact read
+tools, 28 matrix entries and boundary checks pass in 33 focused tests. The Owner
+authorized its independent 7200-second listener and unique local plugin source;
+installation and actual model session evidence belong to the Owner's next step.
+See evidence/public-read-preparation-20261025.json. No DB/shared controller, human
+credential access, helper/MD or main plugin change occurred in this preparation.
+
+2026-10-25 callback handoff: INSTALL_LOCAL_PLUGIN_WITH_CODEX.md now embeds the
+complete standalone Node callback-login.mjs plus unchanged frozen plugin JSON.
+Public --no-browser/stdin keeps native CLI PKCE/exchange/storage; only native
+exit 0 permits a 303 to the original bound consent transaction. Node approve,
+deny and repeated login in the same already-authenticated isolated home passed,
+as did 17 boundary tests, scoped lint, strict TypeScript and Node syntax checks.
+See evidence/callback-stdin-20261025.json. No credential contents were read.
+Owner separately verified the human local-plugin OAuth and two actual read tools;
+preserve that personal grant. Final human same-window UX is pending Owner's one
+new helper session after the Web build switch. This line does not start it.
+
+2026-10-25 preparation: installed CLI/app-server is now 0.164.0-alpha.11.1.
+The installed experimental JSON schema confirms oauth/login, loginId completion,
+tool calls and scoped inventory parameters. New v2 CLI/app-server execution is
+default-off and requires a fresh schema-v2 READY and isolated private HOME;
+see V2_RUNNER.md. The actual app-server v2 run now passed 45/45, with 64 protected
+write HTTP attempts and 41 correlated fake-broker submission effects. The first
+zero-write scope-error parsing failure is retained; the fixed parser passed the
+same inputs without key replacement. CLI 45 also passed with fresh nonoverlapping
+inputs after the natural quota window, adding 64 HTTP attempts/41 effects. A new
+HOME actual-client refresh passed (old signed source still unexpired/401, new
+source/200); after Owner-controlled exact-grant revocation, both signed sources
+were independently verified still unexpired and returned MCP 401. See
+evidence/v2-app-server-20261025.json, evidence/v2-cli-20261025.json and
+evidence/v2-refresh-revocation-20261025.json. All owned clients exited and this
+line stopped online requests before the Owner's Redis recovery window.
+The 2026-10-23 versions and evidence below remain historical v1 observations.
+
 Migration note (2026-10-23): this directory now lives under
 `tqx-ts/packages/mcp-server/integrations/codex`. Historical evidence below is
 unchanged and has not been rerun after migration or the checkpoint's v2 WIP.

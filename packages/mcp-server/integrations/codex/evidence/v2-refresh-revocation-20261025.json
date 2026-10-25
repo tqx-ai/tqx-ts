@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-25",
+  "clientVersion": "0.164.0-alpha.11.1",
+  "status": "passed",
+  "actualCodexRefresh": true,
+  "clientKind": "installed-app-server",
+  "identityOrigin": "Owner-verified actual Java HTTP login of synthetic test users",
+  "newPrivateHomeAndDcrGrant": true,
+  "scope": "trade:read",
+  "refresh": {
+    "cacheExpiryOnly": true,
+    "sourceAndRefreshTokenRotated": true,
+    "sidAndJtiRotated": true,
+    "sameGrantUidAgentClient": true,
+    "signedOldSourceStillUnexpired": true,
+    "oldSourceStatus": 401,
+    "newSourceStatus": 200
+  },
+  "revocation": {
+    "ownerVerifiedSourceAndGrantOwnership": true,
+    "ownerChangedOnlyExactGrantStatus": true,
+    "ownerReportedSessionStillActive": true,
+    "independentBothSignedSourcesStillUnexpired": true,
+    "oldSourceStatus": 401,
+    "newSourceStatus": 401,
+    "verificationSurface": "direct-protected-MCP-getAccount"
+  },
+  "limits": [
+    "Forced local cache expiry is not natural signed-JWT expiry",
+    "Grant mutation was performed by Owner control; client independently verified protected rejection",
+    "No Java login/logout, global Codex config or trade command was used in this phase",
+    "No browser consent, desktop UI or real broker claim"
+  ]
+}

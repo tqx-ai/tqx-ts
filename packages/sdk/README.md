@@ -26,8 +26,9 @@ const positions = await client.trading.listPositions({
 
 Pass `baseUrl` to `TqxClient` to configure the research and User API HTTP gateway. Authentication,
 trading, and health requests use `tradingBaseUrl` or the build-time
-`TQX_BUILD_TRADING_BASE_URL`. When set, `TQX_BASE_URL` remains the runtime global override for
-every request group.
+`TQX_BUILD_TRADING_BASE_URL`. The existing URL rules
+remain unchanged: `TQX_BASE_URL` overrides trading/authentication/health, while an explicit SDK
+`baseUrl` takes precedence over that variable for research and User API balance requests.
 
 The User API provides `client.user.verify()`, `client.user.getStatus()`, and
 `client.user.getBalance()`. Balance uses `baseUrl` and the `TQX_BUILD_BASE_URL` default.
@@ -35,14 +36,64 @@ The User API provides `client.user.verify()`, `client.user.getStatus()`, and
 The public request and response schemas are exported as Valibot schemas alongside their inferred
 TypeScript types.
 
+## Deployment environments
+
+Use `TQX_ENV=local|test|prod` or `TqxClientOptions.environment` to select an optional set of
+public endpoint defaults. An explicit SDK `environment` takes precedence over `TQX_ENV`.
+`NODE_ENV`, including `NODE_ENV=production`, never selects a deployment. Unrecognized or legacy
+values such as `dev`/`pro` keep the original configuration chain instead of adding a startup
+rejection; the resolver reports both the requested value and the recognized selection, if any.
+
+| Selection | Research/User balance default      | Trading/authentication/health default      |
+| --------- | ---------------------------------- | ------------------------------------------ |
+| `local`   | `TQX_LOCAL_BASE_URL` when supplied | `TQX_LOCAL_TRADING_BASE_URL` when supplied |
+| `test`    | `TQX_TEST_BASE_URL` when supplied  | `TQX_TEST_TRADING_BASE_URL` when supplied  |
+| `prod`    | `TQX_PROD_BASE_URL` when supplied  | `TQX_PROD_TRADING_BASE_URL` when supplied  |
+
+The existing explicit/generic precedence remains: research/User balance uses explicit SDK
+`baseUrl`, then `TQX_BASE_URL`, then the selected profile's base, then the build default.
+Trading uses `TQX_BASE_URL`, then explicit SDK `tradingBaseUrl`, then the selected profile's
+trading URL or profile base, then its existing build/default-base chain. Blank or omitted profile
+fields retain previous defaults; selecting `test` or `prod` does not introduce new required
+external fields. When no URL exists anywhere, or a chosen URL is invalid, the original SDK URL
+configuration errors still apply. HTTP(S) validation, credential validation, and authentication
+requirements remain unchanged; no new HTTPS/loopback deployment policy is added.
+
+Credential-free public templates are in `packages/sdk/config/.env.local.example`,
+`.env.test.example`, and `.env.prod.example`. Local's example explicitly sets the known Trading
+gateway `http://127.0.0.1:8102`. Unknown test/production endpoints are blank with override notes,
+not invented addresses or startup prerequisites. The SDK does not load dotenv files. The OAuth
+resource `http://127.0.0.1:8102/api` is separate from the Trading gateway root; issuer, Web, and MCP
+addresses belong to those modules and are not imported by this selection.
+
+`resolveTqxEndpoints(options?, runtimeEnvironment?)` returns the effective public URLs,
+`environment` (recognized selected profile, if any), and `requestedEnvironment` (when provided).
+It has no network, file, or credential access. Inspect the result before connecting when changing
+targets; a profile label does not prove which deployment owns an explicitly overridden endpoint.
+`runtimeEnvironment` on `TqxClientOptions` injects public environment values without modifying
+`process.env`; omitted values use the current process environment.
+
+Environment selection does not read, migrate, copy, refresh, or exchange credentials. Existing
+explicit `apiKey`/`bearerToken` constructor options continue to work with the selected URLs;
+the caller supplies credentials appropriate for that backend and audience. No credential binding
+slots, profile migration, or extra pairing prerequisites are introduced.
+
+```ts
+import { resolveTqxEndpoints, TqxClient } from '@tqx-ai/sdk'
+
+const endpoints = resolveTqxEndpoints({ environment: 'test' }, process.env)
+const client = new TqxClient({ ...endpoints, apiKey: suppliedApiKey })
+```
+
 ## Bearer authentication
 
 For a backend that supports OAuth API tokens, pass `bearerToken` instead of `apiKey`:
 
 ```ts
 const client = new TqxClient({
-  baseUrl: 'http://127.0.0.1:8000',
-  tradingBaseUrl: 'http://127.0.0.1:8000',
+  environment: 'local',
+  baseUrl: 'http://127.0.0.1:8102',
+  tradingBaseUrl: 'http://127.0.0.1:8102',
   bearerToken: apiAccessToken,
 })
 const account = await client.trading.getAccount()

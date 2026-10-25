@@ -4,6 +4,209 @@ Current development directory: `tqx-ts/packages/mcp-server`, in the same Git rep
 and feature branch as the SDK/CLI. This package remains `private: true`; SDK/CLI
 publication commands do not publish it.
 
+## Final READ B and compatible environment handoff (2026-10-25)
+
+This final status supersedes preparation/freeze paragraphs below. READ B latest unique outcomes are
+113 passed and1 provider capability unsupported out of114. Original matrix107/4/2/1 is retained;
+only its six affected cases were repaired/retested and all six passed. Extra baseline preflight1 is
+separate. Total actual MCP tool POSTs116 and Trading READ attempts89; all observed business-digest
+changes, Trading write/effect deltas were0, with settled audits and closed clients. Actual transport
+cancel/reconnect/parallel and six auth negatives passed. Root's desktop A31 calls remain independent.
+See READ_ACCEPTANCE_RESULTS.md for precise evidence, controlled JWT labels and provider limits.
+
+Root outputs contain mcp-read-b-20261025.json/.md. Temporary B auth resources were then retired
+under a separate precise Root authorization: four new grants and their principal/client/session/JTI
+receipts were completely checked against the explicit isolated Redis profile before any mutation;
+the existing AS internal revokeGrant service function retired the three active grants, skipping the
+already revoked one. All four were reread as revoked with other grant fields/expiry unchanged.
+This is existing internal service cleanup, not public HTTP revocation acceptance. No ad-hoc HSET,
+new endpoint, personal grant/cache change, data/audit deletion or Trading call was used. Public
+cleanup evidence: mcp-read-b-grant-retirement-20261025.json in Root outputs. Bun exited0 after
+success and emitted a nonfatal cross-repository tsconfig directory-mismatch diagnostic; the complete
+private after-records and public result were retained rather than omitting the diagnostic.
+
+Subsequent environment selection is deliberately compatible: process env > optional selected
+.env.test/.env.prod > original .env.local > unchanged loadConfig defaults. Missing/unknown values
+retain local behavior, dev/development remain local, pro/production select prod. Optional templates
+contain no secret or invented production hostname. Startup shows the effective environment and
+public URLs. No new nonlocal required fields, mandatory HTTPS beyond existing rules, absolute-key
+paths, namespace/marker policies or rejection of legacy selectors was introduced. Existing config.ts
+URL/Host/Origin/TLS-pair/feature-secret safety checks and all auth/scope rules remain unchanged.
+Selecting prod alone does not change endpoints or enable tools; user authentication profiles stay put.
+
+Verification:190 guarded engineering tests/8 files and56 READ offline checks/2 files passed; both
+strict source/Codex typechecks, scoped Oxfmt/Oxlint and diff checks passed. A separate ignored
+tsdown build under work/verify-profiles-20261025T063139217Z passed three built Node smoke runs for
+local/test/prod. Actual selected files overrode a different local issuer, process settings retained
+precedence, and each run verified health/metadata200, unauthenticated401, bad Origin403 and exit0.
+All were tool-disabled temporary loopback processes with no external AS/Trading/production access.
+The live MCP3004 dist SHA256 stayed unchanged; no shared service/profile was restarted or replaced
+by this line. Full root install/build/test orchestration and eventual commit/push remain Root-owned;
+this line did not stage, commit or push. Missing real-provider cash ledger support remains visible.
+
+## Historical READ B preparation (2026-10-25)
+
+This status supersedes the historical A/AOF freeze paragraphs below. Root reported desktop A complete
+with31 actual tool calls, unchanged A-after business digests and zero added protected Trading writes
+or effects, then explicitly released B. Actual B READ execution still waits for Trading fixtures,
+manifest and Root-coordinated8102 readiness. This MCP line has made zero B Trading calls so far.
+
+The114-case plan, official SDK driver, schema1 manifest/rule evaluator, append-only file RPC and
+opt-in CLI are implemented in tests/read-only-*.ts; see READ_ACCEPTANCE_PLAN.md for exact boundaries.
+Cancel/reconnect/parallel-two require measured transport actions and a settled controller audit.
+Manifest booleans cannot prove payload semantics. binding.uid is preserved through schema parse and
+the serialized RPC request; its regression verifies the actual wire shape against Python's five-field
+binding. The read classifier now shares all34 public production tool-error codes with src/trading.ts,
+including trading_service_unavailable, rather than a partial copied list.
+
+54 offline checks passed (44 runner/classifier plus10 official-SDK-class/synthetic-fetch/contract tests),
+strict source TypeScript, scoped Oxfmt/Oxlint and diff checks passed. They are not live protocol or
+desktop evidence. No shared bundle build/restart, SDK/CLI/root/lockfile edit or Git stage/commit occurred.
+
+Root additionally authorized and this line completed normal DCR/PKCE/consent/token for four new
+primary740001-only B grants using the existing synthetic Java WebJWT fixture. One normal refresh
+produced the positive read source and its old-M negative; a different new grant was precisely revoked
+using Root's existing control. No740002/plugin cache/Web-session changes or Trading calls occurred.
+Tokens are private. The metadata receipt sources-bound.receipt.json and public-plan.json are in
+Root's ignored private/read-b-236c22cc-495d-4c1f-9882-f50017bdcd4d directory and were handed directly
+to Trading. The final sources-with-faults.json retains the actual refreshed positive source and
+adds four separately Root-authorized controlled JWT faults (single exp/aud/scope change or corrupt
+signature). The test profile key and current JWKS kid/n/e were checked; key is read-only, no shared
+auth state changes, no JWT/key printed. These faults are explicitly not normal AS issuance. Earlier
+receipt/source versions remain history. backend-manifest was explicitly bridged into client-manifest-v1,
+with actual schema.parse/supportsCase114/114 and zero protocol/controller IO. Canonical BSON numeric
+wrapper incompatibility was resolved without approximating decimal/ID strings. An initial premature
+success message was corrected before any runtime action; it is not passed execution evidence.
+
+Root requires one getAccount.baseline preflight after8102 ready before the full matrix. That extra
+actual call is counted separately from unique case outcomes. The runner saves per-case private raw
+observations/audits; public output omits payload/IDs/cursors/digests and includes measured transport
+counts. Capability-gap errors with extra debug/content now fail the same public-error shape check.
+
+Remaining: Trading seeds only the selected primary history, publishes backend-manifest.json and
+proves its ASGI READ gate/counters; Root reloads8102 and announces ready; MCP then executes bounded
+READ-only protocol cases and records passed/failed/blocked/unsupported separately. Real cash ledger
+remains501 unsupported; the declared isolated history ledger cannot establish provider capability.
+
+## MCP3004 process-loss recovery (2026-10-25)
+
+The initial owned PID32228 and PTY exec52043 were found absent before desktop READ phase A.
+The exec API returned Unknown process id and no exit code or stack was available. Root cause is
+unknown; this is a service-lifecycle/observability gap, not evidence of an authentication failure.
+
+The original launcher/profile/key/port were restored without build or grant changes. The bundle
+mtime remains 2026-10-25T02:36:28.547Z; SHA256 is
+df27aa2d584d623a5e0d9274a966e5d17f537f78601bb2463e49c763cbd7310e.
+Current owned Node PID54420 started 2026-10-25T13:39:50.9885799+08:00 as hidden background,
+independent of a retained PTY session. Parent startup command exited and listener ownership was
+then confirmed on 127.0.0.1:3004. No OS service or scheduled startup was installed.
+
+Health200, exact metadata200 and no-token401 were checked; no authenticated tool/SDK/client request,
+new authorization or grant mutation was performed by this recovery. Owner D01 must prove saved
+desktop authorization/session use after the process loss; these liveness checks do not establish it.
+Ignored original run-directory recovery-state.json records PID/start time/bundle hash and private
+stdout/stderr log paths. Logs stay local; no secret value is published. Retired PID/session references
+below describe historical startup only and must not be used for current shutdown. There is no current
+PTY stdin control channel. Any stop must be Owner-coordinated after quiescing clients and rechecking
+listener PID, Node executable and start time; do not kill AS/Trading or unrelated processes.
+
+The recovery itself made no shared controller, fault, grant or trading-tool changes. Later READ B
+authorization and preparation are described above; they do not alter the frozen recovery bundle.
+
+## Owner-reported actual client acceptance and AOF window (2026-10-25)
+
+The primary Owner and Codex line reported two real installed-client runs passed: app-server
+45/45 and CLI --no-browser login plus app-server tools 45/45. Each run recorded 64 protected write
+HTTP attempts and 41 PAPER object-broker effects; request attempts and effects are separate counts.
+These are reported execution results from those owners, not tests rerun by this MCP line.
+
+A new isolated HOME actual-client refresh check also passed: only that HOME's cache expiry was
+forced; the signed source was not yet expired. Old source returned 401 and refreshed source 200.
+After the Owner precisely revoked that case's grant, both still-unexpired MCP tokens returned 401.
+The Owner additionally reported real TQX CLI read/login/logout passed and all client children exited.
+No global configuration, actual broker/funds or production acceptance is implied. The initial client
+plain-text tool-not-found parsing failure was retained as failed evidence with zero write/effect;
+the Codex owner fixed classification and passed its offline counterexamples before rerunning.
+
+The Owner now exclusively controls a short native Redis16380 AOF recovery window for this run's
+own process/directory, preserving keys/data and the original port/password. Completion and recovery
+proof remain pending that owner's explicit report. This MCP line does not perform recovery, remove
+keys/data, query live endpoints or restart any service during the window. The owned MCP3004 service
+is left running as instructed; runtime source and tests are frozen. Only local documentation/static
+work is performed, with no new HTTP/Redis/login/refresh/logout requests and no Git mutation.
+
+## Local/test execution resumed (2026-10-25)
+
+The user reauthorized necessary isolated local/test service, auth and persistence fixture writes.
+Use fresh test endpoints/credentials/namespace; do not trust earlier READY or load .env.prod.
+Production, real funds/brokers, deployment, destructive cleanup and unrelated fixture overwrite
+remain forbidden. Default master/write gates remain false; test enablement is explicit.
+The memory-only entry below remains strict when selected, with its historical evidence unchanged.
+The initial baseline passed 182 tests/8 files. The source-expiry boundary fix now passes 185/8
+(all 169 tool/protocol tests plus 16 guard/config), package/Codex strict no-emit types, Oxlint,
+whole-package Oxfmt and tsdown. New
+`tests/isolated-built.smoke.mjs` passed health/metadata 200, missing bearer 401, invalid Origin 403
+and orderly shutdown exit 0, with both tool flags false. It creates a fresh empty ignored cwd and
+whitelists child env, so the built entry cannot load this checkout's old .env.local. It contacts no
+external AS/Trading or broker and removes only its own empty test directory.
+Package Oxfmt initially reported concurrent Codex WIP; that owner finished its files and the full
+package format check now passes, with no cross-directory formatting by this line.
+The minimal runtime fix is in src/auth.ts ensureFresh catch: after preserving disconnected-client
+handling, recheck source expiry before classifying a failed exchange. A source that expires during
+AS/JWKS waits now receives refreshable 401; still-valid M with expired/malformed T remains 502.
+The new HTTP test reproduced the previous 502 before the fix, then passed; two valid-source control
+cases preserve 502. All fail before Trading dispatch. No expired token is accepted, no JWT verification
+is weakened, and no SDK/tool registration/scope behavior changes. tests/trading.test.ts contains
+three additional cases; the focused red/green run is separate from the final unfiltered 185-test pass.
+
+Fresh test MCP3004 was started on 2026-10-25 after independently verifying AS metadata/JWKS 200
+(public JWK only), Trading health ready=true with generation owner-20261025-7648d1b4 and namespace
+tqx_v2_20261025_7648d1b4, a free 3004 port and the updated build. Held process: Node PID 32228,
+exec session 52043; listener confirmed 127.0.0.1:3004 owned by that PID. These are run-specific
+process references, not portable configuration or a durable readiness marker.
+
+Startup uses a newly created ignored package work directory, explicit contract endpoints and a
+minimal environment; the private Basic secret is read from this run's Owner file into memory only.
+No old .env/.env.prod or READY is loaded. Both tool flags are explicitly true for this isolated test
+instance; source defaults remain false. Health 200/process-only, protected-resource metadata 200
+(exact resource3004/mcp, issuer26825, scopes trade:read and order:write) and unauthenticated MCP401
+with metadata challenge passed. No authenticated tool/client call was made by this startup check.
+
+The MCP owner holds the process running for the primary Owner's independent official SDK preflight
+and schema2 READY signing. For graceful shutdown ask this line to send shutdown plus newline to
+its exec session; the launcher emits the registered SIGTERM drain and closes stdin. If an external
+coordinator cannot access this chat's session, request shutdown through this chat. Forced stop is
+only a fallback after verifying the current listener/process is still the owned PID; never touch
+AS/Trading or unrelated processes. Actual persisted joint/client acceptance remains separate.
+No existing shared listener was restarted and no Git mutation was performed.
+
+## Historical/optional memory-only validation lane (2026-10-23)
+
+Follow [MEMORY_ONLY.md](MEMORY_ONLY.md) for the exact safe entry, 166-test audit, guards and
+application/exchange configuration injection. Today's boundary excludes all actual database/
+middleware/credential mutation, login/refresh/revoke and subprocess/runtime smoke. Earlier full
+package/check/smoke evidence below is historical and is not a command to repeat those operations.
+The new entry keeps all seven original test files, adds guard/config tests and uses only process
+memory keys/objects/Map with owned temporary loopback HTTP. No skipped tests stand in for coverage.
+The dedicated entry passed 182 tests/8 files (original 166 + 16 guard/config cases), scoped format/lint,
+strict no-emit types and diff checks. No runtime smoke/build or actual middleware/client was run in
+this lane. Exported setup/guards were shared with Owner's separate SDK-only memory configuration.
+
+## Current v2 implementation (2026-10-23)
+
+Current contract and exact acceptance matrix: [V2_CONTRACT.md](V2_CONTRACT.md).
+The package now implements seven read tools plus four gated write tools, per-tool scope isolation,
+SDK whole-batch validation and sequential accepted/failed/unknown/not_submitted results.
+Both gates remain default-off. No SDK/CLI, root config/lockfile, old repository or Codex harness files
+were changed by this implementation. No Git staging, commit, push or service operation was performed.
+Actual v2 backend/client readiness remains with the Owner; existing ports 26823/3002/8100 were untouched.
+Current package check passed: Oxfmt/Oxlint, both strict type configurations, 166 tests (130 original +
+36 v2) and build. Built Node smoke passed on temporary loopback (health/metadata 200, no bearer 401,
+SIGTERM-handler exit 0). Remaining work is real isolated v2 HTTP/client integration, durable backend
+replay/revocation/ownership/quota checks and separate consent/UI/account/deployment acceptance.
+Changed runtime files: src/protocol.ts and src/trading.ts. Tests: trading-fixture.ts, trading.test.ts,
+new trading-v2.test.ts and v2-fixture.ts. Package documentation records the new contract and checks.
+
 ## Migration checkpoint (2026-10-23)
 
 - Imported the reviewed public MCP source and Codex integration harness from checkpoint
@@ -23,9 +226,9 @@ publication commands do not publish it.
   seven SDK/CLI runtime checks and built Node MCP smoke), plus `bun run pack:check`.
 - MCP smoke uses a free loopback port, or `MCP_SMOKE_PORT`, and explicitly disables both
   Trading tool flags. It checks health, metadata, unauthenticated 401 and clean shutdown.
-- Existing v2 scope groundwork and client harness scaffolding are retained. Seven read tools,
-  four write tools, batch operations and full v2 acceptance remain unfinished. The passing
-  existing tests do not establish those capabilities. Actual Java/Web consent, desktop UI,
+- At migration time, v2 scope groundwork and client harness scaffolding were retained but the
+  tools/batch were unfinished. Current implementation is described above; migration's 130 tests
+  did not establish v2 capability. Actual Java/Web consent, desktop UI,
   real accounts/brokers, Linux/TLS and deployment were not verified by this migration.
 
 ## 历史交接记录（原独立仓 v1；下文不是迁入后的当前状态）

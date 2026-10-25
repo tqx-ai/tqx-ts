@@ -1,0 +1,359 @@
+{
+  "date": "2026-10-25",
+  "clientVersion": "0.164.0-alpha.11.1",
+  "clientKind": "installed-cli-login-and-app-server-tools",
+  "actualCodex": true,
+  "status": "passed",
+  "cases": [
+    {
+      "caseId": "read-getAccount",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "read-listPositions",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "read-listOrders",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "read-getOrder",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "read-listTrades",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "read-listCashFlows",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": ["cash_flows_unsupported"]
+    },
+    {
+      "caseId": "read-getSignal",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "read-denies-placeOrder",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-placeOrder",
+      "status": "passed",
+      "wireAttempts": 1,
+      "effects": 1,
+      "outcomes": ["accepted"]
+    },
+    {
+      "caseId": "missing-key-placeOrder",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "replay-placeOrder",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "accepted"]
+    },
+    {
+      "caseId": "conflict-placeOrder",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "failed"]
+    },
+    {
+      "caseId": "unknown-replay-placeOrder",
+      "status": "passed",
+      "wireAttempts": 4,
+      "effects": 1,
+      "outcomes": ["unknown", "unknown"]
+    },
+    {
+      "caseId": "read-denies-modifyOrder",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-modifyOrder",
+      "status": "passed",
+      "wireAttempts": 1,
+      "effects": 1,
+      "outcomes": ["accepted"]
+    },
+    {
+      "caseId": "missing-key-modifyOrder",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "replay-modifyOrder",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "accepted"]
+    },
+    {
+      "caseId": "conflict-modifyOrder",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "failed"]
+    },
+    {
+      "caseId": "unknown-replay-modifyOrder",
+      "status": "passed",
+      "wireAttempts": 6,
+      "effects": 1,
+      "outcomes": ["unknown", "unknown"]
+    },
+    {
+      "caseId": "read-denies-cancelOrder",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-cancelOrder",
+      "status": "passed",
+      "wireAttempts": 1,
+      "effects": 1,
+      "outcomes": ["accepted"]
+    },
+    {
+      "caseId": "missing-key-cancelOrder",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "replay-cancelOrder",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "accepted"]
+    },
+    {
+      "caseId": "conflict-cancelOrder",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "failed"]
+    },
+    {
+      "caseId": "unknown-replay-cancelOrder",
+      "status": "passed",
+      "wireAttempts": 6,
+      "effects": 1,
+      "outcomes": ["unknown", "unknown"]
+    },
+    {
+      "caseId": "read-denies-placeOrders",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-placeOrders",
+      "status": "passed",
+      "wireAttempts": 3,
+      "effects": 3,
+      "outcomes": ["accepted", "accepted", "accepted"]
+    },
+    {
+      "caseId": "missing-key-placeOrders",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-denies-getAccount",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-denies-listPositions",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-denies-listOrders",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-denies-getOrder",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-denies-listTrades",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-denies-listCashFlows",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "write-denies-getSignal",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "batch-empty",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "batch-over20",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "batch-duplicateKey",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "batch-invalidLater",
+      "status": "passed",
+      "wireAttempts": 0,
+      "effects": 0,
+      "outcomes": []
+    },
+    {
+      "caseId": "batch-20",
+      "status": "passed",
+      "wireAttempts": 20,
+      "effects": 20,
+      "outcomes": [
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted",
+        "accepted"
+      ]
+    },
+    {
+      "caseId": "batch-fail_at_2",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "failed", "not_submitted"]
+    },
+    {
+      "caseId": "batch-uncertain_at_2",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 2,
+      "outcomes": ["accepted", "unknown", "not_submitted"]
+    },
+    {
+      "caseId": "batch-revoke_before_2",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "failed", "not_submitted"]
+    },
+    {
+      "caseId": "batch-expire_before_2",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "failed", "not_submitted"]
+    },
+    {
+      "caseId": "batch-quota_at_2",
+      "status": "passed",
+      "wireAttempts": 2,
+      "effects": 1,
+      "outcomes": ["accepted", "failed", "not_submitted"]
+    }
+  ],
+  "caseCount": 45,
+  "passed": 45,
+  "protectedWriteHttpAttempts": 64.0,
+  "fakeBrokerSubmissionEffects": 41.0,
+  "identityOrigin": "Owner-verified actual Java HTTP login of synthetic test users",
+  "authorization": "Installed CLI --no-browser auto registration/PKCE login, then app-server tools in the same isolated home",
+  "inputIsolation": "Owner rotated all CLI keys/orders/signals after app-server completed; recorded key overlap checked zero",
+  "backendContext": "Owner-provided isolated SQL/Redis/Mongo services and PAPER object broker",
+  "limits": [
+    "No desktop UI or model-selected tool execution",
+    "No browser consent or real identity/account/broker claim",
+    "Accepted submissions are not final fills",
+    "Session-expiry injection does not prove elapsed JWT expiry"
+  ]
+}

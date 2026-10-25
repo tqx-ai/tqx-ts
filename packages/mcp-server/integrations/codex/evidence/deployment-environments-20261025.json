@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-25",
+  "revision": "compatible-defaults; initial new deployment gates withdrawn",
+  "configurationPrecedence": [
+    "explicit-input",
+    "existing-public-configuration",
+    "known-local-defaults"
+  ],
+  "environmentOptional": true,
+  "legacyLabelsPreserved": true,
+  "environmentUrlPoliciesAdded": false,
+  "mandatoryCredentialSlotMigration": false,
+  "newBindingManifestRequiredForOldConnection": false,
+  "existingSourceSupported": true,
+  "clientEnvironmentInputs": ["environment", "resource", "issuer", "webOrigin"],
+  "backgroundApiIsNotAClientInput": true,
+  "sourceOnly": true,
+  "offlineTestsPassed": 8,
+  "cliPlanAndGenerateEnvironments": [
+    {
+      "environment": "local",
+      "server": "tqx-local-9452162a76bd5e0ce5e9e2f0a6cf7c48",
+      "planAndGeneratedBindingMatch": true,
+      "portableMcpMatchesPlan": true,
+      "installed": false,
+      "loginStarted": false,
+      "networkAccessed": false
+    },
+    {
+      "environment": "test",
+      "server": "tqx-test-b39d6d184f476ba75797467e866db569",
+      "planAndGeneratedBindingMatch": true,
+      "portableMcpMatchesPlan": true,
+      "installed": false,
+      "loginStarted": false,
+      "networkAccessed": false
+    },
+    {
+      "environment": "prod",
+      "server": "tqx-prod-3326bee715e87d723d170ec96be14df8",
+      "planAndGeneratedBindingMatch": true,
+      "portableMcpMatchesPlan": true,
+      "installed": false,
+      "loginStarted": false,
+      "networkAccessed": false
+    }
+  ],
+  "cliExistingAliasVersionAndHttpConfigurationPreserved": true,
+  "missingProdValuesShowActualLocalDefaults": true,
+  "codeBlocks": 2,
+  "embeddedCodeExactMatches": true,
+  "extractedNodeSyntaxPassed": true,
+  "hashes": {
+    "callback-login.mjs": "63259f4e478fe76aefca509790b28e697843115fc02b42bcffbe8fcf11d59a17",
+    "deployment-environment.mjs": "59e088fbf4196db342f7fe97d9ecf869e5a20a593696c58fa4a566c36a71f1e7",
+    "INSTALL_LOCAL_PLUGIN_WITH_CODEX.md": "c37ece5e6f0cf0c0bb5f59bd1e066dcf5e9f61dc741d69244c4b86a38eac72d5"
+  },
+  "existingPersonalConnectionChanged": false,
+  "userProfileOrCredentialAccess": false,
+  "pluginInstalled": false,
+  "oauthStarted": false,
+  "productionConnected": false,
+  "helperAlgorithmChanged": false,
+  "preservedOriginalValidationSource": "callback-proxy.ts/callback-login.ts existed before this environment round; bytes unchanged",
+  "compatibilityReview": "DEPLOYMENT_COMPATIBILITY_REVIEW.md",
+  "limitation": "Source/packaging and offline checks only. Environment labels do not prove deployment endpoints; actual configured/default values are displayed. No plugin install, login or endpoint contact occurred."
+}

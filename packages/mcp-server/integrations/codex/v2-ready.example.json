@@ -1,17 +1,24 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "contract": "tqx-mcp-v2",
   "ready": false,
   "generation": "OWNER-SETS-AFTER-VERIFICATION",
+  "issuedAt": "OWNER-SETS-FRESH-ISO-TIMESTAMP",
   "expiresAt": "OWNER-SETS-FRESH-ISO-TIMESTAMP",
+  "fixtureNamespace": "tqx_v2_20261025_OWNER_RANDOM",
   "synthetic": true,
   "mode": "PAPER",
   "broker": "fake",
   "issuer": "http://127.0.0.1:26825",
   "mcpResource": "http://127.0.0.1:3004/mcp",
   "apiResource": "http://127.0.0.1:8102/api",
-  "redis": { "host": "127.0.0.1", "port": 16379, "db": 0, "prefix": "tqx_v2:" },
-  "mongo": { "database": "tqx_mcp_full_it" },
+  "redis": {
+    "host": "127.0.0.1",
+    "port": 16380,
+    "db": 0,
+    "prefix": "tqx_v2_20261025_OWNER_RANDOM:"
+  },
+  "mongo": { "database": "tqx_v2_20261025_OWNER_RANDOM" },
   "scopes": ["trade:read", "order:write"],
   "tools": [
     "getAccount",
