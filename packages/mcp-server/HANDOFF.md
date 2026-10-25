@@ -4,6 +4,31 @@ Current development directory: `tqx-ts/packages/mcp-server`, in the same Git rep
 and feature branch as the SDK/CLI. This package remains `private: true`; SDK/CLI
 publication commands do not publish it.
 
+## Post-d6d604d source update: optional order filters and WRITE counterexamples
+
+Root approved a compatible listOrders extension on the current provider active-order snapshot:
+optional startDate/endDate/status/symbol alongside limit/cursor. MCP accepts the same date shape,
+unrestricted string status and3..32-character symbol as the SDK contract and forwards through the
+SDK. Trading owns HK submitted-date interpretation, normalized AND filters, stable filtered ordering,
+cursor binding and ownership checks. This is Trading-service snapshot filtering, not a broker-history
+query. Existing defaults, auth/scope/feature gates and no-filter behavior remain unchanged.
+
+tests/trading-v2.test.ts now passed46/46 over guarded synthetic HTTP: original36 plus3 WRITE
+counterexamples (lost commit followed by retry403/429 stays UNKNOWN, explicit signal snapshots do
+not resubmit) and7 READ filter/input checks. tests/v2-fixture.ts adds only queued GET response data;
+its Map/effect counter is synthetic. WRITE_ACCEPTANCE_HANDOFF.md records reusable entries and real
+durable idempotency/shared-quota/lifecycle gaps. This is not a real quota or broker acceptance pass.
+READ offline56/56, strict source/Codex types, scoped lint/format and diff checks passed. A separate
+ignored tsdown build at work/verify-order-filters-20261025T070428154Z passed the clean Node baseline
+health/metadata200, no bearer401, Origin403 and exit0, with tools disabled/no external AS or Trading.
+
+No3004/8102 restart, READY update, old write/fixture mutation, auth/grant change, external production
+request, Git stage/commit/push or integration-owner file edit occurred. Default live dist hash stayed
+unchanged. The earlier114-case live B result below remains historical and does not prove this new
+filter extension deployed. Its obsolete unsupported-symbol descriptor was replaced by a capability-
+dependent positive plan entry; old private manifests block that new case rather than claim coverage.
+Root retains final cross-package orchestration/commit/push ownership.
+
 ## Final READ B and compatible environment handoff (2026-10-25)
 
 This final status supersedes preparation/freeze paragraphs below. READ B latest unique outcomes are

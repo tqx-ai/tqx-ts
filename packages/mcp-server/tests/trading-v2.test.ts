@@ -163,6 +163,58 @@ describe('v2 scope and input contracts over synthetic HTTP', () => {
     expect(unsupported.data).toEqual({ error: 'cash_flows_unsupported' })
     expect(unsupported.isError).toBe(true)
   })
+  it('forwards optional active-order filters through the SDK without inventing provider results', async () => {
+    const f = await setup()
+    f.v2.readData.push({ items: [], next_cursor: null }, { items: [], next_cursor: null })
+    const args = {
+      startDate: '2026-10-01',
+      endDate: '2026-10-25',
+      status: ' partial_filled ',
+      symbol: ' 700.hk ',
+      limit: 2,
+      cursor: 'opaque +/=',
+    }
+    expect((await call(f, 'listOrders', args, 'trade:read')).data).toEqual({
+      items: [],
+      next_cursor: null,
+    })
+    const query = new URL(f.v2.requests[0]!.path, f.tradingBase)
+    expect(Object.fromEntries(query.searchParams)).toEqual({
+      start_date: args.startDate,
+      end_date: args.endDate,
+      status: 'PARTIAL_FILLED',
+      symbol: args.symbol,
+      limit: '2',
+      cursor: args.cursor,
+    })
+    expect(f.v2.requests[0]!.method).toBe('GET')
+    expect(f.v2.requests[0]!.scope).toBe('trade:read')
+    expect(f.v2.requests[0]!.key).toBeUndefined()
+    expect(
+      (await call(f, 'listOrders', { status: ' future_provider_state ' }, 'trade:read')).data.items,
+    ).toEqual([])
+    expect(new URL(f.v2.requests[1]!.path, f.tradingBase).searchParams.get('status')).toBe(
+      'FUTURE_PROVIDER_STATE',
+    )
+    expect(f.v2.effects).toBe(0)
+  })
+  it.each([
+    { startDate: '2026/10/01' },
+    { endDate: null },
+    { status: 42 },
+    { symbol: 'AA' },
+    { symbol: 'x'.repeat(33) },
+    { accountId: 'untrusted' },
+  ])(
+    'rejects invalid or identity-overriding active-order filters before Trading: %j',
+    async (args) => {
+      const f = await setup()
+      const result = await call(f, 'listOrders', args, 'trade:read')
+      expect(result.isError).toBe(true)
+      expect(f.v2.requests).toHaveLength(0)
+      expect(f.v2.effects).toBe(0)
+    },
+  )
   it('requires stable keys and rejects every malformed batch before any write', async () => {
     const f = await setup()
     const { idempotencyKey: _key, ...withoutKey } = order()
@@ -384,6 +436,56 @@ describe('v2 writes, sequential batches and uncertainty', () => {
       'stable-key-001',
     ])
     expect(f.v2.effects).toBe(0)
+  })
+  it.each([
+    [403, 'permission_denied'],
+    [429, 'rate_limit_exceeded'],
+  ] as const)(
+    'keeps a lost committed write unknown after retry HTTP %i without submitting another intent',
+    async (status, error) => {
+      const f = await setup()
+      f.v2.plans.push({ disconnect: true }, { status })
+      const result = await call(f, 'placeOrders', {
+        orders: [order('lost-quota-key-001'), order('must-not-submit-002')],
+      })
+      expect(result.isError).toBe(true)
+      expect(result.data.results).toMatchObject([
+        { index: 0, idempotencyKey: 'lost-quota-key-001', status: 'unknown', error },
+        { index: 1, idempotencyKey: 'must-not-submit-002', status: 'not_submitted' },
+      ])
+      expect(f.v2.requests.map((request) => request.key)).toEqual([
+        'lost-quota-key-001',
+        'lost-quota-key-001',
+      ])
+      expect(f.v2.effects).toBe(1)
+      expect(JSON.stringify(result.data)).not.toContain('synthetic private')
+    },
+  )
+  it('preserves explicit signal polling snapshots without resubmitting an uncertain write', async () => {
+    const f = await setup()
+    f.v2.plans.push({ data: syntheticSignal('UNKNOWN') })
+    const submitted = await call(f, 'placeOrder', order('poll-uncertain-001'))
+    expect(submitted.data).toMatchObject({ status: 'unknown', data: { state: 'UNKNOWN' } })
+    expect(f.v2.requests.map((request) => request.method)).toEqual(['POST'])
+    const snapshots = [
+      syntheticSignal('PENDING'),
+      syntheticSignal('ACCEPTED'),
+      {
+        ...syntheticSignal('ACCEPTED'),
+        order_id: 'synthetic-final-order',
+        order_status: 'FILLED',
+      },
+    ]
+    f.v2.readData.push(...snapshots)
+    for (const snapshot of snapshots) {
+      const observed = await call(f, 'getSignal', { signalId: snapshot.signal_id })
+      expect(observed.isError).not.toBe(true)
+      expect(observed.data).toEqual(snapshot)
+    }
+    expect(f.v2.requests.map((request) => request.method)).toEqual(['POST', 'GET', 'GET', 'GET'])
+    expect(f.v2.requests.slice(1).every((request) => request.key === undefined)).toBe(true)
+    expect(f.v2.effects).toBe(1)
+    expect(submitted.data.status).toBe('unknown')
   })
   it.each([{ hold: true }, { invalidJson: true }])(
     'stops with unknown for timeout or malformed response: %j',

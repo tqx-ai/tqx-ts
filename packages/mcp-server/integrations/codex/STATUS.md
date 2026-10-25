@@ -1,5 +1,13 @@
 # Codex client acceptance status
 
+2026-10-25 external distribution preparation:9 MD-extracted cold/mock checks and4
+actual native-CLI packaging steps pass in independent temporary homes, alongside8
+environment compatibility checks. Repeated source generation now ignores only
+binding provenance when deciding reuse. An allowlisted six-file kit/ZIP is prepared;
+see DISTRIBUTION_ACCEPTANCE.md and evidence/distribution-cold-start-20261025.json.
+No personal profile/login, main grant, public deployment or real broker was changed.
+Windows paths were exercised; Linux/macOS execution and final human UX remain unverified.
+
 2026-10-25 environment compatibility revision: this round's newly added deployment
 gates were withdrawn on the human's clarification. local/test/prod and legacy labels
 use explicit inputs > existing public configuration > known local defaults; output

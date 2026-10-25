@@ -51,9 +51,9 @@
   "embeddedCodeExactMatches": true,
   "extractedNodeSyntaxPassed": true,
   "hashes": {
+    "INSTALL_LOCAL_PLUGIN_WITH_CODEX.md": "21708df460035ffd90c92e1d95da4b50d503dfeb8fc4846b0591f6249690f42a",
     "callback-login.mjs": "63259f4e478fe76aefca509790b28e697843115fc02b42bcffbe8fcf11d59a17",
-    "deployment-environment.mjs": "59e088fbf4196db342f7fe97d9ecf869e5a20a593696c58fa4a566c36a71f1e7",
-    "INSTALL_LOCAL_PLUGIN_WITH_CODEX.md": "c37ece5e6f0cf0c0bb5f59bd1e066dcf5e9f61dc741d69244c4b86a38eac72d5"
+    "deployment-environment.mjs": "9411d9be6ae17c79aeb38cadc6dd1fdb22dd7df3ebb66470031b5238795a2c2a"
   },
   "existingPersonalConnectionChanged": false,
   "userProfileOrCredentialAccess": false,
@@ -63,5 +63,6 @@
   "helperAlgorithmChanged": false,
   "preservedOriginalValidationSource": "callback-proxy.ts/callback-login.ts existed before this environment round; bytes unchanged",
   "compatibilityReview": "DEPLOYMENT_COMPATIBILITY_REVIEW.md",
-  "limitation": "Source/packaging and offline checks only. Environment labels do not prove deployment endpoints; actual configured/default values are displayed. No plugin install, login or endpoint contact occurred."
+  "limitation": "Source/packaging and offline checks only. Environment labels do not prove deployment endpoints; actual configured/default values are displayed. No plugin install, login or endpoint contact occurred.",
+  "coldDistributionFollowup": "evidence/distribution-cold-start-20261025.json"
 }

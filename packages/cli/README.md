@@ -90,6 +90,17 @@ is a concern.
 Use `tqx --help` to list commands. Human-readable output is colored by default; use `--plain` for
 uncolored text or `--json` for machine-readable output.
 
+To filter current active orders:
+
+```bash
+tqx trading orders list --startDate=2026-10-01 --endDate=2026-10-25 --status=submitted --symbol=0700.HK --json
+```
+
+The optional filters combine with AND and do not query historical orders. Dates are inclusive Hong
+Kong calendar dates of submission; orders without a reliable submitted timestamp do not match date
+filters. Status is trimmed and uppercased, and the server normalizes symbols. Unknown statuses return
+no matches. Use each pagination cursor with the same filters; omitting filters keeps existing behavior.
+
 ## License
 
 GNU General Public License v3.0.

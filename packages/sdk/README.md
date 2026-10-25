@@ -141,13 +141,13 @@ writes without a key are not retried. These rules apply to both API-key and Bear
 
 ## CLI trading mapping
 
-These are the existing CLI mappings; optional SDK keys do not add CLI flags or change CLI behavior.
+The CLI mappings include optional order-list filters. Modify/cancel idempotency keys remain SDK-only.
 
 | CLI command                       | `client.trading` method | Input mapping                                                                                                                                                         |
 | --------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `trading account`                 | `getAccount`            | `currency`                                                                                                                                                            |
 | `trading positions`               | `listPositions`         | `symbol`, `market`, `limit`, `cursor`                                                                                                                                 |
-| `trading orders list`             | `listOrders`            | `limit`, `cursor`                                                                                                                                                     |
+| `trading orders list`             | `listOrders`            | `startDate`, `endDate`, `status`, `symbol`, `limit`, `cursor`                                                                                                         |
 | `trading orders get <orderId>`    | `getOrder`              | positional order ID                                                                                                                                                   |
 | `trading orders place`            | `placeOrder`            | `symbol`, `side`, `orderType` (default MARKET), `quantity`, `price`, `reason`, `timeInForce` (default DAY), `idempotencyKey` (generated if omitted); requires `--yes` |
 | `trading orders modify <orderId>` | `modifyOrder`           | positional order ID, `price`; no CLI idempotency key                                                                                                                  |
@@ -159,6 +159,18 @@ These are the existing CLI mappings; optional SDK keys do not add CLI flags or c
 All ten `TradingApi` methods have a CLI mapping. Batch submission is not an SDK/CLI method; an MCP
 batch tool must validate all inputs and call `placeOrder` sequentially under its own contract.
 CLI authentication remains API-key based.
+
+`listOrders` filters the provider's current active-order snapshot, not historical orders. All filters
+are optional and combined with AND; omitting them preserves the existing pagination behavior.
+`startDate` and `endDate` include both endpoints and use the Hong Kong calendar date of `submitted_at`.
+Orders without a reliable submitted timestamp do not match a date filter. `status` is trimmed and
+uppercased; an unknown status returns no matches. The server normalizes symbols, including four-digit
+Hong Kong codes. Filtered cursors belong to their normalized filters and cannot be reused with different
+filters. Filtered results sort by submitted time descending with an order-ID tie breaker.
+
+Order responses optionally expose nullable `modify_request_id`, `cancel_action_status`, and
+`modify_action_status`. Trade responses optionally expose nullable `realized_pnl` and `order_type`;
+these fields remain optional for older servers, and unavailable values remain null.
 
 ## License
 

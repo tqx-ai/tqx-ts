@@ -11,7 +11,7 @@ import {
   ModifyOrderInputSchema,
   OrderDataSchema,
   OrdersDataSchema,
-  PaginationOptionsSchema,
+  OrdersOptionsSchema,
   PlaceOrderInputSchema,
   PositionsDataSchema,
   PositionsOptionsSchema,
@@ -28,7 +28,7 @@ import {
   type ModifyOrderInput,
   type OrderData,
   type OrdersData,
-  type PaginationOptions,
+  type OrdersOptions,
   type PlaceOrderInput,
   type PositionsData,
   type PositionsOptions,
@@ -42,7 +42,7 @@ import APIs from '../config/APIs'
 export interface TradingApi {
   getAccount(options?: AccountOptions): Promise<TradingAccountData>
   listPositions(options?: PositionsOptions): Promise<PositionsData>
-  listOrders(options?: PaginationOptions): Promise<OrdersData>
+  listOrders(options?: OrdersOptions): Promise<OrdersData>
   getOrder(orderId: string): Promise<OrderData>
   /** Returns a signal envelope; `state` is not the linked order's final status. */
   placeOrder(input: PlaceOrderInput): Promise<SignalData>
@@ -101,11 +101,18 @@ export class TradingApiClient implements TradingApi {
     })
   }
 
-  async listOrders(options: PaginationOptions = {}): Promise<OrdersData> {
-    const input = parseInput(PaginationOptionsSchema, options)
+  async listOrders(options: OrdersOptions = {}): Promise<OrdersData> {
+    const input = parseInput(OrdersOptionsSchema, options)
     return this.#request(APIs.ORDERS, {
       schema: OrdersDataSchema,
-      query: input,
+      query: {
+        start_date: input.startDate,
+        end_date: input.endDate,
+        status: input.status,
+        symbol: input.symbol,
+        limit: input.limit,
+        cursor: input.cursor,
+      },
     })
   }
 

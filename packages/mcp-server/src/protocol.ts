@@ -9,6 +9,7 @@ const pagination = {
   limit: z.number().int().min(1).max(100).optional(),
   cursor: z.string().max(512).optional(),
 }
+const dateFilter = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const idempotencyKey = z
   .string()
   .min(8)
@@ -94,8 +95,18 @@ export function createProtocolServer(context?: TradingContext): McpServer {
     server.registerTool(
       'listOrders',
       {
-        description: 'Read current orders for the authorized Agent with opaque cursor pagination.',
-        inputSchema: z.strictObject(pagination),
+        description:
+          'Read current active provider orders for the authorized Agent with Trading-service filtering and opaque cursor pagination. Filters combine with AND; dates are inclusive Hong Kong submitted dates.',
+        inputSchema: z.strictObject({
+          ...pagination,
+          startDate: dateFilter.optional(),
+          endDate: dateFilter.optional(),
+          status: z
+            .string()
+            .optional()
+            .describe('Case-insensitive order status; unknown values return no matches.'),
+          symbol: z.string().min(3).max(32).optional(),
+        }),
         annotations: readAnnotations,
       },
       async (args, extra) =>
@@ -133,14 +144,8 @@ export function createProtocolServer(context?: TradingContext): McpServer {
         description:
           'Read native-currency cash ledger rows. An unsupported channel returns cash_flows_unsupported, never a fabricated empty ledger.',
         inputSchema: z.strictObject({
-          startDate: z
-            .string()
-            .regex(/^\d{4}-\d{2}-\d{2}$/)
-            .optional(),
-          endDate: z
-            .string()
-            .regex(/^\d{4}-\d{2}-\d{2}$/)
-            .optional(),
+          startDate: dateFilter.optional(),
+          endDate: dateFilter.optional(),
           currency: z
             .string()
             .regex(/^[A-Z]{3}$/)

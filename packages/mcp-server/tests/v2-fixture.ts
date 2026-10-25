@@ -57,6 +57,7 @@ export async function v2Fixture(
       agent: string
     }[],
     plans: [] as Plan[],
+    readData: [] as unknown[],
     effects: 0,
     revoked: false,
     unsupportedCashFlows: false,
@@ -112,28 +113,30 @@ export async function v2Fixture(
             send(res, 501, 'cash_flows_unsupported', null, id)
             return
           }
-          const data = url.pathname.includes('/signals/')
-            ? syntheticSignal('PENDING')
-            : url.pathname.includes('/orders/')
-              ? order
-              : url.pathname.endsWith('/orders')
-                ? { items: [order], next_cursor: null }
-                : url.pathname.endsWith('/account')
-                  ? {
-                      account_id: 'fixture-account',
-                      mode: 'PAPER',
-                      base_currency: 'USD',
-                      total_assets: '9007199254740993.12',
-                      cash: null,
-                      available_cash: null,
-                      frozen_cash: null,
-                      buying_power: null,
-                      market_value: null,
-                      unrealized_pnl: null,
-                      as_of: 'synthetic-time',
-                      is_stale: true,
-                    }
-                  : { items: [], next_cursor: null }
+          const data = state.readData.length
+            ? state.readData.shift()
+            : url.pathname.includes('/signals/')
+              ? syntheticSignal('PENDING')
+              : url.pathname.includes('/orders/')
+                ? order
+                : url.pathname.endsWith('/orders')
+                  ? { items: [order], next_cursor: null }
+                  : url.pathname.endsWith('/account')
+                    ? {
+                        account_id: 'fixture-account',
+                        mode: 'PAPER',
+                        base_currency: 'USD',
+                        total_assets: '9007199254740993.12',
+                        cash: null,
+                        available_cash: null,
+                        frozen_cash: null,
+                        buying_power: null,
+                        market_value: null,
+                        unrealized_pnl: null,
+                        as_of: 'synthetic-time',
+                        is_stale: true,
+                      }
+                    : { items: [], next_cursor: null }
           send(res, 200, '0', data, id)
           return
         }

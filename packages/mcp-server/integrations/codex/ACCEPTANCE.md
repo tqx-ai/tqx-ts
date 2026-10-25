@@ -1,5 +1,14 @@
 # Codex client acceptance record
 
+2026-10-25 distribution cold acceptance:9 standalone Node/mock tests pass from code
+extracted only from the delivered MD in an unrelated directory, with isolated HOME,
+no node_modules and actual Windows spaced/non-ASCII paths. The native installed
+CLI passed4 local-marketplace install/repeat/same-ID-upgrade/cleanup steps in its
+own fresh HOME. These are packaging and mock lifecycle checks, not fresh real OAuth,
+human consent, account access, Linux/macOS execution or broker acceptance. The source
+repeat/provenance bug was fixed;8 environment compatibility tests also pass. See
+DISTRIBUTION_ACCEPTANCE.md and evidence/distribution-cold-start-20261025.json.
+
 2026-10-25 compatible three-environment source checks: eight focused offline tests
 pass after withdrawing this round's added deployment gates. Coverage now verifies
 the original explicit/existing/default chain, missing/partial test/prod settings,

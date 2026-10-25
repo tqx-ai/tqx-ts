@@ -1,5 +1,11 @@
 # Codex first-client acceptance
 
+**External onboarding kit:** [DISTRIBUTION_ACCEPTANCE.md](DISTRIBUTION_ACCEPTANCE.md)
+records MD-only cold Node execution,9 isolated mock lifecycle tests and4 actual
+native-CLI local install/repeat/upgrade/cleanup checks. No personal profile or real
+OAuth was used. The kit has no author-specific runtime paths or package dependencies;
+actual service addresses and provider deployment remain external dependencies.
+
 **Layer C public READ session fixture:** [PUBLIC_READ_FIXTURE.md](PUBLIC_READ_FIXTURE.md)
 describes the independent ephemeral loopback service, 28-case matrix, three session
 groups, unique temporary plugin source and in-memory audit. Its 33 preparation

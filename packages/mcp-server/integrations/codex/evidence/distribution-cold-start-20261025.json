@@ -1,0 +1,128 @@
+{
+  "date": "2026-10-25",
+  "status": "local external-guide distribution preparation passed; not public deployment",
+  "coldNode": {
+    "platform": "win32",
+    "nodeVersion": "v24.13.0",
+    "testsPassed": 9,
+    "evidence": [
+      {
+        "case": "MD-only cold Node runtime and relative/spaced/non-ASCII paths",
+        "passed": true,
+        "layer": "isolated Node standalone"
+      },
+      {
+        "case": "existing config, idempotent repeat, provenance change and source-only upgrade preservation",
+        "passed": true,
+        "layer": "isolated Node standalone"
+      },
+      {
+        "case": "source failure and recovery without profile reset",
+        "passed": true,
+        "layer": "isolated Node standalone"
+      },
+      {
+        "case": "explicit permission wait then single callback and mock CLI0",
+        "passed": true,
+        "layer": "mock Codex + owned synthetic AS; not real OAuth"
+      },
+      {
+        "case": "mock deny recovery boundary",
+        "passed": true,
+        "layer": "mock Codex + owned synthetic AS; no real grant"
+      },
+      {
+        "case": "mock fail recovery boundary",
+        "passed": true,
+        "layer": "mock Codex + owned synthetic AS; no real grant"
+      },
+      {
+        "case": "unsupported CLI no silent fallback or duplicate consent",
+        "passed": true,
+        "layer": "mock CLI startup failure"
+      },
+      {
+        "case": "bounded unanswered permission timeout",
+        "passed": true,
+        "layer": "mock CLI + owned helper lifetime"
+      },
+      {
+        "case": "Node-builtins only and no author absolute paths in runtime code",
+        "passed": true,
+        "layer": "artifact inspection"
+      }
+    ],
+    "runtimeDependsOnRepositoryOrNodeModules": false,
+    "personalProfileAccessed": false,
+    "mockCliAndOwnedAsOnlyForLoginScenarios": true,
+    "actualNativePkceOrHumanConsentProven": false
+  },
+  "nativeCli": {
+    "version": "codex-cli 0.164.0-alpha.11.1",
+    "steps": [
+      {
+        "case": "cold native marketplace/plugin install and MCP load",
+        "passed": true
+      },
+      {
+        "case": "same source repeated CLI install and selector idempotence",
+        "passed": true
+      },
+      {
+        "case": "same-ID source upgrade using supported isolated marketplace refresh; old source/unrelated config retained",
+        "passed": true
+      },
+      {
+        "case": "only dedicated fixture registration removed via public CLI",
+        "passed": true
+      }
+    ],
+    "oauthLoginStarted": false,
+    "personalProfileTouched": false,
+    "requests": [],
+    "isolatedFileCredentialStorage": true
+  },
+  "existingEnvironmentCompatibilityTests": 8,
+  "sourceRepair": "Only provenance metadata valueSources is ignored for source-reuse comparison; semantically equal JSON key order is accepted. No endpoint/auth/default policy changes.",
+  "artifact": {
+    "directory": "work/distribution-release-20261025/tqx-codex-onboarding",
+    "zip": "work/distribution-release-20261025/TQX-Codex-onboarding-20261025.zip",
+    "kind": "onboarding guide kit; not public plugin submission archive",
+    "fileCount": 6,
+    "allowlistMatches": true,
+    "checksumsMatch": true,
+    "authorAbsolutePathMatches": 0,
+    "jwtLikeMatches": 0,
+    "archiveSha256": "1359b76f8736c898bf0dd0e69ab7fe2aad762da51f8045e0625b1d4d8067819b",
+    "files": {
+      "INSTALL_WITH_CODEX.md": "21708df460035ffd90c92e1d95da4b50d503dfeb8fc4846b0591f6249690f42a",
+      "tqx-callback-login.mjs": "63259f4e478fe76aefca509790b28e697843115fc02b42bcffbe8fcf11d59a17",
+      "tqx-environment-source.mjs": "9411d9be6ae17c79aeb38cadc6dd1fdb22dd7df3ebb66470031b5238795a2c2a",
+      "START_HERE.md": "6eda01e19a1d10e9926086ce7d893ad848ab84d788a967f6bdfd56b183cc9703",
+      "PUBLIC-CONNECTION.example.json": "13a794ebf4576ea6cdc121004146a40f92453344369cba03dd3977185bca4332"
+    }
+  },
+  "hashes": {
+    "INSTALL_LOCAL_PLUGIN_WITH_CODEX.md": "21708df460035ffd90c92e1d95da4b50d503dfeb8fc4846b0591f6249690f42a",
+    "callback-login.mjs": "63259f4e478fe76aefca509790b28e697843115fc02b42bcffbe8fcf11d59a17",
+    "deployment-environment.mjs": "9411d9be6ae17c79aeb38cadc6dd1fdb22dd7df3ebb66470031b5238795a2c2a"
+  },
+  "helperBytesChanged": false,
+  "sourceAndDocsFilesOnly": true,
+  "actualWindowsSpacedRelativeAndUnicodePathsTested": true,
+  "linuxMacExecutionVerified": false,
+  "newPublicUrlOrTunnelInvented": false,
+  "mainServicesOrUserGrantChanged": false,
+  "productionConnected": false,
+  "privateEvidence": {
+    "cold": "work/distribution-cold-nLb3Ip/selfcheck.json",
+    "native": "work/distribution-native-UCY4eX/evidence.json"
+  },
+  "remainingDependencies": [
+    "Actual reachable provider MCP address or confirmed same-host service",
+    "Normal AS/OAuth and consent Web service",
+    "Installed Codex and Node for these standalone programs",
+    "Human Agent/account consent and actual read verification",
+    "Deployment-specific reachable browser callback; cloud/tunnel resources only if separately requested"
+  ]
+}

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 
 export type DeploymentEnvironment = 'local' | 'test' | 'prod'
 export interface DeploymentInput {
@@ -135,10 +136,19 @@ export async function writeDeploymentSource(directory: string, binding: Deployme
   // source within the requested directory instead of blocking or overwriting.
   for (const [name, value] of relativeFiles) {
     try {
-      if (
-        JSON.stringify(JSON.parse(await readFile(resolve(source, name), 'utf8'))) !==
-        JSON.stringify(value)
-      ) {
+      const previous = JSON.parse(await readFile(resolve(source, name), 'utf8')) as Record<
+        string,
+        unknown
+      >
+      const actual = { ...previous }
+      const expected = { ...value }
+      // Provenance can change from explicit/default to existing on the next
+      // run. It describes this invocation, not a changed connection/package.
+      if (name === 'deployment-binding.json') {
+        delete actual.valueSources
+        delete (expected as Record<string, unknown>).valueSources
+      }
+      if (!isDeepStrictEqual(actual, expected)) {
         source = await mkdtemp(resolve(source, 'tqx-source-'))
         break
       }

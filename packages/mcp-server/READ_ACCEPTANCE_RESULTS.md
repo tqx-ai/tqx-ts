@@ -1,5 +1,8 @@
 # READ B executed results (2026-10-25)
 
+This retained run predates the later optional listOrders snapshot-filter source extension. Its
+113/1 outcome is not evidence that new filter parameters were deployed or live-tested.
+
 Latest unique-case outcomes:114 total,113 passed,1 unsupported,0 failed/blocked/not-run. This is
 official MCP SDK protocol evidence against the isolated AS/MCP/Trading applications, with synthetic
 primary identity and PAPER history/fake broker. It is not actual desktop or real broker acceptance.

@@ -44,7 +44,7 @@ All IDs are strings and are SDK URL-encoded; no automatic pagination occurs.
 | ------------- | ----------- | -------------------------------------------------------------------------------------------- |
 | getAccount    | trade:read  | currency?: HKD or USD                                                                        |
 | listPositions | trade:read  | symbol?: 3..32 chars; market?: HK or US; limit?; cursor?                                     |
-| listOrders    | trade:read  | limit?; cursor?                                                                              |
+| listOrders    | trade:read  | limit?; cursor?; startDate?/endDate?: YYYY-MM-DD; status?: string; symbol?: 3..32 chars      |
 | getOrder      | trade:read  | orderId: 1..128 chars                                                                        |
 | listTrades    | trade:read  | market?: HK or US; orderId?: 1..128 chars; limit?; cursor?                                   |
 | listCashFlows | trade:read  | startDate?, endDate?: YYYY-MM-DD format; currency?: three uppercase letters; limit?; cursor? |
@@ -70,6 +70,15 @@ readOnly=false, destructive=true. All declare idempotent=true/openWorld=true; pr
 and Trading's durable operation contract is essential to write idempotency.
 
 ## Results, uncertainty and retry rules
+
+listOrders still reads the provider's current active-order snapshot. Trading applies optional
+filters to that snapshot; this is not a broker historical-order query. startDate/endDate are
+inclusive Hong Kong dates derived from submitted_at; rows without a reliable submitted time do
+not match a date filter. status trims/uppercases with no fixed-enum restriction; unknown values
+return no matches. Symbol matching uses Trading's existing normalization. All filters combine
+with AND before pagination; filtered rows sort by submitted_at descending with stable order_id
+ties. Filtered cursors bind the actual normalized filters; a different filter cannot reuse one.
+No-filter behavior and existing cursors remain unchanged, and ownership checks still apply.
 
 Read outputs remain the unmodified validated SDK data: strings, nulls, actual mode/freshness and
 pagination are preserved. cash_flows_unsupported (501) is explicit, not an empty ledger.

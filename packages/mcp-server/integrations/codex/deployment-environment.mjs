@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 var LOCAL_DEPLOYMENT = {
   resource: 'http://127.0.0.1:3004/mcp',
   issuer: 'http://127.0.0.1:26825',
@@ -114,10 +115,14 @@ async function writeDeploymentSource(directory, binding) {
   await mkdir(source, { recursive: true })
   for (const [name, value] of relativeFiles) {
     try {
-      if (
-        JSON.stringify(JSON.parse(await readFile(resolve(source, name), 'utf8'))) !==
-        JSON.stringify(value)
-      ) {
+      const previous = JSON.parse(await readFile(resolve(source, name), 'utf8'))
+      const actual = { ...previous }
+      const expected = { ...value }
+      if (name === 'deployment-binding.json') {
+        delete actual.valueSources
+        delete expected.valueSources
+      }
+      if (!isDeepStrictEqual(actual, expected)) {
         source = await mkdtemp(resolve(source, 'tqx-source-'))
         break
       }

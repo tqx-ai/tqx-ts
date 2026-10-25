@@ -5,6 +5,12 @@ Status: **B EXECUTED:113 UNIQUE CASES PASSED,1 PROVIDER CAPABILITY UNSUPPORTED**
 six targeted passes, separate preflight, actual transport/auth proof and zero safety deltas. Root
 reported desktop A complete with31 actual calls and a clean A-after audit; that is separate Owner
 evidence. This plan covers only the isolated-primary B READ contract.
+
+Later compatible source extension: listOrders now accepts optional startDate/endDate/status/symbol
+for Trading-service filtering of the provider's current active snapshot. The earlier113/1 result
+predates that extension and does not establish its live acceptance. The old unsupported-symbol
+descriptor is replaced by a capability-dependent positive descriptor; an older manifest blocks it.
+New filter input/forwarding checks are engineering evidence only; no shared service was reloaded.
 No order placement/modification/cancellation/batch tool, real broker or trade effect is permitted.
 Earlier 185 unit cases and 45+45 installed-kernel runs are separate engineering evidence, not
 coverage of this new natural-language desktop conversation.
@@ -22,7 +28,7 @@ require invoking any write tool. Authentication/JWT/online exchange remain the p
 | ------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | getAccount    | currency?: HKD or USD; omitted is forwarded without a default                                        | Account record                                                                  |
 | listPositions | symbol?: string length3..32; market?: HK or US; limit?; cursor?                                      | {items: Position[], next_cursor?: string or null}                               |
-| listOrders    | limit?; cursor? only; no symbol/market/status/orderId filter                                         | {items: Order[], next_cursor?: string or null}                                  |
+| listOrders    | limit?; cursor?; startDate?/endDate?: YYYY-MM-DD; status?: string; symbol?: string3..32              | {items: Order[], next_cursor?: string or null}                                  |
 | getOrder      | orderId: string length1..128, required                                                               | One Order; not-found is an error, not null data                                 |
 | listTrades    | market?: HK or US; orderId?: string length1..128; limit?; cursor?                                    | {items: Trade[], next_cursor?: string or null}                                  |
 | listCashFlows | startDate?, endDate?: YYYY-MM-DD format strings; currency?: three uppercase letters; limit?; cursor? | {items: CashFlow[], next_cursor?: string or null}, only if provider supports it |
@@ -102,15 +108,15 @@ execution evidence. Shared error handling is covered once on a representative re
 across all tools to inflate counts. Each tool still has its own baseline, strict unknown-field and
 valid-argument scope-denial cases because registration/argument shape differs.
 
-| Tool          | Normal/data semantics                                                              | Pagination/filter/empty and object cases                                                                           | Invalid/boundary cases                                                                                          |
-| ------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| getAccount    | Default/HKD/USD, exact decimals/null/native balances; as_of/is_stale/mode truth    | Target bound account only; no account selector                                                                     | EUR/null currency, unknown identity field; representative scoped faults/auth cases                              |
-| listPositions | Rich HK/US rows, null costs/price_currency, precision                              | market, symbol, AND filters, no match, explicit empty; limit2 page chain; change page size; malformed/empty cursor | symbol2/33, marketCN, limit0; common cursor/unknown/scope cases                                                 |
-| listOrders    | Current-order status/nullable fields                                               | Page chain and empty; foreign candidates before owned rows must not starve owned page                              | No invented symbol/status filter, limit101, cursor513; invalid IDs belong getOrder                              |
-| getOrder      | Existing owned current detail; no assumption every terminal order remains current  | Missing, existing foreign, reserved-character boundary                                                             | Missing/empty/129/numeric ID, unknown identity, valid-args scope denial                                         |
-| listTrades    | Execution precision, fees map/null, price versus settlement currency               | HK/US, orderId, combined filter, empty, page chain; foreign candidates before owned                                | Fractional limit, empty orderId, malformed cursor, unknown identity                                             |
-| listCashFlows | Real provider unsupported gap; synthetic supported ledger is fixture-only evidence | If provider supported: signed native amounts/null categories, date/currency filter/page chain                      | Calendar-invalid, reversed and >90-day ranges, malformed dates, lowercase currency/string limit, invalid cursor |
-| getSignal     | Preseeded PENDING/ACCEPTED/UNKNOWN/REJECTED; not a fill                            | Owned, missing, existing foreign, reserved-character boundary                                                      | Missing/empty/7/129/numeric ID, unknown identity, valid-args scope denial                                       |
+| Tool          | Normal/data semantics                                                                 | Pagination/filter/empty and object cases                                                                           | Invalid/boundary cases                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| getAccount    | Default/HKD/USD, exact decimals/null/native balances; as_of/is_stale/mode truth       | Target bound account only; no account selector                                                                     | EUR/null currency, unknown identity field; representative scoped faults/auth cases                              |
+| listPositions | Rich HK/US rows, null costs/price_currency, precision                                 | market, symbol, AND filters, no match, explicit empty; limit2 page chain; change page size; malformed/empty cursor | symbol2/33, marketCN, limit0; common cursor/unknown/scope cases                                                 |
+| listOrders    | Current-order status/nullable fields; optional snapshot symbol/status/HK date filters | Page chain and empty; foreign candidates before owned rows must not starve owned page                              | Filters AND/bind cursor; limit101/cursor513; no identity override or invented historical-query capability       |
+| getOrder      | Existing owned current detail; no assumption every terminal order remains current     | Missing, existing foreign, reserved-character boundary                                                             | Missing/empty/129/numeric ID, unknown identity, valid-args scope denial                                         |
+| listTrades    | Execution precision, fees map/null, price versus settlement currency                  | HK/US, orderId, combined filter, empty, page chain; foreign candidates before owned                                | Fractional limit, empty orderId, malformed cursor, unknown identity                                             |
+| listCashFlows | Real provider unsupported gap; synthetic supported ledger is fixture-only evidence    | If provider supported: signed native amounts/null categories, date/currency filter/page chain                      | Calendar-invalid, reversed and >90-day ranges, malformed dates, lowercase currency/string limit, invalid cursor |
+| getSignal     | Preseeded PENDING/ACCEPTED/UNKNOWN/REJECTED; not a fill                               | Owned, missing, existing foreign, reserved-character boundary                                                      | Missing/empty/7/129/numeric ID, unknown identity, valid-args scope denial                                       |
 
 Transport/auth matrix additionally covers source401/403, online revoked and refresh-old isolated
 sources, timeout/abort/reconnect, two bounded concurrent READs and stable response ownership.

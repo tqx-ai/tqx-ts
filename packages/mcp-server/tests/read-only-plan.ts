@@ -240,7 +240,14 @@ export function readOnlyPlan(): ReadCase[] {
     ['interleavedOrderOwners'],
     'orders_interleaved',
   )
-  add('listOrders', 'unsupported-symbol-filter', { symbol: 'TEST.US' }, 'invalid_arguments')
+  add(
+    'listOrders',
+    'symbol-filter',
+    { symbol: ref('hkSymbol') },
+    'data',
+    ['all-items-match-symbol'],
+    ['ordersSymbolFilter', 'hkSymbol'],
+  )
   add('listOrders', 'limit-over-100', { limit: 101 }, 'invalid_arguments')
   add('listOrders', 'cursor-over-512', { cursor: 'x'.repeat(513) }, 'invalid_arguments')
   for (const [tool, field, own, missing, foreign] of [

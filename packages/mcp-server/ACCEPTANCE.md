@@ -1,5 +1,14 @@
 # MCP acceptance record
 
+Post-d6d604d source-only update: listOrders optional startDate/endDate/status/symbol uses the agreed
+SDK contract to filter the provider's current active snapshot at Trading. Date/normalized AND/cursor/
+ownership semantics are backend duties; no historical-query, FX or cash-ledger result is invented.
+The entire affected guarded HTTP file passed46/46 (original36 +3 lost-write/polling counterexamples
++7 filter/input checks); READ offline56/56, both strict typechecks and scoped format/lint/diff passed.
+Separate ignored tsdown output passed the clean tool-disabled Node baseline200/200/401/403/exit0;
+the live dist hash and3004/8102/READY/auth/old write data were untouched. These engineering results
+are separate from the retained live B results below; Root owns final cross-package acceptance.
+
 Final READ B results:114 unique cases,113 passed and1 provider501 capability unsupported. Retained
 original107/4/2/1 plus targeted6/6 and separate preflight1; total actual tool POST116/Trading READ89.
 All original/targeted before/after audits settled with0 write/effect/business-digest deltas. Actual

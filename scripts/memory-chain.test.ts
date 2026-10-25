@@ -542,6 +542,203 @@ it('runs real OAuth -> MCP -> SDK -> Trading source entirely with process-memory
     expect(
       (await record('same-key replay and payload conflict create no effect')).effects,
     ).toHaveLength(0)
+    // Exercise real MCP/SDK/Trading reads after each deterministic test-exchange
+    // event. A submission receipt must never be mistaken for final execution.
+    await resetTrading()
+    await trading.call('enableLifecycle')
+    const lifecyclePlace = await call(full.access, 'placeOrder', order('lifecycle-place'))
+    expect(lifecyclePlace.data.status).toBe('accepted')
+    const lifecycleId = lifecyclePlace.data.data.order_id as string
+    expect(lifecycleId).toMatch(/^memory-order-/)
+    const readOrder = async (orderId: string) => {
+      const result = await call(full.access, 'getOrder', { orderId })
+      expect(result.tool?.isError).not.toBe(true)
+      return result.data as Json
+    }
+    expect((await readOrder(lifecycleId)).status).toBe('SUBMITTED')
+    const modification = await call(full.access, 'modifyOrder', {
+      orderId: lifecycleId,
+      price: '351',
+      idempotencyKey: 'lifecycle-modify',
+    })
+    expect(modification.data.status).toBe('accepted')
+    const modifying = await readOrder(lifecycleId)
+    expect(modifying.status).toBe('MODIFYING')
+    expect(modifying.price).toBe('350.5')
+    await trading.call('advanceLifecycle', { orderId: lifecycleId, state: 'MODIFIED' })
+    const modified = await readOrder(lifecycleId)
+    expect(modified.status).toBe('SUBMITTED')
+    expect(modified.price).toBe('351')
+    const cancellation = await call(full.access, 'cancelOrder', {
+      orderId: lifecycleId,
+      idempotencyKey: 'lifecycle-cancel',
+    })
+    expect(cancellation.data.status).toBe('accepted')
+    expect((await readOrder(lifecycleId)).status).toBe('CANCELLING')
+    await trading.call('advanceLifecycle', { orderId: lifecycleId, state: 'CANCELLED' })
+    expect((await readOrder(lifecycleId)).status).toBe('CANCELLED')
+    await expect(
+      trading.call('advanceLifecycle', {
+        orderId: lifecycleId,
+        state: 'FILLED',
+      }),
+    ).rejects.toThrow('Memory child rejected operation')
+    expect((await readOrder(lifecycleId)).status).toBe('CANCELLED')
+    expect(
+      (
+        await record(
+          'lifecycle: submit, modify acknowledgement/event, cancel acknowledgement/event',
+        )
+      ).effects,
+    ).toHaveLength(3)
+    await trading.call('arm')
+    // Replaying acknowledged actions after a final event still returns the
+    // original receipt; polling alone never causes another broker dispatch.
+    const modifyReplay = await call(full.access, 'modifyOrder', {
+      orderId: lifecycleId,
+      price: '351',
+      idempotencyKey: 'lifecycle-modify',
+    })
+    expect(modifyReplay.data.status).toBe('accepted')
+    expect(modifyReplay.data.data).toEqual(modification.data.data)
+    const cancelReplay = await call(full.access, 'cancelOrder', {
+      orderId: lifecycleId,
+      idempotencyKey: 'lifecycle-cancel',
+    })
+    expect(cancelReplay.data.status).toBe('accepted')
+    expect(cancelReplay.data.data).toEqual(cancellation.data.data)
+    for (let poll = 0; poll < 3; poll++)
+      expect((await readOrder(lifecycleId)).status).toBe('CANCELLED')
+    expect(
+      (
+        await call(full.access, 'modifyOrder', {
+          orderId: lifecycleId,
+          price: '352',
+          idempotencyKey: 'lifecycle-terminal-modify',
+        })
+      ).data.error,
+    ).toBe('order_not_modifiable')
+    expect(
+      (await record('lifecycle: receipt replay, terminal polling and rejected new modification'))
+        .effects,
+    ).toHaveLength(0)
+    await trading.call('arm')
+    const fillPlace = await call(full.access, 'placeOrder', order('lifecycle-fill'))
+    const fillId = fillPlace.data.data.order_id as string
+    await trading.call('advanceLifecycle', { orderId: fillId, state: 'PARTIAL_FILLED' })
+    const partial = await readOrder(fillId)
+    expect(partial.status).toBe('PARTIAL_FILLED')
+    expect(partial.filled_quantity).toBe('5')
+    expect(partial.remaining_quantity).toBe('5')
+    await trading.call('advanceLifecycle', { orderId: fillId, state: 'FILLED' })
+    const filled = await readOrder(fillId)
+    expect(filled.status).toBe('FILLED')
+    expect(filled.filled_quantity).toBe('10')
+    expect(filled.remaining_quantity).toBe('0')
+    const fills = await call(full.access, 'listTrades', { orderId: fillId })
+    expect(fills.tool?.isError).not.toBe(true)
+    expect(fills.data.items).toHaveLength(2)
+    expect(fills.data.items.map((trade: Json) => trade.quantity)).toEqual(['5', '5'])
+    expect(new Set(fills.data.items.map((trade: Json) => trade.trade_id)).size).toBe(2)
+    const terminalList = await call(full.access, 'listOrders')
+    expect(terminalList.tool?.isError).not.toBe(true)
+    expect(terminalList.data.items).toEqual([])
+    expect(
+      (await record('lifecycle: partial/full fills and exact remaining fill quantities')).effects,
+    ).toHaveLength(1)
+    await trading.call('arm')
+    expect(
+      (
+        await call(full.access, 'cancelOrder', {
+          orderId: fillId,
+          idempotencyKey: 'lifecycle-filled-cancel',
+        })
+      ).data.error,
+    ).toBe('order_not_modifiable')
+    expect(
+      (await record('lifecycle: filled order rejects new cancellation without dispatch')).effects,
+    ).toHaveLength(0)
+    await resetTrading()
+    await trading.call('enableLifecycle')
+    const filteredIds: string[] = []
+    for (const key of ['filter-order-1', 'filter-order-2', 'filter-order-3']) {
+      const created = await call(full.access, 'placeOrder', order(key))
+      expect(created.data.status).toBe('accepted')
+      filteredIds.push(created.data.data.order_id as string)
+    }
+    // Three explicit synthetic setup submissions are outside the READ window.
+    expect((await trading.call<Snapshot>('snapshot')).effects).toHaveLength(3)
+    await trading.call('arm')
+    const submittedAt = (await readOrder(filteredIds[0]!)).submitted_at as string
+    const hkDate = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Hong_Kong',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(submittedAt))
+    const filters = {
+      startDate: hkDate,
+      endDate: hkDate,
+      status: ' submitted ',
+      symbol: '0700.hk',
+      limit: 1,
+    }
+    const filteredPage = await call(full.access, 'listOrders', filters)
+    expect(filteredPage.tool?.isError).not.toBe(true)
+    expect(filteredPage.data.items).toHaveLength(1)
+    expect(filteredPage.data.next_cursor).toEqual(expect.any(String))
+    const observedIds: string[] = [filteredPage.data.items[0].order_id]
+    let filterCursor = filteredPage.data.next_cursor as string | null
+    // Equivalent normalized filters can continue the same cursor; every result
+    // still passes the real Trading ownership proof before entering a page.
+    while (filterCursor) {
+      const page = await call(full.access, 'listOrders', {
+        ...filters,
+        status: 'SUBMITTED',
+        symbol: '00700.HK',
+        cursor: filterCursor,
+      })
+      expect(page.tool?.isError).not.toBe(true)
+      expect(page.data.items).toHaveLength(1)
+      observedIds.push(page.data.items[0].order_id)
+      expect(observedIds.length).toBeLessThanOrEqual(filteredIds.length)
+      filterCursor = page.data.next_cursor as string | null
+    }
+    expect(observedIds.toSorted()).toEqual(filteredIds.toSorted())
+    const noStatusMatch = await call(full.access, 'listOrders', {
+      status: 'FUTURE_PROVIDER_STATUS',
+    })
+    expect(noStatusMatch.tool?.isError).not.toBe(true)
+    expect(noStatusMatch.data.items).toEqual([])
+    const noSymbolMatch = await call(full.access, 'listOrders', { symbol: 'AAPL.US' })
+    expect(noSymbolMatch.tool?.isError).not.toBe(true)
+    expect(noSymbolMatch.data.items).toEqual([])
+    const noDateMatch = await call(full.access, 'listOrders', { startDate: '9999-12-31' })
+    expect(noDateMatch.tool?.isError).not.toBe(true)
+    expect(noDateMatch.data.items).toEqual([])
+    const changedFilter = await call(full.access, 'listOrders', {
+      ...filters,
+      status: 'PARTIAL_FILLED',
+      cursor: filteredPage.data.next_cursor,
+    })
+    expect(changedFilter.tool?.isError).toBe(true)
+    const unfiltered = await call(full.access, 'listOrders', { limit: 1 })
+    expect(unfiltered.tool?.isError).not.toBe(true)
+    expect(
+      (
+        await call(full.access, 'listOrders', {
+          limit: 1,
+          cursor: unfiltered.data.next_cursor,
+        })
+      ).tool?.isError,
+    ).not.toBe(true)
+    expect(
+      (
+        await record(
+          'READ filters: real-source AND/HK date, normalized multi-page cursor, empty matches and old pagination',
+        )
+      ).effects,
+    ).toHaveLength(0)
     for (const name of writes) {
       const args: Json = structuredClone(validArguments[name]!)
       if (name === 'placeOrders') delete args.orders[0].idempotencyKey

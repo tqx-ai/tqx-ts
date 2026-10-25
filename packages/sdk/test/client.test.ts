@@ -835,6 +835,9 @@ describe('TqxClient', () => {
     }
     const order = {
       order_id: 'order/1',
+      modify_request_id: 'modify-request-1',
+      cancel_action_status: null,
+      modify_action_status: 'FUTURE_ACTION_STATUS',
       client_order_id: null,
       symbol: 'AAPL.US',
       symbol_name: 'Apple',
@@ -853,6 +856,8 @@ describe('TqxClient', () => {
     }
     const trade = {
       trade_id: 'trade-1',
+      realized_pnl: '-0.10',
+      order_type: null,
       order_id: 'order/1',
       symbol: 'AAPL.US',
       symbol_name: 'Apple',

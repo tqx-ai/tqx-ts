@@ -101,6 +101,9 @@ export const OrderDataSchema = v.looseObject({
   effective_trade_date: optionalNullableString,
   expire_at: optionalNullableString,
   cancel_request_id: optionalNullableString,
+  modify_request_id: optionalNullableString,
+  cancel_action_status: optionalNullableString,
+  modify_action_status: optionalNullableString,
   /** Currency of `price` and `average_fill_price`; null when TQX cannot tell. */
   price_currency: optionalNullableString,
 })
@@ -119,6 +122,8 @@ export const TradeDataSchema = v.looseObject({
   commission: nullableString,
   executed_at: v.string(),
   client_order_id: optionalNullableString,
+  realized_pnl: optionalNullableString,
+  order_type: v.optional(v.nullable(OrderTypeSchema)),
   /** All fees charged for this execution, in `currency`; null when the fee snapshot is unavailable. */
   total_fees: optionalNullableString,
   /** Itemized fees keyed by fee name, in `currency`; null when items are unavailable or do not add up. */
@@ -259,6 +264,20 @@ const isoDateString = v.pipe(
   v.regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected a date in YYYY-MM-DD format'),
 )
 
+/** Optional filters over the current active-order snapshot, not historical orders. */
+export const OrdersOptionsSchema = v.strictObject({
+  startDate: v.optional(isoDateString),
+  endDate: v.optional(isoDateString),
+  status: v.optional(
+    v.pipe(
+      v.string(),
+      v.transform((value) => value.trim().toUpperCase()),
+    ),
+  ),
+  symbol: v.optional(v.pipe(v.string(), v.minLength(3), v.maxLength(32))),
+  ...PaginationOptionsSchema.entries,
+})
+
 export const CashFlowsOptionsSchema = v.strictObject({
   startDate: v.optional(isoDateString),
   endDate: v.optional(isoDateString),
@@ -333,6 +352,7 @@ export type CashFlowCategory = v.InferOutput<typeof CashFlowCategorySchema>
 export type AccountOptions = v.InferInput<typeof AccountOptionsSchema>
 export type PositionsOptions = v.InferInput<typeof PositionsOptionsSchema>
 export type PaginationOptions = v.InferInput<typeof PaginationOptionsSchema>
+export type OrdersOptions = v.InferInput<typeof OrdersOptionsSchema>
 export type TradesOptions = v.InferInput<typeof TradesOptionsSchema>
 export type CashFlowsOptions = v.InferInput<typeof CashFlowsOptionsSchema>
 export type PlaceOrderInput = v.InferInput<typeof PlaceOrderInputSchema>

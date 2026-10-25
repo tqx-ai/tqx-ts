@@ -213,6 +213,20 @@ bounded by cancellation, the per-item deadline and derived-token expiry. Native 
 AS/Trading redirects. AS JSON is capped at 64 KiB and Trading bodies at 1 MiB. An ambient TQX_BASE_URL
 pointing to another origin fails closed before a bearer is sent.
 
+listOrders additionally accepts optional startDate/endDate (YYYY-MM-DD), status (any string) and
+symbol (3..32 characters), alongside limit/cursor. Trading filters the provider's current active
+snapshot with AND semantics; dates include both endpoints in Hong Kong time based on submitted_at.
+Rows without a reliable submitted time do not match date filters. Status is trimmed/uppercased and
+unknown values return no matches; Trading owns symbol normalization. Filtered pagination binds the
+normalized filters and orders by submitted_at descending with a stable order_id tie. Omitted filters
+preserve the existing listing/cursors. This adds current-snapshot filtering, not historical broker
+queries. Native cash-ledger support remains provider-dependent; currency requests preserve actual
+reported currency and do not imply a fabricated USD conversion.
+
+WRITE_ACCEPTANCE_HANDOFF.md lists reusable isolated engineering tests and remaining durable
+idempotency, real-quota and lifecycle-polling acceptance gaps. New source/filter tests do not alter
+the earlier READ B result or imply that the shared running services have been updated.
+
 If the source token expires while waiting for exchange or derived-token verification, MCP returns
 401 invalid_token with the normal metadata challenge so the client can refresh. An unexpired source
 with a malformed/expired derived token remains 502 upstream_protocol_error. No expiry tolerance,

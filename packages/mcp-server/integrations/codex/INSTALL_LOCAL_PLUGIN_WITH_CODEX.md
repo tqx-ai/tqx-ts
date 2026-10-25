@@ -8,6 +8,13 @@
 
 ## 1. 读取原有公开配置，展示最终有效环境
 
+**陌生机器从零接入：** 没有既有TQX连接、用户也未提供服务地址时，先只收集实际目标：
+「请提供TQX MCP服务地址，或确认服务已经在当前执行host本地运行。」不要把作者的
+127.0.0.1示例自动安装成外部用户的目标。已有正常配置继续沿用；这不是新增部署启动门槛，
+selector原有本机默认链不变。收到地址后可按标准无票metadata发现issuer；品牌helper才
+需要可信同意页Web origin，未知时向服务方核对，不猜公网地址、不冒充云端已接通，
+也不因此取消原受支持客户端认证路径。缺的是实际服务部署/地址，不是再要求用户配中间件。
+
 按原有优先级取值：**用户本次显式参数 > 已有公开连接配置 > 已知本机默认值**。
 environment可选local/test/prod；未指定时保留已有环境标签，没有则默认local。
 旧dev-pro等标签保留，不因不是三个新标签拒绝原配置。NODE_ENV不是部署环境选择器。
@@ -835,6 +842,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { isDeepStrictEqual } from 'node:util'
 var LOCAL_DEPLOYMENT = {
   resource: 'http://127.0.0.1:3004/mcp',
   issuer: 'http://127.0.0.1:26825',
@@ -945,10 +953,14 @@ async function writeDeploymentSource(directory, binding) {
   await mkdir(source, { recursive: true })
   for (const [name, value] of relativeFiles) {
     try {
-      if (
-        JSON.stringify(JSON.parse(await readFile(resolve(source, name), 'utf8'))) !==
-        JSON.stringify(value)
-      ) {
+      const previous = JSON.parse(await readFile(resolve(source, name), 'utf8'))
+      const actual = { ...previous }
+      const expected = { ...value }
+      if (name === 'deployment-binding.json') {
+        delete actual.valueSources
+        delete expected.valueSources
+      }
+      if (!isDeepStrictEqual(actual, expected)) {
         source = await mkdtemp(resolve(source, 'tqx-source-'))
         break
       }
