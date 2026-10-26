@@ -86,7 +86,9 @@ async function audit(directory, secrets = []) {
       file.path === 'Dockerfile' ||
         file.path === 'verify-package.mjs' ||
         file.path === 'package.json' ||
-        /^bundle\/(?:index|schema|protocol-[A-Za-z0-9_-]+)\.mjs$/.test(file.path) ||
+        /^bundle\/(?:index|schema|protocol-[A-Za-z0-9_-]+|isolated-built\.smoke)\.mjs$/.test(
+          file.path,
+        ) ||
         file.path.startsWith('node_modules/'),
     )
     const bytes = await readFile(join(directory, file.path))
@@ -126,6 +128,7 @@ async function assemble(values) {
       'packages/sdk/src',
       'packages/mcp-server/package.json',
       'packages/sdk/package.json',
+      'packages/mcp-server/tests/isolated-built.smoke.mjs',
     ],
     { cwd: repo },
   )
@@ -141,6 +144,7 @@ async function assemble(values) {
       'packages/sdk/src',
       'packages/mcp-server/package.json',
       'packages/sdk/package.json',
+      'packages/mcp-server/tests/isolated-built.smoke.mjs',
     ],
     { cwd: repo, encoding: 'utf8' },
   )
@@ -174,6 +178,12 @@ async function assemble(values) {
     await emit(`bundle/${file.name}`, bytes)
   }
   assert.equal(files.length, 3, 'Expected index/schema/protocol frozen runtime modules')
+  // A single frozen, tool-disabled loopback smoke runner is the only included test helper.
+  // Its parent remains /app when installed under bundle, matching its original package layout.
+  await emit(
+    'bundle/isolated-built.smoke.mjs',
+    await readFile(join(packageRoot, 'tests/isolated-built.smoke.mjs')),
+  )
   const roots = ['@modelcontextprotocol/sdk', 'express', 'jose', 'zod']
   const locate = async (name, parent) => {
     const request = createRequire(join(parent, 'package.json'))
