@@ -179,13 +179,15 @@ test('malformed public config fails without touching existing files and a correc
   })
 })
 
-async function mockLogin(mode: string, seconds = 10) {
+async function mockLogin(mode: string, seconds = 10, scopes?: string) {
   const transactions = new Map<string, URL>()
   let origin = ''
   let begins = 0
+  let metadataRequests = 0
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? '/', origin)
     if (url.pathname === '/.well-known/oauth-authorization-server') {
+      metadataRequests++
       res.writeHead(200, { 'content-type': 'application/json' }).end(
         JSON.stringify({
           issuer: origin,
@@ -226,6 +228,7 @@ async function mockLogin(mode: string, seconds = 10) {
       String(seconds),
       '--codex-bin',
       mockBinary,
+      ...(scopes !== undefined ? ['--scopes', scopes] : []),
     ],
     {
       cwd: kit,
@@ -277,6 +280,12 @@ async function mockLogin(mode: string, seconds = 10) {
     get begins() {
       return begins
     },
+    get requestedScopes() {
+      return [...transactions.values()].map((url) => url.searchParams.get('scope'))
+    },
+    get metadataRequests() {
+      return metadataRequests
+    },
     async callback(consent: string, denied = false) {
       const tx = new URL(consent).searchParams.get('tx')!
       const authorize = transactions.get(tx)!
@@ -310,6 +319,7 @@ test('mock CLI waiting is explicit, no success before consent; one bound transac
     expect(login.child.exitCode).toBeNull()
     expect(login.events.some((item) => item.event === 'login_finished')).toBe(false)
     expect(login.begins).toBe(1)
+    expect(login.requestedScopes).toEqual(['trade:read order:write'])
     const callback = await login.callback(String(ready.consentUrl))
     expect(callback.status).toBe(303)
     expect(callback.headers.get('location')).toBe(ready.consentUrl)
@@ -325,6 +335,49 @@ test('mock CLI waiting is explicit, no success before consent; one bound transac
       passed: true,
       layer: 'mock Codex + owned synthetic AS; not real OAuth',
     })
+  } finally {
+    await login.close()
+  }
+})
+
+test('standalone explicit read scope is deduplicated and validated without requesting write', async () => {
+  const login = await mockLogin('success', 10, 'trade:read,trade:read')
+  try {
+    const ready = await login.wait('awaiting_user_consent')
+    expect(login.requestedScopes).toEqual(['trade:read'])
+    const response = await login.callback(String(ready.consentUrl), true)
+    await response.body?.cancel()
+    expect(await login.done).toBe(1)
+    expect(login.events.find((item) => item.event === 'login_finished')).toMatchObject({
+      status: 'denied',
+    })
+  } finally {
+    await login.close()
+  }
+})
+
+test.each(['trade:read,admin', 'trade:read,', ',trade:read', 'trade:read order:write'])(
+  'standalone rejects invalid scopes before metadata or consent: %s',
+  async (scopes) => {
+    const login = await mockLogin('success', 10, scopes)
+    try {
+      expect(await login.done).toBe(1)
+      expect(login.metadataRequests).toBe(0)
+      expect(login.begins).toBe(0)
+      expect(login.events).toEqual([])
+    } finally {
+      await login.close()
+    }
+  },
+)
+
+test('standalone rejects a CLI authorization URL that adds write to requested read', async () => {
+  const login = await mockLogin('escalate', 10, 'trade:read')
+  try {
+    expect(await login.done).toBe(1)
+    expect(login.metadataRequests).toBe(1)
+    expect(login.begins).toBe(0)
+    expect(login.events).toEqual([])
   } finally {
     await login.close()
   }

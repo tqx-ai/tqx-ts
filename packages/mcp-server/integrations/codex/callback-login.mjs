@@ -391,6 +391,14 @@ function boundedExit(exit, milliseconds) {
 }
 async function startCallbackLogin(options) {
   assert3(/^[A-Za-z0-9_-]{1,64}$/.test(options.server), 'Invalid server name')
+  const requested = options.scopes === undefined ? ['trade:read', 'order:write'] : options.scopes
+  assert3(
+    Array.isArray(requested) &&
+      requested.length > 0 &&
+      [...requested].every((scope) => scope === 'trade:read' || scope === 'order:write'),
+    'Invalid login scopes',
+  )
+  const scopes = [...new Set(requested)]
   const env = options.env ?? process.env
   trustedServiceUrl(options.resource, '/mcp', env)
   trustedServiceUrl(options.issuer, '/', env)
@@ -440,7 +448,7 @@ async function startCallbackLogin(options) {
       'login',
       options.server,
       '--scopes',
-      'trade:read,order:write',
+      scopes.join(','),
       '--oauth-client-registration',
       'auto',
       '--no-browser',
@@ -507,7 +515,7 @@ async function startCallbackLogin(options) {
       issuer: options.issuer,
       resource: options.resource,
       redirectUri: proxy.redirectUri,
-      scopes: ['trade:read', 'order:write'],
+      scopes,
     })
     const begin = await fetch(authorization, {
       redirect: 'manual',
@@ -558,6 +566,7 @@ async function main() {
         '--web-origin',
         '--timeout-seconds',
         '--codex-bin',
+        '--scopes',
       ].includes(key) &&
         !values.has(key) &&
         args[index + 1],
@@ -577,6 +586,14 @@ async function main() {
     issuer: get('--issuer'),
     webOrigin: get('--web-origin'),
     timeoutMs,
+    ...(values.has('--scopes')
+      ? {
+          scopes: values
+            .get('--scopes')
+            .split(',')
+            .map((scope) => scope.trim()),
+        }
+      : {}),
     ...(values.has('--codex-bin') ? { codexBinary: values.get('--codex-bin') } : {}),
   })
   const interrupt = () => {

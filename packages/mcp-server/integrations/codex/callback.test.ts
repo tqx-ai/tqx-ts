@@ -18,6 +18,31 @@ const testHttpEnv = {
   TQX_TEST_HTTP_ORIGINS: 'http://192.168.1.3:3002,http://192.168.1.3:26823,http://192.168.1.3:3001',
 }
 
+describe('explicit login scope boundary', () => {
+  it.each(
+    [[], ['admin'], ['trade:read', 'admin'], [' trade:read'], [''], ['trade:read order:write']].map(
+      (scopes) => ({ scopes }),
+    ),
+  )('rejects invalid options scopes before metadata or a login process: %j', async ({ scopes }) => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      await expect(
+        startCallbackLogin({
+          server: 'synthetic_scopes',
+          resource: 'http://127.0.0.1:3002/mcp',
+          issuer,
+          webOrigin,
+          scopes,
+        }),
+      ).rejects.toThrow('Invalid login scopes')
+      expect(fetchMock).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
 describe('test-profile HTTP exception in the optional callback helper', () => {
   it('preserves the original LAN refusal with no explicit test allowlist', () => {
     expect(() =>

@@ -50,13 +50,15 @@
   "commandWorkingDirectory": "Vitest and TypeScript commands run from tqx-ts; bundle command runs from packages/mcp-server, then Oxfmt the bundle and synchronize the first javascript block in INSTALL_LOCAL_PLUGIN_WITH_CODEX.md",
   "frozenFilesSha256": {
     "callback-proxy.ts": "c8d96abf4726b02ff8b90463410aa822e6269abee6cc26170a6b34e0420cb276",
-    "callback-login.ts": "e5bd3137d996a7f3b36ff9491187fa0f3a9955a91d4a74b22a201387f514d87b",
-    "callback-login.mjs": "59c470918ca02c130d1557551ff5e95e68344c6831267c6a5b5aa9825fdd94ca",
-    "callback.test.ts": "576e956249b6a9d6f7f62f632e0b04eac26c686fb9ab9fc7b6112a6a29ec483f",
-    "DEPLOYMENT_ENVIRONMENTS.md": "c2ec6719686cf068a70128fb631c4799aa8ca7febc4796658b8f24f7148099b6",
-    "INSTALL_LOCAL_PLUGIN_WITH_CODEX.md": "c3c123a927325d34622538d9a188c9edfeea11241b0d3bfe9f2423f4a80a9d4a",
-    "STATUS.md": "805df49831d60276508f94057818454aa6ba2c3cb88d4682469b264551bda277",
-    "DEPLOYMENT_COMPATIBILITY_REVIEW.md": "0e19d425922a53ecccda0ced96932672d5af2d3e4b9f3da6330e4e6459b41936"
+    "callback-login.ts": "2ce27b634a13e626efe027cd80b427809bc524376cc7e841fdf1984332723adf",
+    "callback-login.mjs": "d5f182b7d843a98695e63577cbd824e9c6c756f745b7a56bb5bf2b9d31034c61",
+    "callback.test.ts": "7a4ddb3817b73a152b7f9794777d732ad039b15c75309a81fbeb754ac5501563",
+    "DEPLOYMENT_ENVIRONMENTS.md": "36b66236e4453b2de6340308827e22610da600e5b35fc8ec7eab6344ec5b3218",
+    "INSTALL_LOCAL_PLUGIN_WITH_CODEX.md": "f2d5cc547ab5df8b16be1ae9012371596fb363500f1d658c7a854e48e05853ff",
+    "STATUS.md": "570fe685000aad00410f72815cfa7d7f69a9062f07653d7533669ae648ec846e",
+    "DEPLOYMENT_COMPATIBILITY_REVIEW.md": "0e19d425922a53ecccda0ced96932672d5af2d3e4b9f3da6330e4e6459b41936",
+    "distribution.test.ts": "e39facdd5cde0e1c606ce8151d312bdbe8771086379932f695def6067f4762fa",
+    "distribution-mock-codex.ts": "0ada669ec1d7ee6189d9189500a9c8d61d6473e80405a5fd153f15d0dd464b85"
   },
   "bundledPolicy": {
     "test-http.ts": "shared parent implementation inlined",
@@ -110,5 +112,38 @@
     "programsAndServiceSourceUnchanged": true,
     "docsConsistencyTestsPassed": 8,
     "docsCheckLog": "work/test-http-20261026/docs-client-probe-check.log"
+  },
+  "scopeRefinement": {
+    "date": "2026-10-26",
+    "sourceBase": "98444d3f55fb04d7c41be4b87a127aca5a8c101e",
+    "cliOption": "--scopes",
+    "programmaticOption": "scopes: readonly string[]",
+    "allowlist": ["trade:read", "order:write"],
+    "deduplicated": true,
+    "omittedDefault": ["trade:read", "order:write"],
+    "currentSharedPhaseSelection": ["trade:read"],
+    "validationBeforeMetadataAndChild": true,
+    "sameSelectionValidatesAuthorizeUrl": true,
+    "unexpectedWriteRejectedBeforeBegin": true,
+    "before": {
+      "callback": {
+        "passed": 40,
+        "failed": 6,
+        "total": 46
+      },
+      "distribution": {
+        "passed": 10,
+        "failed": 2,
+        "total": 12
+      }
+    },
+    "after": {
+      "callback": 46,
+      "distribution": 15,
+      "deploymentDocs": 8,
+      "failed": 0
+    },
+    "scope": "owned synthetic loopback/mock CLI only; no real login or server redeploy",
+    "evidenceRoot": "Root work/deploy-shared-20261026/mcp/scopes-*.log"
   }
 }

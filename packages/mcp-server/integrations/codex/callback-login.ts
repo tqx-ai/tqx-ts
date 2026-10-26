@@ -19,6 +19,7 @@ export interface CallbackLoginOptions {
   codexBinary?: string
   cwd?: string
   env?: NodeJS.ProcessEnv
+  scopes?: readonly string[]
 }
 function boundedExit(exit: Promise<number | null>, milliseconds: number): Promise<number | null> {
   return new Promise((resolve) => {
@@ -31,6 +32,14 @@ function boundedExit(exit: Promise<number | null>, milliseconds: number): Promis
 }
 export async function startCallbackLogin(options: CallbackLoginOptions) {
   assert(/^[A-Za-z0-9_-]{1,64}$/.test(options.server), 'Invalid server name')
+  const requested = options.scopes === undefined ? ['trade:read', 'order:write'] : options.scopes
+  assert(
+    Array.isArray(requested) &&
+      requested.length > 0 &&
+      [...requested].every((scope) => scope === 'trade:read' || scope === 'order:write'),
+    'Invalid login scopes',
+  )
+  const scopes = [...new Set(requested)]
   const env = options.env ?? process.env
   trustedServiceUrl(options.resource, '/mcp', env)
   trustedServiceUrl(options.issuer, '/', env)
@@ -79,7 +88,7 @@ export async function startCallbackLogin(options: CallbackLoginOptions) {
       'login',
       options.server,
       '--scopes',
-      'trade:read,order:write',
+      scopes.join(','),
       '--oauth-client-registration',
       'auto',
       '--no-browser',
@@ -148,7 +157,7 @@ export async function startCallbackLogin(options: CallbackLoginOptions) {
       issuer: options.issuer,
       resource: options.resource,
       redirectUri: proxy.redirectUri,
-      scopes: ['trade:read', 'order:write'],
+      scopes,
     })
     // The one begin request produces the one consent transaction. Never reopen
     // the original authorize URL after this point or append relay query fields.
@@ -202,6 +211,7 @@ async function main() {
         '--web-origin',
         '--timeout-seconds',
         '--codex-bin',
+        '--scopes',
       ].includes(key) &&
         !values.has(key) &&
         args[index + 1],
@@ -221,6 +231,14 @@ async function main() {
     issuer: get('--issuer'),
     webOrigin: get('--web-origin'),
     timeoutMs,
+    ...(values.has('--scopes')
+      ? {
+          scopes: values
+            .get('--scopes')!
+            .split(',')
+            .map((scope) => scope.trim()),
+        }
+      : {}),
     ...(values.has('--codex-bin') ? { codexBinary: values.get('--codex-bin')! } : {}),
   })
   const interrupt = () => {

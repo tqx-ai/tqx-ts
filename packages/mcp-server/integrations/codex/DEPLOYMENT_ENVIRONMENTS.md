@@ -27,6 +27,10 @@ No new domain is required by this plan; no forwarding or deployment has been per
 The current shared phase is installation, OAuth and the user's Agent binding only. WRITE stays
 false. Real Trading deployment/connection, account reads and trades are outside this phase;
 the general read-verification instructions remain for separately authorized future acceptance.
+For that phase the optional callback helper must receive --scopes trade:read explicitly.
+It accepts only trade:read/order:write, deduplicates requests, and validates the authorize URL
+against that same selection before consent begins. Omitting --scopes preserves the historical
+two-scope default for compatibility, not permission to request writes in this phase.
 
 INSTALL_LOCAL_PLUGIN_WITH_CODEX.md is the self-contained user handoff. It embeds
 the complete Node source selector and the original callback helper. No author

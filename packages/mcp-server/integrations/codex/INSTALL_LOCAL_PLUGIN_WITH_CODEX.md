@@ -233,11 +233,15 @@ helper 的 `EXACT_ISSUER`/`VERIFIED_WEB_ORIGIN` 使用原正常连接或本次�
 不因此拒绝原应用启动或强制修改原配置。使用结构化参数：
 
 ```text
-node <HELPER_PATH>/tqx-callback-login.mjs --server <SERVER_NAME> --mcp-url <MCP_URL> --issuer <EXACT_ISSUER> --web-origin <VERIFIED_WEB_ORIGIN> --timeout-seconds 300
+node <HELPER_PATH>/tqx-callback-login.mjs --server <SERVER_NAME> --mcp-url <MCP_URL> --issuer <EXACT_ISSUER> --web-origin <VERIFIED_WEB_ORIGIN> --scopes trade:read --timeout-seconds 300
 ```
 
 helper 使用已验证的公开 `codex mcp login --no-browser` 及仅本 child 的 `-c` callback
-覆盖，显式请求 `trade:read,order:write`，不让 CLI 自动打开原 authorize URL。它只
+覆盖，按 `--scopes` 请求权限，不让 CLI 自动打开原 authorize URL。本轮安装/授权/Agent绑定
+必须显式传 `--scopes trade:read`，不顺带请求写权限。允许值仅 `trade:read` 和 `order:write`，
+逗号分隔、去重；空项或未知权限在metadata请求/启动child前拒绝。程序化options.scopes同样
+校验，并以同一归一化列表校验CLI返回的authorize URL，拒绝额外权限。未传时仅为旧调用
+兼容保留原两项默认；需要order:write须另有用户授权。本轮不启动登录、不因此扩大权限。它只
 begin 一次并给出真正 TQX 同意页；不要另打开原 authorize URL 创建第二事务。
 保留 helper 和其 CLI child；版本或既有URL不被helper支持时报告该helper能力限制，保留原受支持客户端认证路径；
 不能据此拒绝原部署/要求搬票，也不声称原生回调已具备品牌完成页。
@@ -738,6 +742,14 @@ function boundedExit(exit, milliseconds) {
 }
 async function startCallbackLogin(options) {
   assert3(/^[A-Za-z0-9_-]{1,64}$/.test(options.server), 'Invalid server name')
+  const requested = options.scopes === undefined ? ['trade:read', 'order:write'] : options.scopes
+  assert3(
+    Array.isArray(requested) &&
+      requested.length > 0 &&
+      [...requested].every((scope) => scope === 'trade:read' || scope === 'order:write'),
+    'Invalid login scopes',
+  )
+  const scopes = [...new Set(requested)]
   const env = options.env ?? process.env
   trustedServiceUrl(options.resource, '/mcp', env)
   trustedServiceUrl(options.issuer, '/', env)
@@ -787,7 +799,7 @@ async function startCallbackLogin(options) {
       'login',
       options.server,
       '--scopes',
-      'trade:read,order:write',
+      scopes.join(','),
       '--oauth-client-registration',
       'auto',
       '--no-browser',
@@ -854,7 +866,7 @@ async function startCallbackLogin(options) {
       issuer: options.issuer,
       resource: options.resource,
       redirectUri: proxy.redirectUri,
-      scopes: ['trade:read', 'order:write'],
+      scopes,
     })
     const begin = await fetch(authorization, {
       redirect: 'manual',
@@ -905,6 +917,7 @@ async function main() {
         '--web-origin',
         '--timeout-seconds',
         '--codex-bin',
+        '--scopes',
       ].includes(key) &&
         !values.has(key) &&
         args[index + 1],
@@ -924,6 +937,14 @@ async function main() {
     issuer: get('--issuer'),
     webOrigin: get('--web-origin'),
     timeoutMs,
+    ...(values.has('--scopes')
+      ? {
+          scopes: values
+            .get('--scopes')
+            .split(',')
+            .map((scope) => scope.trim()),
+        }
+      : {}),
     ...(values.has('--codex-bin') ? { codexBinary: values.get('--codex-bin') } : {}),
   })
   const interrupt = () => {

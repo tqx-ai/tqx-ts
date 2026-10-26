@@ -16,7 +16,14 @@ const state = randomBytes(16).toString('hex')
 const authorize = new URL('/oauth/authorize', issuer)
 authorize.searchParams.set('redirect_uri', redirect)
 authorize.searchParams.set('resource', process.env.TQX_DISTRIBUTION_RESOURCE!)
-authorize.searchParams.set('scope', 'trade:read order:write')
+const requestedScopes = args[args.indexOf('--scopes') + 1]
+if (!requestedScopes) process.exit(2)
+authorize.searchParams.set(
+  'scope',
+  process.env.TQX_DISTRIBUTION_MOCK === 'escalate'
+    ? `${requestedScopes.replaceAll(',', ' ')} order:write`
+    : requestedScopes.replaceAll(',', ' '),
+)
 authorize.searchParams.set('state', state)
 authorize.searchParams.set('code_challenge_method', 'S256')
 authorize.searchParams.set('code_challenge', createHash('sha256').update(state).digest('base64url'))

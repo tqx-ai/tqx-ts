@@ -1,5 +1,12 @@
 # Codex client acceptance status
 
+2026-10-26 shared MCP HTTP is ready on remote loopback3002, with tools/WRITE false;
+actual JWT client and the user's Agent consent remain Root follow-up. The optional callback
+helper now supports explicit --scopes with strict trade:read/order:write validation/deduplication,
+and checks the CLI authorize URL against that same selection before begin. The current binding
+phase explicitly uses --scopes trade:read. Omitted scopes retain the historical two-scope default
+only for compatibility. This helper change does not modify/redeploy the server or start a login.
+
 2026-10-26 Root client probe: BLOCKED_CLIENT_LAN_HTTP_OAUTH_DISCOVERY on
 codex-cli 0.164.0-alpha.11.1. Both LAN-resource/LAN-AS and LAN-resource/loopback-AS stopped after
 resource metadata, before any AS metadata request. All-loopback produced an authorize URL but
