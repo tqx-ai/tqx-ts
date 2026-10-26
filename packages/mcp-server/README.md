@@ -237,6 +237,35 @@ bounded observation, interruption/resume budgets and actual thread/turn/MCP evid
 SDK schema consolidation and cross-service acceptance. No real authorization or broker access
 is established by this suite, and the new Trading fixture event protocol is not assumed frozen.
 
+The optional TQX_TEST_HTTP_ORIGINS transport exception applies only to the existing effective
+TQX_ENV=test profile (independent of NODE_ENV). It is a comma-separated list of canonical exact
+HTTP origins on literal RFC1918 IPv4 addresses. Entry whitespace may be trimmed and duplicates
+deduplicated; explicit ports must be 1..65535. Empty entries, DNS/public/link-local IPs, CIDRs, wildcards, alternate IP spellings,
+credentials, paths, query/fragment and noncanonical default :80 are rejected. Omit the variable or
+leave it empty to preserve existing behavior. Other profiles ignore it even if malformed.
+
+Every HTTP service URL and browser Origin must match a listed origin, including the port, unless
+already permitted by the original loopback rule. Non-loopback listeners additionally require the
+advertised MCP resource origin to be explicitly listed. This does not claim TLS proxy termination:
+HTTP still rejects TLS certs/keys or MCP_TLS_TERMINATED_BY_PROXY=true. Production HTTPS, existing
+TLS consistency, issuer/resource identity, Host/Origin boundaries, token validation, scopes, tool
+gates and redirect policy are unchanged. The commented .env.test.example shows the planned
+192.168.1.3 tuple (MCP 3002, AS 26823, Trading 8100, Web 3001). Recheck ownership and port occupancy
+before deployment. Local configuration/protocol tests do not prove actual LAN client compatibility
+or test/sandbox deployment; the Codex harness documents its separate connection path and limits.
+
+Root's 2026-10-26 probe of codex-cli 0.164.0-alpha.11.1 found
+BLOCKED_CLIENT_LAN_HTTP_OAUTH_DISCOVERY: LAN HTTP resource with either LAN or loopback AS reached
+protected-resource metadata but made no AS metadata request. The all-loopback control generated
+an authorize URL and was deliberately ended with synthetic access_denied; it did not prove login.
+Server/helper HTTP opt-in therefore does not establish direct LAN OAuth support in this client.
+Direct LAN settings remain a server capability for other clients to verify. Root is preparing only
+a separate test loopback SSH-forwarding plan, with both canonical MCP resource and AS issuer and
+endpoints genuinely loopback throughout; metadata/token rewriting or relaxed issuer/audience
+validation is not an alternative. No forwarding/deployment was performed by this change. This
+shared test phase covers installation/OAuth/user Agent binding only, with WRITE false and no
+real Trading deployment, connection or business-tool acceptance. See the Codex deployment notes.
+
 `placeOrders` accepts 1..20 instructions, validates and normalizes every item with the SDK before
 any submission, rejects duplicate keys, and submits sequentially. It stops on the first failed or
 unknown outcome and marks all later items not_submitted. See [V2_CONTRACT.md](V2_CONTRACT.md) for

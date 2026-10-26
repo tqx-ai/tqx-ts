@@ -1,5 +1,21 @@
 # Integration environment compatibility review
 
+2026-10-26 later client evidence: Root's current CLI LAN OAuth discovery is blocked even with
+the helper/server opt-in. Both LAN-resource combinations stop before AS metadata; all-loopback
+only reaches an authorize URL and is deliberately denied. DEPLOYMENT_ENVIRONMENTS.md records
+the evidence and a not-yet-executed test loopback SSH-forwarding plan. No original validation,
+helper program, personal connection, forwarding or deployed service is changed by this note.
+Shared acceptance is currently installation/OAuth/user Agent binding only; WRITE false, no
+real Trading connection, account/tool verification or trading. Earlier fixture passes below
+retain their original scope and are not promoted to direct LAN client acceptance.
+
+2026-10-26 addendum: the historical compatibility review below describes the earlier
+selector revision. The human has now authorized a narrow callback-helper HTTP exception:
+existing effective TQX_ENV=test and exact canonical RFC1918 TQX_TEST_HTTP_ORIGINS only.
+Other profiles retain the original transport checks, and all issuer/resource/state/Origin/
+PKCE and local callback rules remain. See DEPLOYMENT_ENVIRONMENTS.md and
+evidence/test-http-helper-20261026.json; no deployment or personal login was performed.
+
 Scope: this round's Codex selector, templates and standalone MD only. The Owner
 relayed the human's instruction to preserve earlier defaults and not introduce
 broad new rules without asking. All changes below are local source/documentation;

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createServer, request, type IncomingHttpHeaders } from 'node:http'
 import {
   createCallbackProxy,
@@ -7,11 +7,118 @@ import {
   validateCallback,
   validateConsentLocation,
 } from './callback-proxy'
+import { startCallbackLogin } from './callback-login'
 
 const issuer = 'http://127.0.0.1:26825'
 const webOrigin = 'http://127.0.0.1:3000'
 const consent = `${webOrigin}/oauth/consent?tx=test-transaction`
 const cleanups: (() => Promise<void>)[] = []
+const testHttpEnv = {
+  TQX_ENV: 'test',
+  TQX_TEST_HTTP_ORIGINS: 'http://192.168.1.3:3002,http://192.168.1.3:26823,http://192.168.1.3:3001',
+}
+
+describe('test-profile HTTP exception in the optional callback helper', () => {
+  it('preserves the original LAN refusal with no explicit test allowlist', () => {
+    expect(() =>
+      trustedServiceUrl('http://192.168.1.3:3002/mcp', '/mcp', { TQX_ENV: 'test' }),
+    ).toThrow()
+  })
+  it.each([
+    ['http://192.168.1.3:3002/mcp', '/mcp'],
+    ['http://192.168.1.3:26823', '/'],
+    ['http://192.168.1.3:3001', '/'],
+  ])('accepts only the selected test service URL %s', (value, path) => {
+    expect(() => trustedServiceUrl(value!, path, testHttpEnv)).not.toThrow()
+  })
+  it.each(['local', 'prod', 'production', 'pro', 'dev', 'sandbox', 'previous-custom-value'])(
+    'ignores the opt-in in effective non-test environment %s',
+    (environment) => {
+      const env = { ...testHttpEnv, TQX_ENV: environment }
+      expect(() => trustedServiceUrl('http://192.168.1.3:3002/mcp', '/mcp', env)).toThrow()
+      expect(() => trustedServiceUrl('https://mcp.example.test/mcp', '/mcp', env)).not.toThrow()
+    },
+  )
+  it.each([
+    'http://192.168.1.3:3003/mcp',
+    'http://192.168.1.4:3002/mcp',
+    'http://user:secret@192.168.1.3:3002/mcp',
+    'http://0xc0a80103:3002/mcp',
+    'http://192.168.1.3:3002/mcp?token=synthetic',
+    'http://192.168.1.3:3002/mcp#fragment',
+    'http://192.168.1.3:3002/other',
+  ])('does not widen URL, exact port or path rules: %s', (url) => {
+    expect(() => trustedServiceUrl(url, '/mcp', testHttpEnv)).toThrow()
+  })
+  it.each(['http://192.168.1.3:0', 'http://192.168.1.3:80'])(
+    'rejects an invalid origin-list port before using the helper: %s',
+    (origin) => {
+      expect(() =>
+        trustedServiceUrl('http://127.0.0.1:3004/mcp', '/mcp', {
+          TQX_ENV: 'test',
+          TQX_TEST_HTTP_ORIGINS: origin,
+        }),
+      ).toThrow('TQX_TEST_HTTP_ORIGINS')
+    },
+  )
+  it('retains the helper original canonical-authority check for a full URL default port', () => {
+    expect(() =>
+      trustedServiceUrl('http://10.0.0.1:80', '/', {
+        TQX_ENV: 'test',
+        TQX_TEST_HTTP_ORIGINS: 'http://10.0.0.1',
+      }),
+    ).toThrow('Service authority must be canonical')
+  })
+  it('uses injected login env before any metadata request, without contacting the LAN', async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response(null, { status: 503 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      await expect(
+        startCallbackLogin({
+          server: 'synthetic_http_test',
+          resource: 'http://192.168.1.3:3002/mcp',
+          issuer: 'http://192.168.1.3:26823',
+          webOrigin: 'http://192.168.1.3:3001',
+          env: testHttpEnv,
+        }),
+      ).rejects.toThrow('Authorization metadata unavailable')
+      expect(fetchMock).toHaveBeenCalledOnce()
+      expect(String(fetchMock.mock.calls[0]?.[0])).toBe(
+        'http://192.168.1.3:26823/.well-known/oauth-authorization-server',
+      )
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+  it('keeps the local callback listener and exact issuer/Origin checks for allowed LAN services', async () => {
+    const lanIssuer = 'http://192.168.1.3:26823'
+    const lanWeb = 'http://192.168.1.3:3001'
+    const deliver = vi.fn(async () => {})
+    const proxy = await createCallbackProxy({
+      issuer: lanIssuer,
+      webOrigin: lanWeb,
+      env: testHttpEnv,
+      timeoutMs: 4000,
+      waitForCliExit: () => Promise.resolve(0),
+      deliverCallback: deliver,
+    })
+    cleanups.push(() => proxy.close())
+    proxy.bind('synthetic-test-state', `${lanWeb}/oauth/consent?tx=synthetic-test-tx`)
+    expect(new URL(proxy.redirectUri).hostname).toBe('127.0.0.1')
+    const callback = `${proxy.redirectUri}?code=synthetic&state=synthetic-test-state&iss=${encodeURIComponent(lanIssuer)}`
+    expect((await get(callback, { Origin: 'http://192.168.1.3:3009' })).status).toBe(400)
+    expect(
+      (
+        await get(
+          callback.replace(encodeURIComponent(lanIssuer), encodeURIComponent(lanIssuer + '/')),
+        )
+      ).status,
+    ).toBe(400)
+    expect(deliver).not.toHaveBeenCalled()
+    expect((await get(callback, { Origin: lanWeb })).status).toBe(303)
+    expect(deliver).toHaveBeenCalledOnce()
+  })
+})
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).toReversed()) await cleanup()
 })

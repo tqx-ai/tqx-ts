@@ -1,14 +1,81 @@
-// packages/mcp-server/integrations/codex/callback-login.ts
+// integrations/codex/callback-login.ts
 import assert3 from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// packages/mcp-server/integrations/codex/callback-proxy.ts
+// integrations/codex/callback-proxy.ts
 import assert from 'node:assert/strict'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
-function trustedServiceUrl(value, path) {
+
+// src/test-http.ts
+import { isIP } from 'node:net'
+
+// src/environment.ts
+function mcpEnvironment(env) {
+  const name = env.TQX_ENV?.trim().toLowerCase()
+  if (name === 'test') return 'test'
+  if (name === 'prod' || name === 'pro' || name === 'production') return 'prod'
+  return 'local'
+}
+
+// src/test-http.ts
+function invalidOrigins() {
+  throw new Error('Invalid configuration: TQX_TEST_HTTP_ORIGINS')
+}
+function testHttpOrigins(env = process.env) {
+  const origins = new Set()
+  if (mcpEnvironment(env) !== 'test') return origins
+  const raw = env.TQX_TEST_HTTP_ORIGINS?.trim()
+  if (!raw) return origins
+  for (const entry of raw.split(',')) {
+    const value = entry.trim()
+    let url
+    try {
+      url = new URL(value)
+    } catch {
+      return invalidOrigins()
+    }
+    const [first, second] = url.hostname.split('.').map(Number)
+    const privateAddress =
+      first === 10 ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    if (
+      url.protocol !== 'http:' ||
+      isIP(url.hostname) !== 4 ||
+      !privateAddress ||
+      (url.port !== '' && Number(url.port) < 1) ||
+      url.origin !== value ||
+      /[\s"\\?#]/.test(value)
+    )
+      return invalidOrigins()
+    origins.add(value)
+  }
+  return origins
+}
+function isTestHttpUrl(value, origins) {
+  let url
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  const rawHost = /^http:\/\/([^/:]+)(?::\d+)?(?:\/|$)/i.exec(value)?.[1]
+  return (
+    url.protocol === 'http:' &&
+    origins.has(url.origin) &&
+    !/[\s"\\?#]/.test(value) &&
+    !url.username &&
+    !url.password &&
+    rawHost === url.hostname
+  )
+}
+
+// integrations/codex/callback-proxy.ts
+function trustedServiceUrl(value, path, env = process.env) {
+  const testOrigins = testHttpOrigins(env)
   assert(value && !/[\s\\]/.test(value), 'Invalid service URL')
   const url = new URL(value)
   assert.equal(
@@ -22,7 +89,8 @@ function trustedServiceUrl(value, path) {
   )
   assert(
     url.protocol === 'https:' ||
-      (url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port),
+      (url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port) ||
+      isTestHttpUrl(value, testOrigins),
     'Use HTTPS or explicit 127.0.0.1 loopback HTTP',
   )
   if (path !== undefined) assert.equal(url.pathname, path)
@@ -137,8 +205,8 @@ function failurePage(response, status) {
 }
 async function createCallbackProxy(options) {
   assert(options.timeoutMs >= 1000 && options.timeoutMs <= 600000)
-  trustedServiceUrl(options.issuer, '/')
-  assert.equal(trustedServiceUrl(options.webOrigin, '/').origin, options.webOrigin)
+  trustedServiceUrl(options.issuer, '/', options.env)
+  assert.equal(trustedServiceUrl(options.webOrigin, '/', options.env).origin, options.webOrigin)
   const path = `/tqx/codex/callback/${randomBytes(16).toString('hex')}`
   let outerOrigin = ''
   let state
@@ -286,7 +354,7 @@ async function createCallbackProxy(options) {
   }
 }
 
-// packages/mcp-server/integrations/codex/owned-process.ts
+// integrations/codex/owned-process.ts
 import assert2 from 'node:assert/strict'
 function exited(child) {
   return !child.pid || child.exitCode !== null || child.signalCode !== null
@@ -311,7 +379,7 @@ async function closeOwnedProcess(child) {
   child.unref()
 }
 
-// packages/mcp-server/integrations/codex/callback-login.ts
+// integrations/codex/callback-login.ts
 function boundedExit(exit, milliseconds) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(null), milliseconds)
@@ -323,9 +391,10 @@ function boundedExit(exit, milliseconds) {
 }
 async function startCallbackLogin(options) {
   assert3(/^[A-Za-z0-9_-]{1,64}$/.test(options.server), 'Invalid server name')
-  trustedServiceUrl(options.resource, '/mcp')
-  trustedServiceUrl(options.issuer, '/')
-  assert3.equal(trustedServiceUrl(options.webOrigin, '/').origin, options.webOrigin)
+  const env = options.env ?? process.env
+  trustedServiceUrl(options.resource, '/mcp', env)
+  trustedServiceUrl(options.issuer, '/', env)
+  assert3.equal(trustedServiceUrl(options.webOrigin, '/', env).origin, options.webOrigin)
   const timeoutMs = options.timeoutMs ?? 300000
   assert3(timeoutMs >= 1e4 && timeoutMs <= 600000, 'Timeout must be 10 to 600 seconds')
   const metadataResponse = await fetch(
@@ -348,6 +417,7 @@ async function startCallbackLogin(options) {
   const proxy = await createCallbackProxy({
     issuer: options.issuer,
     webOrigin: options.webOrigin,
+    env,
     timeoutMs,
     waitForCliExit: () => boundedExit(exit, 15000),
     deliverCallback: (originalCallbackUrl) =>

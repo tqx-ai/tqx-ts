@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
+import { isTestHttpUrl, testHttpOrigins } from '../../src/test-http'
 
 export type CallbackStatus =
   | 'succeeded'
@@ -14,7 +15,12 @@ export interface CallbackOutcome {
   cliExitCode: number | null
   forwarded: boolean
 }
-export function trustedServiceUrl(value: string, path?: string): URL {
+export function trustedServiceUrl(
+  value: string,
+  path?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): URL {
+  const testOrigins = testHttpOrigins(env)
   assert(value && !/[\s\\]/.test(value), 'Invalid service URL')
   const url = new URL(value)
   assert.equal(
@@ -28,7 +34,8 @@ export function trustedServiceUrl(value: string, path?: string): URL {
   )
   assert(
     url.protocol === 'https:' ||
-      (url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port),
+      (url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port) ||
+      isTestHttpUrl(value, testOrigins),
     'Use HTTPS or explicit 127.0.0.1 loopback HTTP',
   )
   if (path !== undefined) assert.equal(url.pathname, path)
@@ -162,13 +169,14 @@ function failurePage(response: ServerResponse, status: number) {
 export async function createCallbackProxy(options: {
   issuer: string
   webOrigin: string
+  env?: NodeJS.ProcessEnv
   timeoutMs: number
   waitForCliExit: () => Promise<number | null>
   deliverCallback: (originalCallbackUrl: string) => Promise<void>
 }) {
   assert(options.timeoutMs >= 1000 && options.timeoutMs <= 600000)
-  trustedServiceUrl(options.issuer, '/')
-  assert.equal(trustedServiceUrl(options.webOrigin, '/').origin, options.webOrigin)
+  trustedServiceUrl(options.issuer, '/', options.env)
+  assert.equal(trustedServiceUrl(options.webOrigin, '/', options.env).origin, options.webOrigin)
   const path = `/tqx/codex/callback/${randomBytes(16).toString('hex')}`
   let outerOrigin = ''
   let state: string | undefined

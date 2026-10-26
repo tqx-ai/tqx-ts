@@ -1,5 +1,6 @@
 import { isIP } from 'node:net'
 import { mcpEnvironment, type McpEnvironment } from './environment'
+import { isTestHttpUrl, testHttpOrigins } from './test-http'
 
 export const REQUIRED_SCOPE = 'trade:read'
 export const WRITE_SCOPE = 'order:write'
@@ -47,7 +48,7 @@ export function isLoopback(hostname: string): boolean {
   )
 }
 
-function secureUrl(name: string, value: string): URL {
+function secureUrl(name: string, value: string, httpOrigins: ReadonlySet<string>): URL {
   let url: URL
   try {
     url = new URL(value)
@@ -56,7 +57,9 @@ function secureUrl(name: string, value: string): URL {
   }
   if (
     !['https:', 'http:'].includes(url.protocol) ||
-    (url.protocol !== 'https:' && !isLoopback(url.hostname)) ||
+    (url.protocol !== 'https:' &&
+      !isLoopback(url.hostname) &&
+      !isTestHttpUrl(value, httpOrigins)) ||
     url.username ||
     url.password ||
     url.search ||
@@ -69,6 +72,7 @@ function secureUrl(name: string, value: string): URL {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
+  const httpOrigins = testHttpOrigins(env)
   const read = (name: string, fallback: string) => env[name]?.trim() || fallback
   const int = (name: string, fallback: number, min = 1, max = 2_147_483_647) => {
     const raw = read(name, String(fallback))
@@ -86,13 +90,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const port = int('MCP_PORT', 3002, 1, 65535)
   const authority = host.includes(':') ? `[${host}]:${port}` : `${host}:${port}`
   const resource = read('MCP_RESOURCE', `http://${authority}/mcp`)
-  const resourceUrl = secureUrl('MCP_RESOURCE', resource)
+  const resourceUrl = secureUrl('MCP_RESOURCE', resource, httpOrigins)
   if (resourceUrl.pathname !== '/mcp' || resourceUrl.href !== resource) fail('MCP_RESOURCE')
-  if (!isLoopback(host) && resourceUrl.protocol !== 'https:') fail('MCP_RESOURCE')
+  if (
+    !isLoopback(host) &&
+    resourceUrl.protocol !== 'https:' &&
+    !isTestHttpUrl(resource, httpOrigins)
+  )
+    fail('MCP_RESOURCE')
   const issuer = read('MCP_OAUTH_ISSUER', 'http://127.0.0.1:26823')
-  secureUrl('MCP_OAUTH_ISSUER', issuer)
+  secureUrl('MCP_OAUTH_ISSUER', issuer, httpOrigins)
   const jwksUrl = read('MCP_JWKS_URL', `${issuer.replace(/\/$/, '')}/.well-known/jwks.json`)
-  secureUrl('MCP_JWKS_URL', jwksUrl)
+  secureUrl('MCP_JWKS_URL', jwksUrl, httpOrigins)
   const allowedHosts = read('MCP_ALLOWED_HOSTS', resourceUrl.host)
     .split(',')
     .map((v) => v.trim())
@@ -116,7 +125,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     .split(',')
     .map((v) => v.trim())
   for (const value of allowedOrigins) {
-    if (secureUrl('MCP_ALLOWED_ORIGINS', value).origin !== value) fail('MCP_ALLOWED_ORIGINS')
+    if (secureUrl('MCP_ALLOWED_ORIGINS', value, httpOrigins).origin !== value)
+      fail('MCP_ALLOWED_ORIGINS')
   }
   const tlsCertFile = env.MCP_TLS_CERT_FILE?.trim() || undefined
   const tlsKeyFile = env.MCP_TLS_KEY_FILE?.trim() || undefined
@@ -133,10 +143,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   const tradingToolsEnabled = bool('MCP_TRADING_TOOLS_ENABLED')
   const tradingWriteToolsEnabled = bool('MCP_TRADING_WRITE_TOOLS_ENABLED')
   const apiResource = read('MCP_API_RESOURCE', 'http://127.0.0.1:8100/api')
-  if (secureUrl('MCP_API_RESOURCE', apiResource).href !== apiResource || apiResource === resource)
+  if (
+    secureUrl('MCP_API_RESOURCE', apiResource, httpOrigins).href !== apiResource ||
+    apiResource === resource
+  )
     fail('MCP_API_RESOURCE')
   const tradingBaseUrl = read('MCP_TRADING_BASE_URL', 'http://127.0.0.1:8100')
-  if (secureUrl('MCP_TRADING_BASE_URL', tradingBaseUrl).origin !== tradingBaseUrl)
+  if (secureUrl('MCP_TRADING_BASE_URL', tradingBaseUrl, httpOrigins).origin !== tradingBaseUrl)
     fail('MCP_TRADING_BASE_URL')
   const exchangeClientSecret = env.MCP_EXCHANGE_CLIENT_SECRET || undefined
   if (

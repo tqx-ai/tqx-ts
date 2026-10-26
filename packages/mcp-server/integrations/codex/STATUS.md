@@ -1,5 +1,24 @@
 # Codex client acceptance status
 
+2026-10-26 Root client probe: BLOCKED_CLIENT_LAN_HTTP_OAUTH_DISCOVERY on
+codex-cli 0.164.0-alpha.11.1. Both LAN-resource/LAN-AS and LAN-resource/loopback-AS stopped after
+resource metadata, before any AS metadata request. All-loopback produced an authorize URL but
+ended in synthetic access_denied, not a login. Probe totals: seven fixture GETs; zero POST,
+code/token/grant/model/business calls; temporary fixtures closed. Evidence lives in Root's
+work/test-http-20261026/client-probe/result.json and RESULT.md. Server/helper test-URL acceptance
+does not establish direct LAN OAuth support. See DEPLOYMENT_ENVIRONMENTS.md for the separate
+loopback-only SSH-forwarding plan, not executed. Shared acceptance currently stops at installation,
+OAuth and the user's Agent binding; WRITE false, no real Trading connection or business calls.
+
+2026-10-26 test HTTP helper update: effective TQX_ENV=test plus a strict
+TQX_TEST_HTTP_ORIGINS list permits only the selected RFC1918 HTTP service origins.
+Non-test validation, exact issuer/resource/Origin and ephemeral loopback callbacks
+remain unchanged. The helper bundle and embedded Markdown are synchronized; see
+DEPLOYMENT_ENVIRONMENTS.md and evidence/test-http-helper-20261026.json for isolated
+regressions and limits. Those helper tests remain isolated; the later Root probe above blocks
+current CLI direct LAN OAuth, and actual shared host/browser/client acceptance is not complete;
+no personal authorization, installed connection or running service was changed.
+
 2026-10-25 external distribution preparation:9 MD-extracted cold/mock checks and4
 actual native-CLI packaging steps pass in independent temporary homes, alongside8
 environment compatibility checks. Repeated source generation now ignores only

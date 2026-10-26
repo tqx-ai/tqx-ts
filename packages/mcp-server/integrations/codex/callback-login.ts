@@ -31,9 +31,10 @@ function boundedExit(exit: Promise<number | null>, milliseconds: number): Promis
 }
 export async function startCallbackLogin(options: CallbackLoginOptions) {
   assert(/^[A-Za-z0-9_-]{1,64}$/.test(options.server), 'Invalid server name')
-  trustedServiceUrl(options.resource, '/mcp')
-  trustedServiceUrl(options.issuer, '/')
-  assert.equal(trustedServiceUrl(options.webOrigin, '/').origin, options.webOrigin)
+  const env = options.env ?? process.env
+  trustedServiceUrl(options.resource, '/mcp', env)
+  trustedServiceUrl(options.issuer, '/', env)
+  assert.equal(trustedServiceUrl(options.webOrigin, '/', env).origin, options.webOrigin)
   const timeoutMs = options.timeoutMs ?? 300000
   assert(timeoutMs >= 10000 && timeoutMs <= 600000, 'Timeout must be 10 to 600 seconds')
   // Exact issuer support is required; never negotiate away issuer validation.
@@ -57,6 +58,7 @@ export async function startCallbackLogin(options: CallbackLoginOptions) {
   const proxy = await createCallbackProxy({
     issuer: options.issuer,
     webOrigin: options.webOrigin,
+    env,
     timeoutMs,
     waitForCliExit: () => boundedExit(exit, 15000),
     deliverCallback: (originalCallbackUrl) =>

@@ -6,6 +6,30 @@
 仓库、Bun或附件。它不是云端Server URL/Tunnel/Create as plugin表单，不部署、不重启、
 不开隧道，也不自动修改模型/OpenAI登录/凭据存储或搬迁已有票据。不要再问是否开始。
 
+**2026-10-26 共享 test 阶段范围：只做安装、OAuth 和用户本人 Agent 绑定；WRITE 保持
+false，不连接/部署真实 Trading，不调用账户或交易工具。本阶段不执行本文后续一般流程中的
+只读业务验证；绑定完成后报告实际状态，把业务工具验收保留给另行授权的阶段。**
+
+当前 `codex-cli 0.164.0-alpha.11.1` 的 direct LAN HTTP OAuth 实测为
+`BLOCKED_CLIENT_LAN_HTTP_OAUTH_DISCOVERY`：LAN MCP resource 配 LAN AS、以及 LAN resource
+配 loopback AS 都只读到 resource metadata，没有请求 AS metadata，也未生成授权 URL。
+resource 与 AS 均为 loopback 的对照能生成授权 URL，随后以合成 access_denied 结束；这不是
+登录通过。服务端/helper 的 test HTTP 白名单放行不等于这个客户端能完成 direct LAN OAuth，
+不能承诺“交给 Codex 这份 MD 就能直连 LAN”。Root 探测没有 POST、token/code/grant、模型或
+业务调用，临时夹具已关闭；只记录所测版本行为，不推断其内部原因或其他客户端能力。
+
+LAN 配置保留为服务端能力及其他支持客户端的待验选项。Root 正在准备一个**尚未实施**的
+独立 test loopback-only SSH forwarding 方案：从服务发布及校验开始，客户端看到的 canonical
+MCP resource、AS issuer 和 authorize/token 地址就都必须是精确 loopback URL。只转发现有
+LAN-advertising 服务、只改 AS 为 loopback、改写 metadata/token 或弱化 iss/audience 都不算
+这个方案。本文件不建立转发、不部署、不要求新域名，也不更改本人既有连接/授权。Root
+需先核对端口、监听、Web 浏览器可达性/CORS，并给出独立 test 实例的最终一致配置。
+
+探测证据保存在 Root 协调 checkout 的 `work/test-http-20261026/client-probe/result.json`
+和 `RESULT.md`；本仓 `DEPLOYMENT_ENVIRONMENTS.md` 汇总限制。OpenAI Docs 的
+[Streamable HTTP OAuth 说明](https://learn.chatgpt.com/docs/extend/mcp?surface=cli)与本次
+版本实测分别记录，不以通用支持说明替代 direct LAN 验收。
+
 ## 1. 读取原有公开配置，展示最终有效环境
 
 **陌生机器从零接入：** 没有既有TQX连接、用户也未提供服务地址时，先只收集实际目标：
@@ -47,6 +71,17 @@ list/get读取正常公开连接状态/URL；不读取私有认证文件、token
 本机Trading SDK base是http://127.0.0.1:8102，OAuth API audience是8102/api，
 Web generic API走Java18080；这些互不替代，也不传给helper或直接接收MCP bearer。
 test/prod后台值不猜测。认证/TLS/resource/issuer/scope按原服务及原客户端正常校验。
+
+本轮已授权的LAN HTTP测试例外只在服务及helper各自有效的`TQX_ENV=test`下生效；
+selector的`--environment test`显示标签不会替它们设置环境。使用可选callback helper时，
+其进程需显式配置`TQX_TEST_HTTP_ORIGINS`，只列实际需要的canonical RFC1918 IPv4 HTTP
+origin，逗号分隔、不带路径或尾斜杠。当前规划值（尚非已部署地址）为
+`http://192.168.1.3:3002,http://192.168.1.3:26823,http://192.168.1.3:3001`。
+无清单保留旧行为；错端口、未列地址、DNS/公网/link-local、IP另类写法、凭据、URL附加
+部分及通配符均不能开启例外。非test环境忽略此变量，生产原HTTPS校验保持。
+callback自身仍在临时loopback端口；issuer/resource/Origin/state/nonce/PKCE仍精确校验，
+不伪造HTTPS或TLS终止标记，不复制原授权。既有target/READY验收runner仍仅用于原loopback
+夹具；实际宿主、原生客户端和浏览器LAN访问需Owner另做跨仓验收，本文件不宣称已通过。
 
 如需生成source，先把第6节selector保存为tqx-environment-source.mjs并node --check。
 --plan只展示有效配置/模板，不联网、不安装、不登录。可完全不传环境和地址，或只覆盖
@@ -310,17 +345,84 @@ helper 默认最多等待 300 秒（CLI 可更早结束），不会无限常驻�
 exit 0 和第 4 步插件实际读取是三项独立证据，不能相互冒充。
 
 ```javascript
-// packages/mcp-server/integrations/codex/callback-login.ts
+// integrations/codex/callback-login.ts
 import assert3 from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-// packages/mcp-server/integrations/codex/callback-proxy.ts
+// integrations/codex/callback-proxy.ts
 import assert from 'node:assert/strict'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer } from 'node:http'
-function trustedServiceUrl(value, path) {
+
+// src/test-http.ts
+import { isIP } from 'node:net'
+
+// src/environment.ts
+function mcpEnvironment(env) {
+  const name = env.TQX_ENV?.trim().toLowerCase()
+  if (name === 'test') return 'test'
+  if (name === 'prod' || name === 'pro' || name === 'production') return 'prod'
+  return 'local'
+}
+
+// src/test-http.ts
+function invalidOrigins() {
+  throw new Error('Invalid configuration: TQX_TEST_HTTP_ORIGINS')
+}
+function testHttpOrigins(env = process.env) {
+  const origins = new Set()
+  if (mcpEnvironment(env) !== 'test') return origins
+  const raw = env.TQX_TEST_HTTP_ORIGINS?.trim()
+  if (!raw) return origins
+  for (const entry of raw.split(',')) {
+    const value = entry.trim()
+    let url
+    try {
+      url = new URL(value)
+    } catch {
+      return invalidOrigins()
+    }
+    const [first, second] = url.hostname.split('.').map(Number)
+    const privateAddress =
+      first === 10 ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168)
+    if (
+      url.protocol !== 'http:' ||
+      isIP(url.hostname) !== 4 ||
+      !privateAddress ||
+      (url.port !== '' && Number(url.port) < 1) ||
+      url.origin !== value ||
+      /[\s"\\?#]/.test(value)
+    )
+      return invalidOrigins()
+    origins.add(value)
+  }
+  return origins
+}
+function isTestHttpUrl(value, origins) {
+  let url
+  try {
+    url = new URL(value)
+  } catch {
+    return false
+  }
+  const rawHost = /^http:\/\/([^/:]+)(?::\d+)?(?:\/|$)/i.exec(value)?.[1]
+  return (
+    url.protocol === 'http:' &&
+    origins.has(url.origin) &&
+    !/[\s"\\?#]/.test(value) &&
+    !url.username &&
+    !url.password &&
+    rawHost === url.hostname
+  )
+}
+
+// integrations/codex/callback-proxy.ts
+function trustedServiceUrl(value, path, env = process.env) {
+  const testOrigins = testHttpOrigins(env)
   assert(value && !/[\s\\]/.test(value), 'Invalid service URL')
   const url = new URL(value)
   assert.equal(
@@ -334,7 +436,8 @@ function trustedServiceUrl(value, path) {
   )
   assert(
     url.protocol === 'https:' ||
-      (url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port),
+      (url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port) ||
+      isTestHttpUrl(value, testOrigins),
     'Use HTTPS or explicit 127.0.0.1 loopback HTTP',
   )
   if (path !== undefined) assert.equal(url.pathname, path)
@@ -449,8 +552,8 @@ function failurePage(response, status) {
 }
 async function createCallbackProxy(options) {
   assert(options.timeoutMs >= 1000 && options.timeoutMs <= 600000)
-  trustedServiceUrl(options.issuer, '/')
-  assert.equal(trustedServiceUrl(options.webOrigin, '/').origin, options.webOrigin)
+  trustedServiceUrl(options.issuer, '/', options.env)
+  assert.equal(trustedServiceUrl(options.webOrigin, '/', options.env).origin, options.webOrigin)
   const path = `/tqx/codex/callback/${randomBytes(16).toString('hex')}`
   let outerOrigin = ''
   let state
@@ -598,7 +701,7 @@ async function createCallbackProxy(options) {
   }
 }
 
-// packages/mcp-server/integrations/codex/owned-process.ts
+// integrations/codex/owned-process.ts
 import assert2 from 'node:assert/strict'
 function exited(child) {
   return !child.pid || child.exitCode !== null || child.signalCode !== null
@@ -623,7 +726,7 @@ async function closeOwnedProcess(child) {
   child.unref()
 }
 
-// packages/mcp-server/integrations/codex/callback-login.ts
+// integrations/codex/callback-login.ts
 function boundedExit(exit, milliseconds) {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(null), milliseconds)
@@ -635,9 +738,10 @@ function boundedExit(exit, milliseconds) {
 }
 async function startCallbackLogin(options) {
   assert3(/^[A-Za-z0-9_-]{1,64}$/.test(options.server), 'Invalid server name')
-  trustedServiceUrl(options.resource, '/mcp')
-  trustedServiceUrl(options.issuer, '/')
-  assert3.equal(trustedServiceUrl(options.webOrigin, '/').origin, options.webOrigin)
+  const env = options.env ?? process.env
+  trustedServiceUrl(options.resource, '/mcp', env)
+  trustedServiceUrl(options.issuer, '/', env)
+  assert3.equal(trustedServiceUrl(options.webOrigin, '/', env).origin, options.webOrigin)
   const timeoutMs = options.timeoutMs ?? 300000
   assert3(timeoutMs >= 1e4 && timeoutMs <= 600000, 'Timeout must be 10 to 600 seconds')
   const metadataResponse = await fetch(
@@ -660,6 +764,7 @@ async function startCallbackLogin(options) {
   const proxy = await createCallbackProxy({
     issuer: options.issuer,
     webOrigin: options.webOrigin,
+    env,
     timeoutMs,
     waitForCliExit: () => boundedExit(exit, 15000),
     deliverCallback: (originalCallbackUrl) =>

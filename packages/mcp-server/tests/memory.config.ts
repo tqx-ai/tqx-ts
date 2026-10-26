@@ -31,6 +31,7 @@ export default defineConfig({
     // Audited exact files, not a wildcard and not a skip list. New tests require another audit.
     include: [
       'tests/config.test.ts',
+      'tests/test-http.test.ts',
       'tests/http.test.ts',
       'tests/protocol.test.ts',
       'tests/review.test.ts',

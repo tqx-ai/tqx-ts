@@ -1,0 +1,114 @@
+{
+  "kind": "summarized-tool-results-not-raw-logs",
+  "date": "2026-10-26",
+  "timezone": "Asia/Shanghai",
+  "scope": "optional callback helper and self-contained distribution; owned loopback/offline only",
+  "before": {
+    "tests": 37,
+    "passed": 32,
+    "failed": 5,
+    "failureCases": [
+      "allowed LAN MCP resource",
+      "allowed LAN AS issuer",
+      "allowed LAN Web origin",
+      "injected env propagated before metadata fetch",
+      "proxy second validation accepts selected LAN services"
+    ],
+    "unchangedNoOptInLanRefusal": "passed"
+  },
+  "after": {
+    "callback": {
+      "passed": 40,
+      "failed": 0,
+      "newTests": 23
+    },
+    "deploymentSelector": {
+      "passed": 8,
+      "failed": 0
+    },
+    "standaloneDistribution": {
+      "passed": 9,
+      "failed": 0
+    },
+    "strictIntegrationTypeScript": "passed",
+    "scopedOxfmt": "passed",
+    "scopedOxlintDenyWarnings": "passed",
+    "nodeHelperSyntax": "passed",
+    "addedPortBoundaries": [
+      "origin-list :0 rejected",
+      "origin-list explicit :80 rejected",
+      "helper full URL explicit :80 retains old canonical-authority rejection"
+    ]
+  },
+  "commands": [
+    "node node_modules/vitest/vitest.mjs run --config packages/mcp-server/integrations/codex/callback.config.ts --configLoader runner",
+    "node node_modules/vitest/vitest.mjs run --config packages/mcp-server/integrations/codex/deployment-environment.config.ts --configLoader runner",
+    "node node_modules/vitest/vitest.mjs run --config packages/mcp-server/integrations/codex/distribution.config.ts --configLoader runner",
+    "node node_modules/typescript/bin/tsc --project packages/mcp-server/integrations/codex/tsconfig.json --noEmit",
+    "bun --no-env-file build integrations/codex/callback-login.ts --target=node --format=esm --outfile=integrations/codex/callback-login.mjs"
+  ],
+  "commandWorkingDirectory": "Vitest and TypeScript commands run from tqx-ts; bundle command runs from packages/mcp-server, then Oxfmt the bundle and synchronize the first javascript block in INSTALL_LOCAL_PLUGIN_WITH_CODEX.md",
+  "frozenFilesSha256": {
+    "callback-proxy.ts": "c8d96abf4726b02ff8b90463410aa822e6269abee6cc26170a6b34e0420cb276",
+    "callback-login.ts": "e5bd3137d996a7f3b36ff9491187fa0f3a9955a91d4a74b22a201387f514d87b",
+    "callback-login.mjs": "59c470918ca02c130d1557551ff5e95e68344c6831267c6a5b5aa9825fdd94ca",
+    "callback.test.ts": "576e956249b6a9d6f7f62f632e0b04eac26c686fb9ab9fc7b6112a6a29ec483f",
+    "DEPLOYMENT_ENVIRONMENTS.md": "c2ec6719686cf068a70128fb631c4799aa8ca7febc4796658b8f24f7148099b6",
+    "INSTALL_LOCAL_PLUGIN_WITH_CODEX.md": "c3c123a927325d34622538d9a188c9edfeea11241b0d3bfe9f2423f4a80a9d4a",
+    "STATUS.md": "805df49831d60276508f94057818454aa6ba2c3cb88d4682469b264551bda277",
+    "DEPLOYMENT_COMPATIBILITY_REVIEW.md": "0e19d425922a53ecccda0ced96932672d5af2d3e4b9f3da6330e4e6459b41936"
+  },
+  "bundledPolicy": {
+    "test-http.ts": "shared parent implementation inlined",
+    "environment.ts": "existing effective profile selector inlined",
+    "runtimeImports": "node builtins only",
+    "sourceSha256": "062a23459636893db04f4433840421b6faa9bf100f85c7ab18670d45fe27bfbd"
+  },
+  "limits": [
+    "No LAN endpoint was contacted. The metadata test injects fetch and stops before child login.",
+    "A callback proxy listener stayed on an owned ephemeral 127.0.0.1 port, with exact issuer and Origin checks.",
+    "target.ts and v2 READY/session runners remain restricted to their existing loopback acceptance fixtures.",
+    "No personal Codex configuration, credentials, OAuth grant, running service, database, deployment, commit or push was changed.",
+    "Later Root direct LAN OAuth discovery probe is blocked on the tested CLI build; original helper/offline passes are not direct LAN client acceptance. The planned loopback variant is not executed."
+  ],
+  "frozen": true,
+  "laterRootClientProbe": {
+    "date": "2026-10-26",
+    "owner": "Root",
+    "status": "BLOCKED_CLIENT_LAN_HTTP_OAUTH_DISCOVERY",
+    "cliVersion": "codex-cli 0.164.0-alpha.11.1",
+    "scope": "transport-only CLI discovery; no code/token, account, tool or shared-chain acceptance",
+    "rootEvidenceDirectory": "C:\\Users\\13518\\Documents\\Codex\\2026-10-23\\codex-threads-01a16792-9622-7b71-92fc\\work\\test-http-20261026\\client-probe",
+    "evidenceSha256": {
+      "result.json": "4f85b65c7fa5aabcd3640c46dffe705f98be3b7cfbaa01120a946f24a6f3571f",
+      "RESULT.md": "21ab330587efc29f16bd743b0f770debacee056fafa979c604b7fc9bcff34f2f"
+    },
+    "observed": {
+      "lanResourceLanAs": "resource metadata fetched; no AS metadata request; no authorize URL",
+      "lanResourceLoopbackAs": "resource metadata fetched; no AS metadata request; no authorize URL",
+      "allLoopbackControl": "authorize URL generated; ended in synthetic access_denied, not successful login"
+    },
+    "counts": {
+      "fixtureGets": 7,
+      "postRequests": 0,
+      "tokensIssued": 0,
+      "codesIssued": 0,
+      "registrationWrites": 0,
+      "databaseOperations": 0,
+      "modelApiCalls": 0,
+      "businessToolCalls": 0,
+      "temporaryFixtureProcesses": 4
+    },
+    "cleanupVerified": true,
+    "inferenceBoundary": "This identifies the tested build behavior, not an undocumented internal condition or a guarantee for other builds/desktop plugins.",
+    "nextVariant": {
+      "status": "PLANNED_NOT_EXECUTED",
+      "owner": "Root",
+      "description": "Separate test-only loopback-bound SSH forwards with genuinely loopback canonical MCP resource, AS issuer and authorize/token endpoints throughout; no metadata/token rewriting or issuer/audience relaxation."
+    },
+    "sharedPhase": "installation, OAuth and user Agent binding only; WRITE=false; no real Trading deployment/connection, account or business-tool acceptance",
+    "programsAndServiceSourceUnchanged": true,
+    "docsConsistencyTestsPassed": 8,
+    "docsCheckLog": "work/test-http-20261026/docs-client-probe-check.log"
+  }
+}
