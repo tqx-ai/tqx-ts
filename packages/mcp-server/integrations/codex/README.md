@@ -1,5 +1,12 @@
 # Codex first-client acceptance
 
+**Bounded observation and recovery:** [OBSERVATION_ACCEPTANCE.md](OBSERVATION_ACCEPTANCE.md)
+connects the standalone user instructions to the IO-free observation window, runnable public-input
+planner/checkpoint/evidence checker and the selected MON/REC/AUTH/ENV cases from the 121-case plan.
+Natural-language prompts run first; controlled prompts are diagnostics. Offline checks are U-layer
+evidence only; actual new model MCP markers and independent write audits remain Owner-run acceptance.
+No bundled TQX skill, global skill, auth helper, background service or personal grant is replaced.
+
 **External onboarding kit:** [DISTRIBUTION_ACCEPTANCE.md](DISTRIBUTION_ACCEPTANCE.md)
 records MD-only cold Node execution,9 isolated mock lifecycle tests and4 actual
 native-CLI local install/repeat/upgrade/cleanup checks. No personal profile or real

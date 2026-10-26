@@ -277,6 +277,24 @@ OAuth 未完成，核对原因后再给最小下一步，不重复发起一批�
 [CLI](https://learn.chatgpt.com/docs/cli/reference)、
 [MCP 重载](https://learn.chatgpt.com/docs/app-server)。
 
+### 后续用户明确交易或跟踪时
+
+仅接入/只读请求不交易。后续明确单笔交易请求应只提交一次、保留原intent/key/orderId/
+signalId并及时返回真实回执，结束该交易请求；受理不等于成交，UNKNOWN不自动补单。
+用户另要求跟踪时，只读查询同一引用，先明确间隔和总预算，记录任务归属与UTC起止/截止；
+只需原orderId或signalId，不知道下单key也可跟踪，不要求只读用户提供写key。
+运行用monotonic预算，每轮前检查剩余时间，串行读取，到点不发新GET。退避不重置截止，
+不向MCP参数编造timeout。处理“停止盯单”后停止新GET，原在途可收尾，晚结果另记；
+停止观察不撤单、不改变订单或信号。宿主只排队或不能取消时如实说明限制。
+
+部分成交保留准确数量；提交state、订单status、monitor_status/monitor_stop_reason及
+status_source/status_reason/is_stale分开。monitor预算耗尽不等于渠道到期；TIMEOUT仅有
+CHANNEL/DAY_EXPIRED证据才能解释为渠道到期。GET错误/404/空活动列表不证明终态。
+重开后实际GET原单，历史不当实时；按原UTC截止和新进程时钟恢复，不暗续预算/重下。
+没有持续执行器或通知渠道就不承诺关对话后的主动通知，也不自行建后台任务。
+这些行为不依赖新增授权helper或全局skill；可选计时/恢复与实际证据输入见
+[有界跟踪验收说明](OBSERVATION_ACCEPTANCE.md)，实际MCP始终由用户会话调用。
+
 ## 5. 完整自足 helper（保存为 tqx-callback-login.mjs）
 
 以下 JavaScript 与本次实际 Node 探针通过的 helper 一致，只导入 Node 内置模块。

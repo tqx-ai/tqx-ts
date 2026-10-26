@@ -199,6 +199,44 @@ symbols accept 3..32 characters; optional cursors allow empty strings and are at
 Read outputs preserve SDK data. Writes require a stable 8..128 character idempotency key and return
 explicit submission status; acceptance never means a fill or a completed cancellation.
 
+Submission classification follows the invoked response family: placeOrder/placeOrders use signal
+state; cancelOrder/modifyOrder use action accepted/status. Extra signal-shaped action metadata
+cannot turn a rejected action into acceptance. A dispatched write returning
+trading_service_unavailable remains unknown, including an HTTP-200 error envelope. Only safe
+reconciliation identifiers cross the error boundary. Malformed final responses preserve a safe
+protocol-error request ID; final network failures never reuse an earlier retry response's ID.
+
+Order status_source/status_reason/is_stale and signal
+monitor_status/monitor_stop_reason/order_status_source are optional and nullable SDK fields, passed
+through unchanged. BUDGET_EXHAUSTED/monitor_budget describes monitoring only, never a new signal
+failure or channel TIMEOUT. A channel DAY expiry can remain TIMEOUT with CHANNEL/DAY_EXPIRED
+provenance. Missing sources stay missing/null; stale snapshots remain explicitly stale. GET errors
+return an error without manufacturing order, signal or submission states. MCP does not keep an
+observation cache, reconcile broker history, or wait for a fill; bounded observation belongs to
+the caller, and authoritative late-fill recovery belongs to Trading.
+
+tests/trading-journey.test.ts exercises the official MCP client against owned in-memory loopback
+AS/Trading fixtures: cumulative partial fills 0/10 -> 4/6 -> 4/6 -> 10/0, exact decimal snapshots,
+partial cancellation and in-flight fills, action acceptance, monitor provenance, stale data,
+read failure/recovery, online revocation rejection and ambiguous submissions. These are synthetic
+protocol checks, not actual model execution, real consent, durable backend recovery or broker fills.
+
+2026-10-26 protocol review evidence: the initial 20 journey regressions produced 16 passes and four
+failures (HTTP-200 service outage, rejected cancel/modify masked by extra state, final protocol
+request ID). After the three narrow product fixes and five additional boundary cases, all 25
+journey tests passed; the full guarded MCP suite passed 225 tests across nine files. Scoped
+Oxfmt/Oxlint, strict package TypeScript, isolated tsdown build and built Node smoke also passed
+(health/metadata 200, unauthenticated 401, forbidden Origin 403, shutdown 0). The build uses a
+separate ignored work directory; running dist and shared services are untouched.
+
+Case references describe protocol-layer coverage only: FILL-04/08, ACT-06, READ-03/08, MON-07/14/15,
+AUTH-04 and IDEM-10. They do not close those cases at backend, actual Codex or channel layers.
+Trading still owns authoritative detail-first recovery, cumulative fill/event deduplication,
+monitor-budget persistence and trade-only capability limits. The integration owner still owns
+bounded observation, interruption/resume budgets and actual thread/turn/MCP evidence. Root owns
+SDK schema consolidation and cross-service acceptance. No real authorization or broker access
+is established by this suite, and the new Trading fixture event protocol is not assumed frozen.
+
 `placeOrders` accepts 1..20 instructions, validates and normalizes every item with the SDK before
 any submission, rejects duplicate keys, and submits sequentially. It stops on the first failed or
 unknown outcome and marks all later items not_submitted. See [V2_CONTRACT.md](V2_CONTRACT.md) for

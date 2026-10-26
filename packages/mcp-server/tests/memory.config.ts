@@ -37,6 +37,7 @@ export default defineConfig({
       'tests/runtime.test.ts',
       'tests/trading.test.ts',
       'tests/trading-v2.test.ts',
+      'tests/trading-journey.test.ts',
       'tests/memory-guard.memory.ts',
     ],
     setupFiles: ['tests/memory.setup.ts'],

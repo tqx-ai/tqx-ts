@@ -1,0 +1,15 @@
+{
+  "input": {
+    "caseId": "MON-03",
+    "runId": "offline-example-not-an-actual-run",
+    "ownerTaskId": "offline-task",
+    "intentId": "observe-existing-order",
+    "intentKeyDigest": null,
+    "server": "REPLACE_WITH_ACTUAL_SERVER",
+    "reference": { "kind": "order", "id": "REPLACE_WITH_OWN_EXISTING_ORDER" },
+    "budgetMs": 10000,
+    "intervalMs": 1000,
+    "requestTimeoutMs": 3000,
+    "buildRef": "REPLACE_WITH_VERIFIED_BUILD"
+  }
+}

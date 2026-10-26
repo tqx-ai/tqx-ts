@@ -83,6 +83,22 @@ codex mcp login SERVER_NAME --scopes trade:read,order:write --oauth-client-regis
 
 加载后，通过**这个用户实际要使用的 Codex 会话的 MCP 工具入口**调用 `getAccount` 和 `listPositions`，都只读取，保留实际模式、时间、decimal 字符串和 null。不调用任何下单、改单、撤单或批量写工具。若当前会话尚无法加载工具，如实停在「待新会话读取验证」，不能用原始 HTTP、另一个私有 app-server、`mcp get` 或 `tools/list` 冒充本会话已调用成功。
 
+### 后续单次交易与有界跟踪
+
+本文接入/只读验证不授权下单。用户后续明确交易时，一次提交保留稳定intent/key与原
+order/signal引用，返回真实回执并及时结束，不因UNKNOWN或观察超时自动重下。用户另要求
+跟踪时先定任务归属、间隔、start/deadlineUTC和总预算；只读同单，运行以monotonic计时，
+只读跟踪有原orderId或signalId即可，不索要未知的下单key或写权限。
+每轮检查剩余预算并串行GET。到点/处理停止指令后不发新GET，原在途可完成或取消；
+晚结果另列，不改变原结束原因、不撤单。无法取消或只能排队时如实记录宿主限制。
+
+GET错误/404/空活动列表不当终态，部分成交保留准确数量，signal/订单/monitor状态与
+来源、staleness分别记录；monitor_budget不等于渠道到期，TIMEOUT须有CHANNEL/
+DAY_EXPIRED证据。重开时重新GET原引用，不把历史当实时，不重置旧截止或生成替代key。
+无持续执行器/通知渠道不承诺离线主动通知、不自行建任务。无需新全局skill，选用纯
+计时checkpoint与实际marker收集时见[有界跟踪验收说明](OBSERVATION_ACCEPTANCE.md)；
+helper不执行交易HTTP，实际工具调用始终由会话完成。
+
 ## 5. 完成条件和简短回执
 
 配置唯一且正确、真人 OAuth 已成功、所需权限已确认、目标会话两个只读工具都成功后，才报告「配置并验证完成」。仅回报实际配置路径、服务名称／URL、授权状态、两项读取结果和是否尚需新会话；隐藏 token、code、state、秘密和不必要账户标识。没有 endpoint、等待真人同意、等待宿主重载、等待实际读取时，明确指出停在哪一步及最小下一步，不虚构完成。

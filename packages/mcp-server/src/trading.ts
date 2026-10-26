@@ -82,6 +82,7 @@ const uncertainCodes = new Set([
   'trading_operation_pending',
   'trading_outcome_unknown',
   'trading_timeout',
+  'trading_service_unavailable',
 ])
 
 function safeIdentifier(value: unknown): string | undefined {
@@ -205,6 +206,8 @@ async function runTrading<T>(
     // A later 401 after an SDK retry cannot prove that an earlier lost write did not land.
     const uncertain =
       scope === WRITE_SCOPE && dispatched && (ambiguousAttempt || !definiteRejection)
+    // Protocol errors describe the final response. A network error can carry an earlier
+    // retryable response's ID, so it cannot supply this attempt's correlation ID.
     return {
       ok: false,
       error: errorCode(failure),
@@ -214,7 +217,9 @@ async function runTrading<T>(
             requestId: safeIdentifier(failure.requestId) ?? null,
             ...(uncertain ? { data: uncertainData(failure.data) } : {}),
           }
-        : {}),
+        : failure instanceof TqxProtocolError
+          ? { requestId: safeIdentifier(failure.requestId) ?? null }
+          : {}),
     }
   }
 }
@@ -237,6 +242,7 @@ export async function callTrading(
 
 function submission<T extends SignalData | { accepted: boolean }>(
   key: string,
+  family: 'signal' | 'action',
   outcome: Outcome<T>,
 ): SubmissionResult {
   if (!outcome.ok)
@@ -248,15 +254,24 @@ function submission<T extends SignalData | { accepted: boolean }>(
       ...(outcome.data ? { data: outcome.data } : {}),
     }
   const data = outcome.data
-  const actionStatus = 'status' in data ? data.status : undefined
   let status: SubmissionStatus = 'unknown'
-  if (actionStatus === 'UNKNOWN' || actionStatus === 'RESERVED') status = 'unknown'
-  else if ('state' in data) {
-    if (data.state === 'REJECTED') status = 'failed'
-    else if (data.state === 'PENDING' || data.state === 'ACCEPTED') status = 'accepted'
-  } else if (actionStatus === 'REJECTED') status = 'failed'
-  else if (data.accepted && (actionStatus === undefined || actionStatus === 'SUBMITTED'))
-    status = 'accepted'
+  // SDK response schemas preserve extra fields. Only the invoked operation's response family
+  // may decide acceptance; signal-shaped action metadata cannot override accepted/status.
+  if (family === 'signal') {
+    if ('state' in data) {
+      if (data.state === 'REJECTED') status = 'failed'
+      else if (data.state === 'PENDING' || data.state === 'ACCEPTED') status = 'accepted'
+    }
+  } else {
+    const actionStatus = 'status' in data ? data.status : undefined
+    if (actionStatus === 'REJECTED') status = 'failed'
+    else if (
+      'accepted' in data &&
+      data.accepted === true &&
+      (actionStatus === undefined || actionStatus === 'SUBMITTED')
+    )
+      status = 'accepted'
+  }
   return { idempotencyKey: key, status, data, request_id: outcome.requestId }
 }
 
@@ -264,9 +279,10 @@ export async function callWrite<T extends SignalData | { accepted: boolean }>(
   context: TradingContext,
   caller: AbortSignal,
   key: string,
+  family: 'signal' | 'action',
   operation: (client: TqxClient) => Promise<T>,
 ): Promise<CallToolResult> {
-  const result = submission(key, await runTrading(context, caller, WRITE_SCOPE, operation))
+  const result = submission(key, family, await runTrading(context, caller, WRITE_SCOPE, operation))
   return toolResult(result, result.status !== 'accepted')
 }
 
@@ -298,6 +314,7 @@ export async function placeOrders(
     }
     const result = submission(
       order.idempotencyKey,
+      'signal',
       await runTrading(context, caller, WRITE_SCOPE, (client) => client.trading.placeOrder(order)),
     )
     results.push({ index, ...result })

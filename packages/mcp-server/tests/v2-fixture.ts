@@ -13,7 +13,7 @@ export const syntheticSignal = (state = 'ACCEPTED') => ({
   updated_at: 'synthetic-time',
   parent_request_id: 'synthetic-parent-not-http-id',
 })
-const order = {
+export const syntheticOrder = {
   order_id: 'synthetic-order',
   client_order_id: null,
   symbol: 'SYNTHETIC.US',
@@ -42,6 +42,8 @@ export interface Plan {
   invalidJson?: boolean
   waitMs?: number
   requestId?: string
+  headerRequestId?: string
+  afterCommitError?: { status: number; code: string; data: unknown }
 }
 export async function v2Fixture(
   options: { writesEnabled?: boolean; tradingTimeoutMs?: number } = {},
@@ -58,6 +60,7 @@ export async function v2Fixture(
     }[],
     plans: [] as Plan[],
     readData: [] as unknown[],
+    readPlans: [] as Plan[],
     effects: 0,
     revoked: false,
     unsupportedCashFlows: false,
@@ -108,6 +111,17 @@ export async function v2Fixture(
           return
         }
         if (method === 'GET') {
+          const plan = state.readPlans.shift() ?? {}
+          if (plan.hold) return
+          if (plan.waitMs) await delay(plan.waitMs)
+          if (plan.disconnect) {
+            req.socket.destroy()
+            return
+          }
+          if (plan.status) {
+            send(res, plan.status, plan.code ?? 'synthetic_failure', plan.data ?? null, id)
+            return
+          }
           const url = new URL(path, f.tradingBase)
           if (url.pathname.endsWith('/cash-flows') && state.unsupportedCashFlows) {
             send(res, 501, 'cash_flows_unsupported', null, id)
@@ -118,9 +132,9 @@ export async function v2Fixture(
             : url.pathname.includes('/signals/')
               ? syntheticSignal('PENDING')
               : url.pathname.includes('/orders/')
-                ? order
+                ? syntheticOrder
                 : url.pathname.endsWith('/orders')
-                  ? { items: [order], next_cursor: null }
+                  ? { items: [syntheticOrder], next_cursor: null }
                   : url.pathname.endsWith('/account')
                     ? {
                         account_id: 'fixture-account',
@@ -166,7 +180,13 @@ export async function v2Fixture(
           return
         }
         state.events.push(`end:${key}`)
+        if (plan.afterCommitError) {
+          const error = plan.afterCommitError
+          send(res, error.status, error.code, error.data, plan.requestId ?? id)
+          return
+        }
         if (plan.invalidJson) {
+          if (plan.headerRequestId) res.setHeader('X-Request-ID', plan.headerRequestId)
           res.writeHead(200, { 'Content-Type': 'application/json' }).end('{')
           return
         }

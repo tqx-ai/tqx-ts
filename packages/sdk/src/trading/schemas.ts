@@ -89,6 +89,11 @@ export const OrderDataSchema = v.looseObject({
   side: OrderSideSchema,
   order_type: OrderTypeSchema,
   status: OrderStatusSchema,
+  /** Provenance supplied by the service; an observation timeout is not channel expiry. */
+  status_source: optionalNullableString,
+  status_reason: optionalNullableString,
+  /** True for an older snapshot after a failed channel read; null/absent means unknown. */
+  is_stale: v.optional(v.nullable(v.boolean())),
   quantity: v.string(),
   price: nullableString,
   filled_quantity: v.string(),
@@ -142,6 +147,10 @@ export const SignalDataSchema = v.looseObject({
   state: SignalStateSchema,
   order_id: nullableString,
   order_status: nullableString,
+  /** Monitoring state is independent of submission state and the linked order status. */
+  monitor_status: optionalNullableString,
+  monitor_stop_reason: optionalNullableString,
+  order_status_source: optionalNullableString,
   message: nullableString,
   created_at: v.string(),
   updated_at: v.string(),

@@ -1,5 +1,16 @@
 # Codex client acceptance record
 
+2026-10-26 bounded observation preparation: OBSERVATION_ACCEPTANCE.md documents the selected
+121-plan MON/REC/AUTH/ENV case inputs, natural-language-first model prompts, pure monotonic/UTC
+checkpoint helper and result consistency checks. This source preparation executes no new model,
+OAuth, trading or service action. U-layer tests cannot count as C-layer monitoring, real 10-second/
+15-minute cadence, partial fill, channel expiry or late-fill convergence. Root supplies an independent
+run and actual model MCP markers plus service audit before recording those results.
+The first 43 observation checks passed; independent review then exposed five red regressions
+across four guards. Both original red and separate green records are retained. After the fixes,
+48 focused observation/CLI checks pass, and the combined offline lane passes 68 tests.
+See evidence/observation-review-20261026.json; these counts remain U-layer, with zero model calls.
+
 2026-10-25 distribution cold acceptance:9 standalone Node/mock tests pass from code
 extracted only from the delivered MD in an unrelated directory, with isolated HOME,
 no node_modules and actual Windows spaced/non-ASCII paths. The native installed

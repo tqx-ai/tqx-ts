@@ -183,7 +183,7 @@ export function createProtocolServer(context?: TradingContext): McpServer {
         annotations: writeAnnotations,
       },
       async (args, extra) =>
-        callWrite(context, extra.signal, args.idempotencyKey, (client) =>
+        callWrite(context, extra.signal, args.idempotencyKey, 'signal', (client) =>
           client.trading.placeOrder(args),
         ),
     )
@@ -196,7 +196,7 @@ export function createProtocolServer(context?: TradingContext): McpServer {
         annotations: writeAnnotations,
       },
       async (args, extra) =>
-        callWrite(context, extra.signal, args.idempotencyKey, (client) =>
+        callWrite(context, extra.signal, args.idempotencyKey, 'action', (client) =>
           client.trading.modifyOrder(args),
         ),
     )
@@ -209,7 +209,7 @@ export function createProtocolServer(context?: TradingContext): McpServer {
         annotations: writeAnnotations,
       },
       async (args, extra) =>
-        callWrite(context, extra.signal, args.idempotencyKey, (client) =>
+        callWrite(context, extra.signal, args.idempotencyKey, 'action', (client) =>
           client.trading.cancelOrder(args.orderId, { idempotencyKey: args.idempotencyKey }),
         ),
     )
