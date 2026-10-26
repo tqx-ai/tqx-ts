@@ -166,6 +166,11 @@ codex mcp list --json
 认证，再决定是否需要本人OAuth。新增selector不校验/拒绝部署环境URL形状；认证时
 仍由原客户端/服务校验。以下helper的安全检查来自此前已完成实现，保持不变。
 
+在用户实际使用的工作目录运行`codex mcp get <SERVER_NAME> --json`核对**有效URL**；
+trusted项目的`.codex/config.toml`可能覆盖用户层同名server及工具allowlist。工具为零时
+先看metadata连接/超时错误、旧项目URL和工具过滤；`o_auth`不证明当前连接成功。
+不要因此自动logout/reinstall或扩大scope。见[保留原授权的诊断指引](INTEGRATION_TROUBLESHOOTING.md)。
+
 ## 3. 先检查当前认证；未登录先完成 OAuth，不能提前创建验证会话
 
 安装核对后运行 `codex mcp list --json`，精确找到所选插件、selected binding/URL 匹配的 `SERVER_NAME`，

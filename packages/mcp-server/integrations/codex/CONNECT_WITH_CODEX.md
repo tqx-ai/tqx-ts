@@ -56,6 +56,11 @@ tool_timeout_sec = 60
 
 写前建立仅当前用户可读的本地备份，保留文件权限；写前再次比对源文件未被别人修改，临时文件解析成功且无关配置语义完全一致后再原子替换。并发变化就重读合并。重复运行不能新增重复条目或无意义备份。不要修改既有 token、钥匙串、全局凭据存储方式或 OpenAI 登录。不得填写服务 confidential secret、手填 access token、设置固定 callback 或降低安全确认。`codex mcp add` 在部分版本会立即登录，不把它当作可无条件重试的配置写入命令。
 
+在用户实际使用的工作目录运行`codex mcp get SERVER_NAME --json`核对**有效URL**，
+不要只看刚写入的用户层配置；trusted项目的`.codex/config.toml`可能覆盖同名server及
+工具allowlist。工具为零时先排查metadata连接/超时、旧项目URL和工具过滤，`o_auth`
+不证明当前连接成功；不自动logout/reinstall或扩大scope。见[诊断指引](INTEGRATION_TROUBLESHOOTING.md)。
+
 ## 3. 复用有效授权；必要时仅发起一次真人 OAuth
 
 先检查是否已有该服务**仍在运行**的登录，有则继续原事务，不能并发发起；已超时退出、callback 已关闭的旧链接不可重用，需发起一次 fresh OAuth。已有连接先通过实际宿主的认证／工具能力及只读调用验证；凭据存在、`mcp get` 或工具清单本身不等于有效授权。可用且具备两种 scope 时跳过登录；正常客户端可自行刷新过期票，不手改缓存期限。scope 升级需真人新同意，不能只修改 scopes 就声称升级完成。
