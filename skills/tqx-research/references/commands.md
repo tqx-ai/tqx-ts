@@ -16,7 +16,7 @@ $env:TQX_API_KEY = "<api-key>"
 tqx research factor list --json
 ```
 
-`TQX_API_KEY` takes precedence over persistent credentials. When the user provides a key in the current conversation, use it directly from the agent context; do not ask the user to open a terminal or run setup commands. Prefer `tqx login --api-key=<api-key>`, run from the agent context, so the key is saved to the CLI credential store and stays usable across later sessions and terminal restarts; reach for the process-scoped `TQX_API_KEY` only for a one-off or isolated task, or when the user does not want the key persisted. The order of credentials is `TQX_API_KEY`, Bun system keychain, `$XDG_CONFIG_HOME/tqx/credentials.json` or `~/.config/tqx/credentials.json`. Do not echo the complete key in this or a later conversation, or write it to source code, command history, makefiles, logs, or output.
+`TQX_API_KEY` takes precedence over persistent credentials. When no key is available, let the user choose: run `tqx login --api-key=<api-key>` in their own terminal (the key never enters the conversation), or provide the key in the current conversation. When the user provides a key in the conversation, use it directly from the agent context. `tqx login --api-key=<api-key>` saves the key to the CLI credential store so it stays usable across later sessions, but because the key is a command-line argument it can be recorded in shell history, the process list, and the agent's tool-call log; if the agent runs it, say so first. Use the process-scoped `TQX_API_KEY` in the agent's environment for a one-off or isolated task, or when the user does not want the key persisted. The order of credentials is `TQX_API_KEY`, Bun system keychain, `$XDG_CONFIG_HOME/tqx/credentials.json` or `~/.config/tqx/credentials.json`. Do not echo the complete key in this or a later conversation, or write it to source code, command history, makefiles, logs, or output.
 
 `--json` outputs JSON to stdout, error JSON to stderr; `--plain` turns off coloring. Dates accept `YYYYMMDD` or `YYYY-MM-DD` and will be normalized to `YYYY-MM-DD`. `market` accepts case-insensitive `hk` / `us`. The exit code is `2` for usage or validation errors and `1` for API, network and protocol errors.
 
@@ -26,6 +26,9 @@ tqx research factor list --json
 tqx research factor create --market=hk|us (--formula=<formula> | --code=<python> | --file=<python-path>) [--name=<name>] [--description=<text>]
 tqx research factor info <factor-id>
 tqx research factor update <factor-id> [--market=hk|us] [--formula=<formula> | --code=<python> | --file=<python-path>] [--name=<name>] [--description=<text>]
+tqx research factor save <factor-id> (--formula=<formula> | --code=<python> | --file=<python-path>) [--baseVersionId=<version-id>] [--confirmRebase] [--market=hk|us] [--name=<name>] [--description=<text>] [--startDate=<date>] [--endDate=<date>] [--adjustmentCycle=<positive-int>] [--groupNumber=2..20] [--factorDirection=Positive|Negative|1|0] [--stockPool=<text>] [--marketType=<text>]
+tqx research factor versions <factor-id>
+tqx research factor revert <factor-id> <version-number>
 tqx research factor run <factor-id> [--name=<name>] [--startDate=<date>] [--endDate=<date>] [--adjustmentCycle=<positive-int>] [--groupNumber=2..20] [--factorDirection=Positive|Negative|1|0] [--pollInterval=<seconds>] [--timeout=<seconds>] [--noWait]
 tqx research factor stop <analysis-id> [--pollInterval=<seconds>] [--timeout=<seconds>]
 tqx research factor result <analysis-id>
@@ -47,6 +50,8 @@ Define exactly one subclass of `Factor` in the factor source. Use `calculate(sel
 
 `run` defaults to `adjustmentCycle=5`, `groupNumber=5`, `factorDirection=Positive`. `--noWait` returns `SUBMITTED` and `analysis_id`; otherwise poll every 2 seconds, default up to 600 seconds. `stop` polls the cancellation status by default every second, up to 10 seconds; `request_accepted` does not mean that it has been cancelled.
 
+`save` creates a new code version and requires exactly one source input; unspecified analysis parameters are inherited from the latest version. `versions` lists the code versions. `revert` takes a version number (not a version ID) and creates a new version with that content; it does not rewrite history. `save` and `revert` have remote side effects and need explicit user intent.
+
 Factor save uses optimistic concurrency. Recommended flow: `factor info` or `factor versions` first, then `factor save --baseVersionId=<latest_version_id>`. If the server returns `409 version_conflict`, retry with the returned `latest_version_id` or pass `--confirmRebase` when you intentionally want to save on the latest HEAD.
 
 ## Strategy Library and Backtests
@@ -55,6 +60,9 @@ Factor save uses optimistic concurrency. Recommended flow: `factor info` or `fac
 tqx research strategy create --market=hk|us (--code=<python> | --file=<path>) [--name=<name>] [--description=<text>] [--strictMarketApi] [backtest-options]
 tqx research strategy info <strategy-id>
 tqx research strategy update <strategy-id> [--market=hk|us] [--code=<python> | --file=<path>] [--name=<name>] [--description=<text>] [--versionSummary=<text>] [--strictMarketApi] [backtest-options]
+tqx research strategy save <strategy-id> (--code=<python> | --file=<path>) [--baseVersionId=<version-id>] [--confirmRebase] [--name=<name>] [--description=<text>] [backtest-options]
+tqx research strategy versions <strategy-id>
+tqx research strategy revert <strategy-id> <version-number>
 tqx research strategy run <strategy-id> [backtest-options] [--pollInterval=<seconds>] [--timeout=<seconds>] [--noWait] [--download[=<path>]]
 tqx research strategy stop <run-id>
 tqx research strategy result <run-id> [--download[=<path>]]
@@ -64,11 +72,11 @@ tqx research backtest list [--market=all|hk|us] [--offset=<non-negative-int>] [-
 tqx research backtest result <run-id> [--download[=<path>]]
 ```
 
-`backtest-options`: `--startDate`, `--endDate`, `--startCapital`, `--commissionRate`, `--slippage`, `--frequency=1d|1M`, `--symbols=<symbol1,symbol2,...>`. When creating a strategy, the defaults are `startCapital=10000000`, `commissionRate=1`, `slippage=0`, and `frequency=1d`. `commissionRate` is the raw backend commission parameter value and is not automatically interpreted as a percent or basis-point value by the CLI. `slippage` is a proportional backend slippage input that affects simulated fill prices. Updates and runs retain saved parameters unless explicitly overridden. The CLI rebuilds only supported saved fields and ignores the server's `margin_rate`, `standard_symbol`, and `null` values, so changing the dates does not require deleting and recreating the strategy. The CLI rejects requests whose end date is not later than the start date.
+`backtest-options`: `--startDate`, `--endDate`, `--startCapital`, `--commissionRate`, `--slippage`, `--frequency=1d|1M`, `--symbols=<symbol1,symbol2,...>`. When creating a strategy, the defaults are `startCapital=10000000`, `commissionRate=1`, `slippage=0`, and `frequency=1d`. `commissionRate` is the raw backend commission parameter value and is not automatically interpreted as a percent or basis-point value by the CLI. This Skill does not document its unit: do not describe the default `1` as a percentage, basis points, or "per mille" unless the server documentation or result data confirms it, and always report the raw value alongside any cost-sensitive conclusion. `slippage` is a proportional backend slippage input that affects simulated fill prices. Updates and runs retain saved parameters unless explicitly overridden. The CLI rebuilds only supported saved fields and ignores the server's `margin_rate`, `standard_symbol`, and `null` values, so changing the dates does not require deleting and recreating the strategy. The CLI rejects requests whose end date is not later than the start date.
 
 Strategy runs are polled every 2 seconds by default, for up to 600 seconds. A timeout stops local waiting only; it does not cancel the remote run, and the output includes a `stop_command`. `--download` saves the raw result JSON: with no value it writes to the Downloads directory, with a directory it generates a filename there, and with a file path it writes to that file. List commands hide source code by default. `backtest list` also removes large fields and provides `equity_count` and `trade_count`; use `backtest result` for the complete result.
 
-Strategy save follows the same optimistic concurrency flow: check `strategy info` or `strategy versions` first, save with `--baseVersionId=<latest_version_id>`, and on `409 version_conflict` retry with the returned `latest_version_id` or use `--confirmRebase` for an intentional rebase onto the latest HEAD.
+Before saving, `strategy save` runs the same local source check as `create`/`update` against the strategy's saved market. Strategy save follows the same optimistic concurrency flow: check `strategy info` or `strategy versions` first, save with `--baseVersionId=<latest_version_id>`, and on `409 version_conflict` retry with the returned `latest_version_id` or use `--confirmRebase` for an intentional rebase onto the latest HEAD.
 
 ## Local source code check and success status
 

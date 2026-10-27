@@ -27,6 +27,18 @@ client.research.updateFactor(factorId, { name?, description?, code?, codeType?, 
 client.research.listFactors({ offset?, limit?, market?, keyword? })
 client.research.deleteFactor(factorId)
 
+// Factor versions (optimistic concurrency: pass the latest version ID as baseVersionId)
+client.research.saveFactor(factorId, {
+  code, codeType, analysisParams, market?, name?, description?, baseVersionId?, confirmRebase?
+})
+client.research.listFactorVersions(factorId)
+client.research.updateFactorVersion(factorId, versionNumber, { label?, starred? })
+client.research.revertFactorVersion(factorId, versionNumber) // creates a new version
+
+// Factor-to-strategy shortcuts
+client.research.createStrategyFromFactor(factorId, { periodStart?, periodEnd?, initBalance?, rebalancePeriod?, topN?, ... })
+client.research.createStrategyAndBacktestFromFactor(factorId, { /* same input */ })
+
 // Factor analyses
 client.research.createFactorAnalysis(factorId, {
   name?, periodStart?, periodEnd?, adjustmentCycle?, groupNumber?, factorDirection?
@@ -43,6 +55,17 @@ client.research.updateStrategy(strategyId, {
 })
 client.research.listStrategies({ offset?, limit?, market?, keyword? })
 client.research.deleteStrategy(strategyId)
+client.research.validateStrategyCode(code, market, options?) // local check only, no request
+
+// Strategy versions and saved backtest parameters
+client.research.saveStrategy(strategyId, { code, baseVersionId?, confirmRebase?, name?, description?, backtest? })
+client.research.listStrategyVersions(strategyId)
+client.research.getStrategyVersion(strategyId, versionNumber)
+client.research.updateStrategyVersion(strategyId, versionNumber, { label?, starred? })
+client.research.revertStrategyVersion(strategyId, versionNumber) // creates a new version
+client.research.runStrategyVersionBacktest(versionId) // takes a version ID, not a version number
+client.research.getStrategyBacktestParameters(strategyId)
+client.research.saveStrategyBacktestParameters(strategyId, backtest)
 
 // Backtests
 client.research.runStrategyBacktest(strategyId, backtest?)
@@ -84,7 +107,7 @@ const submitted = await client.research.runStrategyBacktest(123, {
   commissionRate: 1,
   slippage: 0,
   frequency: '1d',
-  symbols: ['AAPL.US'],
+  symbols: ['AAPL.NB'],
 })
 
 const result = await client.research.pollBacktest(submitted.id, {
