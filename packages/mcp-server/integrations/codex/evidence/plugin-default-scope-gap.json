@@ -1,8 +1,0 @@
-{
-  "case": "unscoped-plugin-login",
-  "requestedScopes": "research:read trade:read order:write",
-  "expectedScopes": "trade:read",
-  "pass": false,
-  "surface": "isolated installed Codex app-server",
-  "identity": "synthetic"
-}

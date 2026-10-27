@@ -7,10 +7,11 @@
 - `packages/sdk` owns the public client, API paths, public types, Valibot validation, transport,
   response decoding, and typed API errors. `packages/cli` owns Citty commands, credentials,
   terminal output, and process exit behavior.
-- `packages/mcp-server` owns the Node/Bun MCP resource server and its Codex integration harness.
-  It consumes `@tqx-ai/sdk` through `workspace:*`. Its source is part of this repository;
-  the package remains private and is not published by the SDK/CLI release commands.
-- Keep the dependency direction one-way: CLI and MCP consume the SDK; they must not recreate endpoint
+- The MCP resource server is maintained in a separate CNB repository, per the human's
+  2026-10-27 split instruction. Do not reintroduce server source, internal authorization or
+  deployment configuration, or cross-service acceptance harnesses into this public workspace.
+  Public Skills and client-only plugin packages may live here; see docs/repository-boundaries.md.
+- Keep the dependency direction one-way: CLI and the separate MCP service consume the SDK; they must not recreate endpoint
   strings, request bodies, gateway decoding, or SDK schemas.
 - `scripts/` contains release, package, and runtime smoke checks. `dist/` is generated; never edit
   it manually. Do not commit `.env`, credentials, API keys, tarballs, or generated output.
@@ -53,13 +54,12 @@
   serialization, validation failures, and CLI output/exit status.
 - Unit tests resolve `@tqx-ai/sdk` to source through `vitest.config.ts`; do not rely on local
   `dist` output. Build and smoke checks cover package behavior.
-- Root `typecheck`, `test:unit`, and `test:smoke` also run the MCP package checks. MCP has its own
-  strict TypeScript and Vitest configuration; root formatting and linting cover all packages.
-- `test:unit` includes the Codex runner's offline contract checks through `test:codex`. Actual
-  client OAuth uses the separately opted-in test lane and a newly verified Owner environment.
-- MCP lint overrides preserve ordered stream reads, polling, and fixture steps; do not parallelize
-  those loops. The Express 5 route supports async handlers. Other scoped exceptions cover existing
-  helper placement, fixture-local sorting/callback names, and SDK/protocol underscore identifiers.
+- Root `typecheck`, `test:unit`, and `test:smoke` check the public SDK/CLI only. The independent
+  MCP repository owns its own strict types, unit checks, builds, Codex integration and service smoke.
+- `test:memory:sdk` retains its deny-persistence/non-fixture-network guards in
+  packages/sdk/test/memory-support; it must not import the MCP service or private repositories.
+- Cross-service and actual-client acceptance belong to the independent MCP repository and retain
+  explicit opt-in, fresh environment verification and isolated credentials there.
 - Run the narrowest relevant test while developing, then run `bun run test` before handoff. It runs
   formatting, linting, type checking, unit tests, production builds, and Node/Bun smoke tests.
 - For packaging or release changes, also run `bun run pack:check` and, when relevant,

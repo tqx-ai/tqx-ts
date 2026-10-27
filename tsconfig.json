@@ -19,6 +19,5 @@
     "target": "ES2023",
     "types": ["node", "vitest/globals"]
   },
-  "include": ["packages/**/*.ts", "scripts/**/*.ts", "*.config.ts"],
-  "exclude": ["packages/mcp-server/**", "scripts/memory-chain.test.ts"]
+  "include": ["packages/sdk/**/*.ts", "packages/cli/**/*.ts", "scripts/**/*.ts", "*.config.ts"]
 }

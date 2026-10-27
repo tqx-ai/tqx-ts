@@ -2,10 +2,15 @@
 
 TQX provides the Node.js-compatible `@tqx-ai/sdk` and the Citty-based `@tqx-ai/cli`.
 
-The MCP resource server lives in [`packages/mcp-server`](./packages/mcp-server/README.md) and
-uses the SDK from this Bun workspace. Its source is included here for open development; the
-package is private and is not included in the SDK/CLI npm publication commands. See its README
-for local setup and the current v2 work in progress.
+This public workspace contains the SDK, CLI, and reusable agent Skills. The hosted MCP service
+is maintained in a separate CNB repository and consumes the SDK as a client dependency. Its
+server implementation, internal authorization configuration, deployment files, and cross-service
+acceptance harnesses are not part of this workspace. See [repository boundaries](./docs/repository-boundaries.md)
+for the public client and plugin packaging policy.
+
+For the hosted MCP workflow, see [connecting an agent](./docs/mcp-client.md). MCP is unreleased;
+the public endpoint and client distribution are still pending. Ordinary MCP OAuth is separate
+from CLI/API-key onboarding and does not require installing the CLI.
 
 ## Installation
 

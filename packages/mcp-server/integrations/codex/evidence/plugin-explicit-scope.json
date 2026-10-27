@@ -1,8 +1,0 @@
-{
-  "case": "portable-plugin-install-discovery-oauth-tools",
-  "pass": true,
-  "pluginId": "tqx-readonly@tqx-local-acceptance",
-  "serverName": "tqx",
-  "identity": "synthetic",
-  "surface": "isolated installed Codex CLI and app-server; desktop UI untested"
-}

@@ -1,8 +1,0 @@
-# Proposed project-scoped .codex/config.toml content for Owner review.
-# Do not copy the isolated credentials file or a service secret to the project.
-[mcp_servers.tqx]
-url = "http://127.0.0.1:3002/mcp"
-scopes = ["trade:read"]
-enabled_tools = ["getAccount", "listPositions"]
-startup_timeout_sec = 20
-tool_timeout_sec = 30

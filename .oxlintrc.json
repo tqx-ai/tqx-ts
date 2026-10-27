@@ -5,46 +5,5 @@
     "perf": "warn",
     "suspicious": "warn"
   },
-  "ignorePatterns": ["**/coverage/**", "**/dist/**", "**/node_modules/**", "**/skills/**"],
-  "overrides": [
-    {
-      "files": ["packages/mcp-server/**/*.ts"],
-      "rules": { "unicorn/consistent-function-scoping": "off" }
-    },
-    {
-      "files": [
-        "packages/mcp-server/src/network.ts",
-        "packages/mcp-server/tests/**/*.ts",
-        "packages/mcp-server/integrations/codex/**/*.ts"
-      ],
-      "rules": { "no-await-in-loop": "off" }
-    },
-    {
-      "files": ["packages/mcp-server/integrations/codex/**/*.ts"],
-      "rules": { "no-shadow": "off", "unicorn/no-array-sort": "off" }
-    },
-    {
-      "files": [
-        "packages/mcp-server/integrations/codex/callback-login.mjs",
-        "packages/mcp-server/integrations/codex/deployment-environment.mjs"
-      ],
-      "rules": {
-        "no-shadow": "off",
-        "unicorn/no-array-sort": "off",
-        "no-await-in-loop": "off",
-        "unicorn/consistent-function-scoping": "off"
-      }
-    },
-    {
-      "files": ["packages/mcp-server/src/app.ts"],
-      "rules": { "oxc/no-async-endpoint-handlers": "off" }
-    },
-    {
-      "files": [
-        "packages/mcp-server/src/build-env.d.ts",
-        "packages/mcp-server/tests/protocol.test.ts"
-      ],
-      "rules": { "no-underscore-dangle": "off" }
-    }
-  ]
+  "ignorePatterns": ["**/coverage/**", "**/dist/**", "**/node_modules/**", "**/skills/**"]
 }

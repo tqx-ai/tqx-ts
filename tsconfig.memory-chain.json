@@ -1,9 +1,0 @@
-{
-  "extends": "./tsconfig.json",
-  "include": [
-    "scripts/memory-chain.test.ts",
-    "vitest.chain-memory.config.ts",
-    "packages/mcp-server/src/build-env.d.ts"
-  ],
-  "exclude": []
-}

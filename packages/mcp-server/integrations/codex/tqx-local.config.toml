@@ -1,8 +1,0 @@
-# Merge this table; preserve all unrelated existing configuration.
-# No service secret, Authorization header or test access token is needed.
-[mcp_servers.tqx_local]
-url = "http://127.0.0.1:3004/mcp"
-scopes = ["trade:read", "order:write"]
-enabled = true
-startup_timeout_sec = 30
-tool_timeout_sec = 60
