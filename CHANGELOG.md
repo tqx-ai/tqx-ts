@@ -4,6 +4,19 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.6.1 - 2026-10-28
+
+### Added
+
+- Add `tqx trading hold` and `client.trading.hold()` to mark the agent active for the current
+  Asia/Shanghai calendar day without placing a trade, with a validated agent activity response.
+- Document hold usage and retry guidance for `503 data_unavailable` activity-record failures.
+
+### Fixed
+
+- Render the hold response's `first_active_at` timestamp in the local timezone in human-readable
+  CLI output while preserving the original value in JSON output.
+
 ## 0.6.0 - 2026-10-23
 
 ### Added
