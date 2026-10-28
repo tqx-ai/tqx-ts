@@ -56,42 +56,6 @@ afterEach(() => {
 describe('CLI', () => {
   const apiKeyUrl = 'https://build-api-key.example.test'
 
-  it.each([
-    { command: 'modify', args: ['--price=185.50'], method: 'PATCH', body: { price: '185.50' } },
-    { command: 'cancel', args: [], method: 'DELETE', body: undefined },
-  ])(
-    'preserves the existing orders $command call without an idempotency key',
-    async ({ command, args, method, body }) => {
-      const data = { order_id: 'order/one', accepted: true }
-      const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(apiResponse(data))
-      const stdout = new BufferOutput()
-      const stderr = new BufferOutput()
-
-      await runCli(['trading', 'orders', command, 'order/one', ...args, '--json'], {
-        environment: { TQX_API_KEY: 'synthetic-cli-key', TQX_BASE_URL: 'https://api.example.test' },
-        credentialStore: new MemoryStore(),
-        fetch,
-        stdout,
-        stderr,
-      })
-
-      expect(fetch).toHaveBeenCalledTimes(1)
-      expect(String(fetch.mock.calls[0]?.[0])).toBe(
-        'https://api.example.test/openapi/v1/trading/orders/order%2Fone',
-      )
-      const init = fetch.mock.calls[0]?.[1]
-      expect(init?.method).toBe(method)
-      expect(init?.body).toBe(body === undefined ? undefined : JSON.stringify(body))
-      const headers = new Headers(init?.headers)
-      expect(headers.get('X-API-Key')).toBe('synthetic-cli-key')
-      expect(headers.has('Authorization')).toBe(false)
-      expect(headers.has('Idempotency-Key')).toBe(false)
-      expect(JSON.parse(stdout.value)).toEqual(data)
-      expect(stderr.value).toBe('')
-      expect(process.exitCode).toBeUndefined()
-    },
-  )
-
   it('extracts output flags from any command position and maps uppercase aliases', () => {
     expect(extractGlobalOptions(['trading', '--json', 'positions', '-H'])).toEqual({
       arguments: ['trading', 'positions', '--help'],

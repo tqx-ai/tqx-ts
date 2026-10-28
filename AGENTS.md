@@ -43,24 +43,19 @@
 
 ## Tests And Release Checks
 
-- On 2026-10-25 the human authorized continuing with local and test environments, including
-  isolated persistence and actual-client acceptance. Production, real funds/broker orders,
-  deployment, destructive cleanup and overwriting unrelated business data remain out of scope.
-  Live runners require explicit opt-in, a fresh Owner READY and independent private test homes;
-  never reuse the old 2026-10-23 READY or load `.env.prod`. Keep credentials out of source/logs.
-  The dedicated `test:memory:*` lanes retain their strict runtime I/O guards and remain available.
-
 - Add focused Vitest coverage for URL selection, HTTP method, headers, body mapping, query
   serialization, validation failures, and CLI output/exit status.
 - Unit tests resolve `@tqx-ai/sdk` to source through `vitest.config.ts`; do not rely on local
   `dist` output. Build and smoke checks cover package behavior.
 - Root `typecheck`, `test:unit`, and `test:smoke` check the public SDK/CLI only. The independent
   MCP repository owns its own strict types, unit checks, builds, Codex integration and service smoke.
-- `test:memory:sdk` retains its deny-persistence/non-fixture-network guards in
-  packages/sdk/test/memory-support; it must not import the MCP service or private repositories.
-- Cross-service and actual-client acceptance belong to the independent MCP repository and retain
-  explicit opt-in, fresh environment verification and isolated credentials there.
 - Run the narrowest relevant test while developing, then run `bun run test` before handoff. It runs
   formatting, linting, type checking, unit tests, production builds, and Node/Bun smoke tests.
 - For packaging or release changes, also run `bun run pack:check` and, when relevant,
   `bun run release:check`. Release defaults must be valid HTTPS URLs.
+
+## 本次交付范围
+
+- 仓库只交付本次需求直接需要的产品源码、运行配置及持续维护的正式文档。我们新增的回归测试、个人验证脚本、夹具、模拟服务、过程记录和证据保存在仓库外，不进入功能、测试或生产分支；同事既有内容保留。
+- 只在自己的开发分支改动；上环境由用户将已审阅开发分支普通 merge 到该仓既有环境分支，再走原构建与发布流程，不直接开发环境分支，不用 cherry-pick 代替 merge。
+- 不擅自安装工具或改陌生环境；先核实团队入口与现有能力，确需新增安装时取得用户针对该环境和安装的明确同意。
