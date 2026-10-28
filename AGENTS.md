@@ -11,7 +11,8 @@
   2026-10-27 split instruction. Do not reintroduce server source, internal authorization or
   deployment configuration, or cross-service acceptance harnesses into this public workspace.
   Public Skills and client-only plugin packages may live here; see docs/repository-boundaries.md.
-- Keep the dependency direction one-way: CLI and the separate MCP service consume the SDK; they must not recreate endpoint
+  The separate MCP service also consumes the SDK and follows the same dependency direction.
+- Keep the dependency direction one-way: CLI consumes the SDK; it must not recreate endpoint
   strings, request bodies, gateway decoding, or SDK schemas.
 - `scripts/` contains release, package, and runtime smoke checks. `dist/` is generated; never edit
   it manually. Do not commit `.env`, credentials, API keys, tarballs, or generated output.

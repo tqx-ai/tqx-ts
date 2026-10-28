@@ -113,9 +113,9 @@ echo "installed $ASSET to $HOME/.local/bin/tqx; PATH persisted in $RC"
 tqx --version
 ```
 
-For example, on Apple Silicon with release `v0.5.4` the block downloads
-`https://github.com/tqx-ai/tqx-ts/releases/download/v0.5.4/tqx-v0.5.4-macos-arm64.gz`; on Linux
-aarch64 it downloads `tqx-v0.5.4-linux-arm64.gz`. If the user's shell is fish, also run
+For example, on Apple Silicon with release `v0.6.1` the block downloads
+`https://github.com/tqx-ai/tqx-ts/releases/download/v0.6.1/tqx-v0.6.1-macos-arm64.gz`; on Linux
+aarch64 it downloads `tqx-v0.6.1-linux-arm64.gz`. If the user's shell is fish, also run
 `fish_add_path ~/.local/bin`.
 
 Your tool may start every command in a fresh shell. If a later command says `tqx: command not
@@ -146,8 +146,8 @@ $env:Path = "$binDir;$env:Path"
 tqx --version
 ```
 
-With release `v0.5.4` this downloads
-`https://github.com/tqx-ai/tqx-ts/releases/download/v0.5.4/tqx-v0.5.4-windows-x64.exe`. Then go to
+With release `v0.6.1` this downloads
+`https://github.com/tqx-ai/tqx-ts/releases/download/v0.6.1/tqx-v0.6.1-windows-x64.exe`. Then go to
 **Step 5**.
 
 ## Step 3: npm fallback
@@ -163,7 +163,7 @@ npm install --global @tqx-ai/cli@<version printed above>
 tqx --version
 ```
 
-Pin the exact version you resolved, for example `npm install --global @tqx-ai/cli@0.5.4`. If Node.js
+Pin the exact version you resolved, for example `npm install --global @tqx-ai/cli@0.6.1`. If Node.js
 is missing or older than 22.18, stop and tell the user that this platform needs Node.js 22.18+;
 installing Node.js is the user's decision. Use `pnpm add --global` or `bun add --global` only when
 that is the user's chosen package manager. If npm fails with `EACCES`, see **Troubleshooting**.

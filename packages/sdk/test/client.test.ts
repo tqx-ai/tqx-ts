@@ -954,6 +954,26 @@ describe('TqxClient', () => {
     })
   })
 
+  it('marks the agent active for today with the hold endpoint', async () => {
+    const activity = {
+      agent_id: 'agent-1',
+      activity_date: '2026-10-28',
+      is_active: true,
+      first_active_at: '2026-10-28T02:03:04Z',
+      newly_marked: true,
+    }
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(response(activity))
+    const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })
+
+    await expect(client.trading.hold()).resolves.toEqual(activity)
+
+    expect(String(fetch.mock.calls[0]?.[0])).toBe(
+      'https://build-default-trading-api.example.test/openapi/v1/trading/hold',
+    )
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('POST')
+    expect(fetch.mock.calls[0]?.[1]?.body).toBeUndefined()
+  })
+
   it('rejects malformed cash flow dates before sending a request', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>()
     const client = new TqxClient({ baseUrl: 'https://api.example.test', apiKey: 'key', fetch })

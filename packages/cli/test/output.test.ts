@@ -53,6 +53,7 @@ describe('Output', () => {
 
     new Output('plain', buffer, buffer).success({
       created_at: timestamp,
+      first_active_at: timestamp,
       updated_at: timestamp,
     })
 

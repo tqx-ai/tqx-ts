@@ -208,6 +208,14 @@ function route(method: string, path: string, apiKey: string | undefined, body: s
   }
   if (path === '/openapi/v1/auth/verify') return openApi({ valid: true })
   if (path === '/openapi/v1/trading/account') return openApi(account)
+  if (path === '/openapi/v1/trading/hold' && method === 'POST')
+    return openApi({
+      agent_id: 'agent-1',
+      activity_date: '2026-09-27',
+      is_active: true,
+      first_active_at: '2026-09-27T01:02:03Z',
+      newly_marked: true,
+    })
   if (path === '/openapi/v1/trading/positions')
     return openApi({
       items: [
@@ -397,6 +405,7 @@ const cases: Case[] = [
   stored(one('balance not logged in', ['balance', '--json'])),
   one('trading account', ['trading', 'account'], authed),
   one('trading account json', ['trading', 'account', '--json', '--currency', 'USD'], authed),
+  one('trading hold', ['trading', 'hold', '--json'], authed),
   one('trading account invalid enum', ['trading', 'account', '--currency', 'EUR'], authed),
   one('trading positions', ['trading', 'positions', '--limit', '5'], authed),
   one('trading positions plain', ['trading', 'positions', '--plain', '--market', 'HK'], authed),

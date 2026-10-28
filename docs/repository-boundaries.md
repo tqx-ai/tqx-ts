@@ -67,8 +67,7 @@ Generated Python caches do not belong in source or plugin/Skill distribution pac
 ## Dependency and release boundaries
 
 - The public Bun workspace explicitly includes only `packages/sdk` and `packages/cli`.
-- Public checks and locks must work without a private MCP checkout. The SDK memory-only lane
-  owns its local guards instead of importing the service's tests.
+- Public checks and locks must work without a private MCP checkout.
 - The MCP service consumes a versioned, verified SDK artifact. It must not depend on a sibling
   checkout, an absolute local path, or an unrecorded source alias as its deployable dependency.
 - The MCP service has not been released. Maintain one current implementation, configuration

@@ -6,7 +6,7 @@ CommonJS entry points with TypeScript declarations.
 ## Installation
 
 ```bash
-npm install @tqx-ai/sdk@0.5.4
+npm install @tqx-ai/sdk@0.6.1
 ```
 
 ## Usage
@@ -26,9 +26,8 @@ const positions = await client.trading.listPositions({
 
 Pass `baseUrl` to `TqxClient` to configure the research and User API HTTP gateway. Authentication,
 trading, and health requests use `tradingBaseUrl` or the build-time
-`TQX_BUILD_TRADING_BASE_URL`. The existing URL rules
-remain unchanged: `TQX_BASE_URL` overrides trading/authentication/health, while an explicit SDK
-`baseUrl` takes precedence over that variable for research and User API balance requests.
+`TQX_BUILD_TRADING_BASE_URL`. When set, `TQX_BASE_URL` remains the runtime global override for
+every request group.
 
 The User API provides `client.user.verify()`, `client.user.getStatus()`, and
 `client.user.getBalance()`. Balance uses `baseUrl` and the `TQX_BUILD_BASE_URL` default.
@@ -37,6 +36,10 @@ The public request and response schemas are exported as Valibot schemas alongsid
 TypeScript types.
 
 ## Deployment environments
+
+For clients passing an explicit SDK `baseUrl`, that option takes precedence over `TQX_BASE_URL`
+for research and User API balance requests. The runtime variable still overrides
+trading/authentication/health URLs.
 
 Use `TQX_ENV=local|test|prod` or `TqxClientOptions.environment` to select an optional set of
 public endpoint defaults. An explicit SDK `environment` takes precedence over `TQX_ENV`.

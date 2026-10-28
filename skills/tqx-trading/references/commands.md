@@ -161,6 +161,7 @@ Among them, `code`, `status`, `request_id` and `data` may be missing. When `data
 | 500 | `trading_data_mapping_error` | The upstream trading payload could not be interpreted safely |
 | 502 | `upstream_rejected` | Legacy compatibility code; current unclassified order rejections use `422 order_rejected` |
 | 503 | `trading_service_unavailable` | Trading channel unavailable, or no broker verdict could be obtained |
+| 503 | `data_unavailable` | Agent activity data could not be recorded; retry the idempotent hold call later |
 | 504 | `trading_timeout` | The trading operation timed out; query the original signal/order before retrying |
 
 The status class tells you what to do next:
@@ -186,6 +187,14 @@ tqx trading account --currency=USD --json
 ```
 
 Account contains `account_id`, `mode` (`LIVE` or `PAPER`), `base_currency`, asset and cash fields, `as_of`, `is_stale`.
+
+Hold day:
+
+```powershell
+tqx trading hold --json
+```
+
+`hold` marks the agent active for the current Asia/Shanghai calendar day without placing a trade. The response reports `agent_id`, `activity_date`, `is_active`, `first_active_at`, and whether this call newly created the day's active mark (`newly_marked`).
 
 Position:
 

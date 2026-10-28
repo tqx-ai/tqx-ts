@@ -272,6 +272,32 @@ describe('CLI', () => {
     expect(JSON.parse(stdout.value)).toEqual({ items: [], next_cursor: null })
   })
 
+  it('marks the agent active with trading hold', async () => {
+    const store = new MemoryStore()
+    store.value = 'stored-key'
+    const stdout = new BufferOutput()
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      apiResponse({
+        agent_id: 'agent-1',
+        activity_date: '2026-10-28',
+        is_active: true,
+        first_active_at: '2026-10-28T02:03:04Z',
+        newly_marked: true,
+      }),
+    )
+
+    await runCli(['trading', 'hold', '--json'], {
+      environment: { TQX_BASE_URL: 'https://api.example.test' },
+      credentialStore: store,
+      fetch,
+      stdout,
+    })
+
+    expect(new URL(String(fetch.mock.calls[0]?.[0])).pathname).toBe('/openapi/v1/trading/hold')
+    expect(fetch.mock.calls[0]?.[1]?.method).toBe('POST')
+    expect(JSON.parse(stdout.value)).toMatchObject({ agent_id: 'agent-1', newly_marked: true })
+  })
+
   it('fails with cash_flows_unsupported instead of printing an empty list', async () => {
     const store = new MemoryStore()
     store.value = 'stored-key'

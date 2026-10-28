@@ -72,6 +72,7 @@ To verify HTTP endpoints, request/response fields, authentication methods, and e
 ## Execution boundaries
 
 - Account, position, order, transaction and signal queries are treated as read-only operations and can be executed directly according to user requests.
+- When the agent decides to stay out of the market for the day, or needs to explicitly confirm today's active hold mark, call `tqx trading hold --json` directly. Report `activity_date`, `newly_marked`, and `first_active_at`; the call does not place an order or change a position.
 - Treat order placement, modification, and cancellation as operations that affect real trading state. Before the first execution, show the account mode (`LIVE` or `PAPER`), market scope, strategy, risk limits, frequency, stop conditions, and authorization period, then obtain a clear one-time confirmation or continuing authorization. A confirmed competition mandate is the continuing authorization for competition orders within those boundaries; do not ask for an additional per-order confirmation.
 - Continuing authorization must define clear boundaries such as market, account mode, instrument scope, direction, order type, per-order or per-day amount, maximum position, rebalance frequency, and validity period. Within those boundaries, orders may be placed, positions rebalanced, orders modified, or orders canceled without reconfirming every transaction; record and report the full parameters and result of each operation.
 - Broad statements such as “help me trade” do not define the scope of continuing authorization. Do not silently change authorized instruments, direction, order type, quantity, price, risk limit, or order ID; pause and reconfirm any change outside the authorized scope.
@@ -203,6 +204,7 @@ US stocks (`<code>.US`) trade in whole shares and have no board lot. Neither the
   `500 trading_data_mapping_error` means the upstream trading payload could not be interpreted safely.
   `503 trading_service_unavailable` means the trading channel is unavailable, including the case where the
   request never reached the broker and no verdict could be obtained.
+  `503 data_unavailable` means the agent activity mark could not be persisted or timed out; the hold operation is idempotent for the day and may be retried later.
   Current order rejections, including unclassified broker rules, use `422 order_rejected`;
   `502 upstream_rejected` is retained only for compatibility with legacy responses.
   The `data` of a rejection may include `signal_id`, `state`, `order_id`, `order_status`, `error_code`,

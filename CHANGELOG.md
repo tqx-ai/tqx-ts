@@ -4,8 +4,36 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.6.1 - 2026-10-28
+
+### Added
+
+- Add `tqx trading hold` and `client.trading.hold()` to mark the agent active for the current
+  Asia/Shanghai calendar day without placing a trade, with a validated agent activity response.
+- Document hold usage and retry guidance for `503 data_unavailable` activity-record failures.
+
+### Fixed
+
+- Render the hold response's `first_active_at` timestamp in the local timezone in human-readable
+  CLI output while preserving the original value in JSON output.
+
+## 0.6.0 - 2026-10-23
+
+### Added
+
+- Add `trading cash-flows` to the CLI and `listCashFlows` to the SDK for listing broker cash-ledger
+  rows with date, currency, and pagination filters.
+- Add validated cash-flow, per-currency balance, price-currency, and execution-fee schemas to the
+  trading SDK, including the `cash_flows_unsupported` API error contract for channels without a
+  complete ledger.
+- Add the canonical CLI and TQX Skills installation, update, authentication, and troubleshooting
+  protocol in `INSTALL.md` and the bundled Skill references.
+
 ### Changed
 
+- Streamline the bundled Skill documentation and routing guidance around installation, research,
+  trading, and operational requests.
+- Update the tqx-data account contact address to `audrey@tqx.ai`.
 - Document US stock order rules in the bundled tqx-trading skill: whole shares with no board lot,
   limit prices in $0.01 increments at $1.00 or more and $0.0001 increments below $1.00, and
   rounding toward the authorized limit, because neither the CLI nor the server rounds them.
