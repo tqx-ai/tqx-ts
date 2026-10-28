@@ -27,6 +27,7 @@ const TIMESTAMP_FIELDS = new Set([
   'as_of',
   'created_at',
   'executed_at',
+  'first_active_at',
   'submitted_at',
   'updated_at',
 ])

@@ -231,6 +231,15 @@ export const CashFlowsDataSchema = v.looseObject({
   next_cursor: optionalNullableString,
 })
 
+/** Status returned after marking the agent active for today's hold day. */
+export const AgentActivityDataSchema = v.looseObject({
+  agent_id: v.string(),
+  activity_date: v.string(),
+  is_active: v.boolean(),
+  first_active_at: v.string(),
+  newly_marked: v.boolean(),
+})
+
 export const PaginationOptionsSchema = v.strictObject({
   limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100))),
   cursor: v.optional(v.pipe(v.string(), v.maxLength(512))),
@@ -322,6 +331,7 @@ export type OrdersData = v.InferOutput<typeof OrdersDataSchema>
 export type TradesData = v.InferOutput<typeof TradesDataSchema>
 export type CashFlowData = v.InferOutput<typeof CashFlowDataSchema>
 export type CashFlowsData = v.InferOutput<typeof CashFlowsDataSchema>
+export type AgentActivityData = v.InferOutput<typeof AgentActivityDataSchema>
 export type CashFlowCategory = v.InferOutput<typeof CashFlowCategorySchema>
 export type AccountOptions = v.InferInput<typeof AccountOptionsSchema>
 export type PositionsOptions = v.InferInput<typeof PositionsOptionsSchema>

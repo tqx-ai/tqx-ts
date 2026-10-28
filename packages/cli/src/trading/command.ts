@@ -123,6 +123,10 @@ export function createTradingCommand(runtime: CommandRuntime) {
             }),
           ),
       }),
+      hold: defineCommand({
+        meta: { name: 'hold', description: 'Mark the agent active for today without trading' },
+        run: () => runtime.trading((client) => client.trading.hold()),
+      }),
       orders,
       trades: defineCommand({
         meta: { name: 'trades', description: 'List recent trades' },

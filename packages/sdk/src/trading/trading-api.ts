@@ -3,6 +3,7 @@ import * as v from 'valibot'
 import { TqxValidationError } from '../errors'
 import {
   AccountOptionsSchema,
+  AgentActivityDataSchema,
   CancelOrderDataSchema,
   CashFlowsDataSchema,
   CashFlowsOptionsSchema,
@@ -19,6 +20,7 @@ import {
   TradesOptionsSchema,
   TradingAccountDataSchema,
   type AccountOptions,
+  type AgentActivityData,
   type CancelOrderData,
   type CashFlowsData,
   type CashFlowsOptions,
@@ -54,6 +56,8 @@ export interface TradingApi {
    * cannot provide a complete ledger; an empty list is never used for that.
    */
   listCashFlows(options?: CashFlowsOptions): Promise<CashFlowsData>
+  /** Marks the agent active for today without placing a trade. */
+  hold(): Promise<AgentActivityData>
   getSignal(signalId: string): Promise<SignalData>
 }
 
@@ -171,6 +175,13 @@ export class TradingApiClient implements TradingApi {
         limit: input.limit,
         cursor: input.cursor,
       },
+    })
+  }
+
+  hold(): Promise<AgentActivityData> {
+    return this.#request(APIs.HOLD, {
+      schema: AgentActivityDataSchema,
+      method: 'POST',
     })
   }
 

@@ -85,6 +85,7 @@ Trading commands:
 
 ```text
 tqx trading account [--currency=HKD|USD]
+tqx trading hold
 tqx trading positions [--symbol=<symbol>] [--market=HK|US] [--limit=<n>] [--cursor=<cursor>]
 tqx trading orders list [--limit=<n>] [--cursor=<cursor>]
 tqx trading orders get <order-id>
