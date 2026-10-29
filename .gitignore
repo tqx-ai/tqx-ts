@@ -35,3 +35,11 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# Retired MCP checkout: keep local ignored runtime/evidence out of the public repository.
+# The service source and checks are maintained in the independent CNB repository.
+/packages/mcp-server/
+
+# Generated client-side Python caches are not plugin/Skill source.
+__pycache__/
+*.py[cod]

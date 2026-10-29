@@ -5,13 +5,14 @@ import {
   AccountOptionsSchema,
   AgentActivityDataSchema,
   CancelOrderDataSchema,
+  CancelOrderOptionsSchema,
   CashFlowsDataSchema,
   CashFlowsOptionsSchema,
   ModifyOrderDataSchema,
   ModifyOrderInputSchema,
   OrderDataSchema,
   OrdersDataSchema,
-  PaginationOptionsSchema,
+  OrdersOptionsSchema,
   PlaceOrderInputSchema,
   PositionsDataSchema,
   PositionsOptionsSchema,
@@ -22,13 +23,14 @@ import {
   type AccountOptions,
   type AgentActivityData,
   type CancelOrderData,
+  type CancelOrderOptions,
   type CashFlowsData,
   type CashFlowsOptions,
   type ModifyOrderData,
   type ModifyOrderInput,
   type OrderData,
   type OrdersData,
-  type PaginationOptions,
+  type OrdersOptions,
   type PlaceOrderInput,
   type PositionsData,
   type PositionsOptions,
@@ -42,13 +44,13 @@ import APIs from '../config/APIs'
 export interface TradingApi {
   getAccount(options?: AccountOptions): Promise<TradingAccountData>
   listPositions(options?: PositionsOptions): Promise<PositionsData>
-  listOrders(options?: PaginationOptions): Promise<OrdersData>
+  listOrders(options?: OrdersOptions): Promise<OrdersData>
   getOrder(orderId: string): Promise<OrderData>
   /** Returns a signal envelope; `state` is not the linked order's final status. */
   placeOrder(input: PlaceOrderInput): Promise<SignalData>
   modifyOrder(input: ModifyOrderInput): Promise<ModifyOrderData>
   /** Acknowledges a cancellation request; it does not confirm `CANCELLED`. */
-  cancelOrder(orderId: string): Promise<CancelOrderData>
+  cancelOrder(orderId: string, options?: CancelOrderOptions): Promise<CancelOrderData>
   listTrades(options?: TradesOptions): Promise<TradesData>
   /**
    * Lists broker cash-ledger rows in their native currency. Rejects with
@@ -103,11 +105,18 @@ export class TradingApiClient implements TradingApi {
     })
   }
 
-  async listOrders(options: PaginationOptions = {}): Promise<OrdersData> {
-    const input = parseInput(PaginationOptionsSchema, options)
+  async listOrders(options: OrdersOptions = {}): Promise<OrdersData> {
+    const input = parseInput(OrdersOptionsSchema, options)
     return this.#request(APIs.ORDERS, {
       schema: OrdersDataSchema,
-      query: input,
+      query: {
+        start_date: input.startDate,
+        end_date: input.endDate,
+        status: input.status,
+        symbol: input.symbol,
+        limit: input.limit,
+        cursor: input.cursor,
+      },
     })
   }
 
@@ -140,14 +149,24 @@ export class TradingApiClient implements TradingApi {
     return this.#request(`${APIs.ORDERS}/${encodeIdentifier(parsed.orderId, 'order ID')}`, {
       schema: ModifyOrderDataSchema,
       method: 'PATCH',
+      headers:
+        parsed.idempotencyKey === undefined
+          ? undefined
+          : { 'Idempotency-Key': parsed.idempotencyKey },
       body: { price: parsed.price },
     })
   }
 
-  cancelOrder(orderId: string): Promise<CancelOrderData> {
-    return this.#request(`${APIs.ORDERS}/${encodeIdentifier(orderId, 'order ID')}`, {
+  cancelOrder(orderId: string, options: CancelOrderOptions = {}): Promise<CancelOrderData> {
+    const encodedOrderId = encodeIdentifier(orderId, 'order ID')
+    const parsed = parseInput(CancelOrderOptionsSchema, options)
+    return this.#request(`${APIs.ORDERS}/${encodedOrderId}`, {
       schema: CancelOrderDataSchema,
       method: 'DELETE',
+      headers:
+        parsed.idempotencyKey === undefined
+          ? undefined
+          : { 'Idempotency-Key': parsed.idempotencyKey },
     })
   }
 

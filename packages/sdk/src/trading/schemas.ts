@@ -89,6 +89,11 @@ export const OrderDataSchema = v.looseObject({
   side: OrderSideSchema,
   order_type: OrderTypeSchema,
   status: OrderStatusSchema,
+  /** Provenance supplied by the service; an observation timeout is not channel expiry. */
+  status_source: optionalNullableString,
+  status_reason: optionalNullableString,
+  /** True for an older snapshot after a failed channel read; null/absent means unknown. */
+  is_stale: v.optional(v.nullable(v.boolean())),
   quantity: v.string(),
   price: nullableString,
   filled_quantity: v.string(),
@@ -101,6 +106,9 @@ export const OrderDataSchema = v.looseObject({
   effective_trade_date: optionalNullableString,
   expire_at: optionalNullableString,
   cancel_request_id: optionalNullableString,
+  modify_request_id: optionalNullableString,
+  cancel_action_status: optionalNullableString,
+  modify_action_status: optionalNullableString,
   /** Currency of `price` and `average_fill_price`; null when TQX cannot tell. */
   price_currency: optionalNullableString,
 })
@@ -119,6 +127,8 @@ export const TradeDataSchema = v.looseObject({
   commission: nullableString,
   executed_at: v.string(),
   client_order_id: optionalNullableString,
+  realized_pnl: optionalNullableString,
+  order_type: v.optional(v.nullable(OrderTypeSchema)),
   /** All fees charged for this execution, in `currency`; null when the fee snapshot is unavailable. */
   total_fees: optionalNullableString,
   /** Itemized fees keyed by fee name, in `currency`; null when items are unavailable or do not add up. */
@@ -137,6 +147,10 @@ export const SignalDataSchema = v.looseObject({
   state: SignalStateSchema,
   order_id: nullableString,
   order_status: nullableString,
+  /** Monitoring state is independent of submission state and the linked order status. */
+  monitor_status: optionalNullableString,
+  monitor_stop_reason: optionalNullableString,
+  order_status_source: optionalNullableString,
   message: nullableString,
   created_at: v.string(),
   updated_at: v.string(),
@@ -268,6 +282,20 @@ const isoDateString = v.pipe(
   v.regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected a date in YYYY-MM-DD format'),
 )
 
+/** Optional filters over the current active-order snapshot, not historical orders. */
+export const OrdersOptionsSchema = v.strictObject({
+  startDate: v.optional(isoDateString),
+  endDate: v.optional(isoDateString),
+  status: v.optional(
+    v.pipe(
+      v.string(),
+      v.transform((value) => value.trim().toUpperCase()),
+    ),
+  ),
+  symbol: v.optional(v.pipe(v.string(), v.minLength(3), v.maxLength(32))),
+  ...PaginationOptionsSchema.entries,
+})
+
 export const CashFlowsOptionsSchema = v.strictObject({
   startDate: v.optional(isoDateString),
   endDate: v.optional(isoDateString),
@@ -275,6 +303,16 @@ export const CashFlowsOptionsSchema = v.strictObject({
   limit: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(100))),
   cursor: v.optional(v.pipe(v.string(), v.maxLength(512))),
 })
+
+const idempotencyKey = v.pipe(
+  v.string(),
+  v.minLength(8, 'Must be at least 8 characters'),
+  v.maxLength(128, 'Must be at most 128 characters'),
+  v.regex(
+    /^[A-Za-z0-9][A-Za-z0-9._:-]+$/,
+    'Must start with a letter or number and contain only letters, numbers, periods, underscores, colons, or hyphens',
+  ),
+)
 
 export const PlaceOrderInputSchema = v.pipe(
   v.strictObject({
@@ -295,15 +333,7 @@ export const PlaceOrderInputSchema = v.pipe(
       ),
     ),
     timeInForce: v.optional(TimeInForceSchema),
-    idempotencyKey: v.pipe(
-      v.string(),
-      v.minLength(8, 'Must be at least 8 characters'),
-      v.maxLength(128, 'Must be at most 128 characters'),
-      v.regex(
-        /^[A-Za-z0-9][A-Za-z0-9._:-]+$/,
-        'Must start with a letter or number and contain only letters, numbers, periods, underscores, colons, or hyphens',
-      ),
-    ),
+    idempotencyKey,
   }),
   v.check(
     (input) =>
@@ -316,6 +346,11 @@ export const PlaceOrderInputSchema = v.pipe(
 export const ModifyOrderInputSchema = v.strictObject({
   orderId: v.pipe(v.string(), v.minLength(1), v.maxLength(128)),
   price: positiveDecimalString,
+  idempotencyKey: v.optional(idempotencyKey),
+})
+
+export const CancelOrderOptionsSchema = v.strictObject({
+  idempotencyKey: v.optional(idempotencyKey),
 })
 
 export type TradingAccountData = v.InferOutput<typeof TradingAccountDataSchema>
@@ -336,10 +371,12 @@ export type CashFlowCategory = v.InferOutput<typeof CashFlowCategorySchema>
 export type AccountOptions = v.InferInput<typeof AccountOptionsSchema>
 export type PositionsOptions = v.InferInput<typeof PositionsOptionsSchema>
 export type PaginationOptions = v.InferInput<typeof PaginationOptionsSchema>
+export type OrdersOptions = v.InferInput<typeof OrdersOptionsSchema>
 export type TradesOptions = v.InferInput<typeof TradesOptionsSchema>
 export type CashFlowsOptions = v.InferInput<typeof CashFlowsOptionsSchema>
 export type PlaceOrderInput = v.InferInput<typeof PlaceOrderInputSchema>
 export type ModifyOrderInput = v.InferInput<typeof ModifyOrderInputSchema>
+export type CancelOrderOptions = v.InferInput<typeof CancelOrderOptionsSchema>
 export type Market = v.InferOutput<typeof MarketSchema>
 export type OrderSide = v.InferOutput<typeof OrderSideSchema>
 export type OrderType = v.InferOutput<typeof OrderTypeSchema>

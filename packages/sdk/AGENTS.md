@@ -41,3 +41,15 @@
   gateway error shape in `test/`.
 - Run `bun run typecheck` and the focused Vitest file during development. Run `bun run test` before
   handoff; run `bun run pack:check` for public-surface or packaging changes.
+
+## Public Client Additions
+
+- The API-key-only transport rule above is extended for clients explicitly using `bearerToken`
+  with a backend that supports it. Authenticated requests use either `apiKey` (`X-API-Key`) or
+  `bearerToken` (`Authorization: Bearer`), never both. Health carries neither. Callers obtain and
+  refresh Bearer tokens; the SDK does not exchange tokens. Research still uses API keys until its
+  backend supports Bearer.
+- `config/environment.ts` owns optional `local|test|prod` public endpoint defaults, independent of
+  `NODE_ENV`. Preserve the existing explicit/generic/build fallback chain. Unknown or incomplete
+  profile selections do not add startup policies or credential migration/binding prerequisites.
+  Expose requested/recognized selection and effective URLs without reading credentials.

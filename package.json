@@ -4,7 +4,8 @@
   "private": true,
   "license": "GPL-3.0-only",
   "workspaces": [
-    "packages/*"
+    "packages/sdk",
+    "packages/cli"
   ],
   "type": "module",
   "scripts": {
