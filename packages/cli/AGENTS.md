@@ -12,9 +12,6 @@
 
 - Resolve credentials through `resolveApiKey`; `TQX_API_KEY` has priority over the persisted key.
   Never echo a key, token, credential-file content, or secret in output, errors, tests, or docs.
-- Optional `TQX_ENV=local|test|prod` selection only supplements public URL defaults. Keep existing
-  generic-key/default-profile behavior and explicit overrides; do not introduce profile migration
-  or startup prerequisites. `config` displays effective public settings without authentication.
 - Runtime `TQX_BASE_URL` is passed to `TqxClient`. For Qube, users must supply or build with the
   `/pandaApi` gateway base; commands must not try to derive paths or authenticate with legacy
   Research sessions.

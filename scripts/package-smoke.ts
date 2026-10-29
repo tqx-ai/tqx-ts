@@ -9,6 +9,7 @@ const cliDirectory = resolve(root, 'packages/cli')
 const temporaryDirectory = mkdtempSync(join(tmpdir(), 'tqx-package-smoke-'))
 const sdkInstallDirectory = resolve(temporaryDirectory, 'sdk-install')
 const cliInstallDirectory = resolve(temporaryDirectory, 'cli-install')
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm'
 
 const sdkPackageJson = readJson(resolve(sdkDirectory, 'package.json'))
 const cliPackageJson = readJson(resolve(cliDirectory, 'package.json'))
@@ -39,10 +40,16 @@ try {
     resolve(cliInstallDirectory, 'package.json'),
     JSON.stringify({ name: 'tqx-cli-package-smoke', private: true }, null, 2),
   )
-  installPackage('Install packed SDK with npm', sdkTarball, sdkInstallDirectory)
-  installPackage(
+  run(
+    'Install packed SDK with npm',
+    npm,
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund', sdkTarball],
+    sdkInstallDirectory,
+  )
+  run(
     'Install packed CLI with npm without the SDK package',
-    cliTarball,
+    npm,
+    ['install', '--ignore-scripts', '--no-audit', '--no-fund', cliTarball],
     cliInstallDirectory,
   )
 
@@ -97,41 +104,17 @@ function readJson(path: string): PackageJson {
   return JSON.parse(readFileSync(path, 'utf8')) as PackageJson
 }
 
-function installPackage(name: string, tarball: string, cwd: string): void {
-  const windows = process.platform === 'win32'
-  const args = ['install', '--ignore-scripts', '--no-audit', '--no-fund']
-  // Use cmd to honor npm shims. Expand the path from the environment inside quotes;
-  // never interpolate a tarball path into shell source. Disable delayed expansion for '!'.
-  run(
-    name,
-    windows ? process.env.ComSpec || 'cmd.exe' : 'npm',
-    windows
-      ? ['/d', '/v:off', '/s', '/c', `npm.cmd ${args.join(' ')} "%TQX_PACKAGE_SMOKE_TARBALL%"`]
-      : [...args, tarball],
-    cwd,
-    undefined,
-    windows ? { ...process.env, TQX_PACKAGE_SMOKE_TARBALL: tarball } : process.env,
-  )
-}
-
 function run(
   name: string,
   command: string,
   args: string[],
   cwd: string,
   expectedOutput?: string,
-  environment = process.env,
 ): void {
-  const result = spawnSync(command, args, {
-    cwd,
-    encoding: 'utf8',
-    env: environment,
-    windowsHide: true,
-    windowsVerbatimArguments: command === (process.env.ComSpec || 'cmd.exe'),
-  })
+  const result = spawnSync(command, args, { cwd, encoding: 'utf8' })
   if (result.status !== 0 || (expectedOutput && !result.stdout.includes(expectedOutput))) {
     throw new Error(
-      `${name} failed\nstdout: ${result.stdout}\nstderr: ${result.stderr}\nstatus: ${result.status}\nerror: ${result.error?.message ?? 'none'}`,
+      `${name} failed\nstdout: ${result.stdout}\nstderr: ${result.stderr}\nstatus: ${result.status}`,
     )
   }
   process.stdout.write(`ok - ${name}\n`)

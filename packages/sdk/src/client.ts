@@ -9,11 +9,6 @@ import {
   type HealthData,
 } from './schemas'
 import APIs from './config/APIs'
-import {
-  resolveTqxEndpoints,
-  type TqxEndpointOptions,
-  type TqxRuntimeEnvironment,
-} from './config/environment'
 import { ResearchApiClient, type ResearchApi } from './research/api'
 import { TradingApiClient, type TradingApi } from './trading/trading-api'
 import { UserApiClient, type UserApi } from './user/user-api'
@@ -22,21 +17,11 @@ import { BugsApiClient, type BugsApi } from './bug-report/bug-report-api'
 export type { TradingApi } from './trading/trading-api'
 export type { UserApi } from './user/user-api'
 export type { BugsApi } from './bug-report/bug-report-api'
-export { resolveTqxEndpoints } from './config/environment'
-export type {
-  TqxEndpointOptions,
-  TqxEnvironment,
-  TqxResolvedEndpoints,
-  TqxRuntimeEnvironment,
-} from './config/environment'
 
-export interface TqxClientOptions extends TqxEndpointOptions {
-  /** Injectable public endpoint environment; credentials are never read from this object. */
-  runtimeEnvironment?: TqxRuntimeEnvironment
-  /** Sent as X-API-Key. Mutually exclusive with bearerToken. */
+export interface TqxClientOptions {
+  baseUrl?: string
+  tradingBaseUrl?: string
   apiKey?: string
-  /** Raw API access token, without the Bearer prefix. Acquisition and renewal belong to the caller. */
-  bearerToken?: string
   fetch?: typeof globalThis.fetch
   clientMac?: string
   clientVersion?: string
@@ -71,24 +56,23 @@ export class TqxClient {
   readonly #baseUrl?: string
   readonly #tradingBaseUrl: string
   readonly #apiKey?: string
-  readonly #bearerToken?: string
   readonly #clientMac?: string
   readonly #clientVersion?: string
   readonly #fetch: typeof globalThis.fetch
 
   constructor(clientOptions: TqxClientOptions) {
-    const endpoints = resolveTqxEndpoints(clientOptions, clientOptions.runtimeEnvironment)
-    this.#baseUrl = endpoints.baseUrl
-    this.#tradingBaseUrl = endpoints.tradingBaseUrl
-    if (clientOptions.apiKey !== undefined && clientOptions.bearerToken !== undefined) {
-      throw new TqxConfigurationError('apiKey and bearerToken are mutually exclusive')
-    }
-    this.#apiKey = normalizeCredential(clientOptions.apiKey, 'apiKey', /^[\x20-\x7e]+$/)
-    this.#bearerToken = normalizeCredential(
-      clientOptions.bearerToken,
-      'bearerToken',
-      /^[A-Za-z0-9._~+/-]+=*$/,
+    const runtimeBaseUrl = process.env.TQX_BASE_URL?.trim() || undefined
+    const defaultBaseUrl =
+      clientOptions.baseUrl !== undefined
+        ? clientOptions.baseUrl
+        : (runtimeBaseUrl ?? __TQX_BUILD_DEFAULT_BASE_URL__)
+    this.#baseUrl = defaultBaseUrl === undefined ? undefined : normalizeBaseUrl(defaultBaseUrl)
+    this.#tradingBaseUrl = normalizeBaseUrl(
+      runtimeBaseUrl ??
+        clientOptions.tradingBaseUrl ??
+        (__TQX_BUILD_DEFAULT_TRADING_BASE_URL__.trim() || this.#baseUrl),
     )
+    this.#apiKey = clientOptions.apiKey?.trim() || undefined
     this.#clientMac = normalizeClientMac(clientOptions.clientMac)
     this.#clientVersion = normalizeClientVersion(clientOptions.clientVersion)
     this.#fetch = clientOptions.fetch ?? globalThis.fetch
@@ -132,8 +116,8 @@ export class TqxClient {
     options: RequestOptions<TSchema>,
   ): Promise<v.InferOutput<TSchema>> {
     const authenticated = options.authenticated ?? true
-    if (authenticated && !this.#apiKey && !this.#bearerToken) {
-      throw new TqxConfigurationError('An API key or Bearer token is required for this request')
+    if (authenticated && !this.#apiKey) {
+      throw new TqxConfigurationError('An API key is required for this request')
     }
 
     const baseUrl = options.baseUrl ?? this.#baseUrl
@@ -149,13 +133,8 @@ export class TqxClient {
 
     const method = options.method ?? 'GET'
     const headers = new Headers(options.headers)
-    headers.delete('X-API-Key')
-    headers.delete('Authorization')
     headers.set('Accept', 'application/json')
-    if (authenticated) {
-      if (this.#bearerToken) headers.set('Authorization', `Bearer ${this.#bearerToken}`)
-      else headers.set('X-API-Key', this.#apiKey!)
-    }
+    if (authenticated) headers.set('X-API-Key', this.#apiKey!)
     if (this.#clientMac) headers.set('X-TQX-Client-MAC', this.#clientMac)
     if (this.#clientVersion) headers.set('X-TQX-Client-Version', this.#clientVersion)
     if (options.body !== undefined) headers.set('Content-Type', 'application/json')
@@ -216,18 +195,6 @@ export class TqxClient {
 
 const CLIENT_MAC_PATTERN = /^(?:[0-9A-F]{2}:){5}[0-9A-F]{2}$/
 const CLIENT_VERSION_PATTERN = /^[\x20-\x7e]{1,128}$/
-
-function normalizeCredential(
-  value: string | undefined,
-  name: 'apiKey' | 'bearerToken',
-  pattern: RegExp,
-): string | undefined {
-  if (value === undefined) return undefined
-  if (typeof value !== 'string' || !pattern.test(value.trim())) {
-    throw new TqxConfigurationError(`${name} must be a non-empty valid HTTP credential`)
-  }
-  return value.trim()
-}
 
 function normalizeClientMac(value: string | undefined): string | undefined {
   if (value === undefined) return undefined
@@ -405,4 +372,23 @@ function gatewayMessage(record: Record<string, unknown> | undefined, fallback: s
   if (typeof record.message === 'string') return record.message
   if (typeof record.msgKey === 'string') return record.msgKey
   return fallback
+}
+
+function normalizeBaseUrl(baseUrl: string | undefined): string {
+  const trimmed = baseUrl?.trim().replace(/\/+$/, '')
+  if (!trimmed) {
+    throw new TqxConfigurationError(
+      'baseUrl is required because the SDK was built without TQX_BUILD_BASE_URL',
+    )
+  }
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    throw new TqxConfigurationError('baseUrl must be an absolute HTTP(S) URL')
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new TqxConfigurationError('baseUrl must use HTTP or HTTPS')
+  }
+  return parsed.toString().replace(/\/$/, '')
 }

@@ -7,11 +7,6 @@
 - `packages/sdk` owns the public client, API paths, public types, Valibot validation, transport,
   response decoding, and typed API errors. `packages/cli` owns Citty commands, credentials,
   terminal output, and process exit behavior.
-- The MCP resource server is maintained in a separate CNB repository, per the human's
-  2026-10-27 split instruction. Do not reintroduce server source, internal authorization or
-  deployment configuration, or cross-service acceptance harnesses into this public workspace.
-  Public Skills and client-only plugin packages may live here; see docs/repository-boundaries.md.
-  The separate MCP service also consumes the SDK and follows the same dependency direction.
 - Keep the dependency direction one-way: CLI consumes the SDK; it must not recreate endpoint
   strings, request bodies, gateway decoding, or SDK schemas.
 - `scripts/` contains release, package, and runtime smoke checks. `dist/` is generated; never edit
@@ -48,15 +43,7 @@
   serialization, validation failures, and CLI output/exit status.
 - Unit tests resolve `@tqx-ai/sdk` to source through `vitest.config.ts`; do not rely on local
   `dist` output. Build and smoke checks cover package behavior.
-- Root `typecheck`, `test:unit`, and `test:smoke` check the public SDK/CLI only. The independent
-  MCP repository owns its own strict types, unit checks, builds, Codex integration and service smoke.
 - Run the narrowest relevant test while developing, then run `bun run test` before handoff. It runs
   formatting, linting, type checking, unit tests, production builds, and Node/Bun smoke tests.
 - For packaging or release changes, also run `bun run pack:check` and, when relevant,
   `bun run release:check`. Release defaults must be valid HTTPS URLs.
-
-## 本次交付范围
-
-- 仓库只交付本次需求直接需要的产品源码、运行配置及持续维护的正式文档。我们新增的回归测试、个人验证脚本、夹具、模拟服务、过程记录和证据保存在仓库外，不进入功能、测试或生产分支；同事既有内容保留。
-- 只在自己的开发分支改动；上环境由用户将已审阅开发分支普通 merge 到该仓既有环境分支，再走原构建与发布流程，不直接开发环境分支，不用 cherry-pick 代替 merge。
-- 不擅自安装工具或改陌生环境；先核实团队入口与现有能力，确需新增安装时取得用户针对该环境和安装的明确同意。

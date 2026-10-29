@@ -16,29 +16,10 @@ export function createTradingCommand(runtime: CommandRuntime) {
     subCommands: {
       list: defineCommand({
         meta: { name: 'list', description: 'List current active orders' },
-        args: {
-          startDate: {
-            type: 'string',
-            description: 'First submitted date YYYY-MM-DD (Hong Kong time)',
-          },
-          endDate: {
-            type: 'string',
-            description: 'Last submitted date YYYY-MM-DD (Hong Kong time)',
-          },
-          status: { type: 'string', description: 'Order status filter' },
-          symbol: { type: 'string', description: 'Symbol filter' },
-          ...paginationArgs,
-        },
+        args: paginationArgs,
         run: ({ args }) =>
           runtime.trading((client) =>
-            client.trading.listOrders({
-              startDate: args.startDate,
-              endDate: args.endDate,
-              status: args.status,
-              symbol: args.symbol,
-              limit: optionalNumber(args.limit),
-              cursor: args.cursor,
-            }),
+            client.trading.listOrders({ limit: optionalNumber(args.limit), cursor: args.cursor }),
           ),
       }),
       get: defineCommand({

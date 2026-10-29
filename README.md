@@ -2,16 +2,6 @@
 
 TQX provides the Node.js-compatible `@tqx-ai/sdk` and the Citty-based `@tqx-ai/cli`.
 
-This public workspace contains the SDK, CLI, and reusable agent Skills. The hosted MCP service
-is maintained in a separate CNB repository and consumes the SDK as a client dependency. Its
-server implementation, internal authorization configuration, deployment files, and cross-service
-acceptance harnesses are not part of this workspace. See [repository boundaries](./docs/repository-boundaries.md)
-for the public client and plugin packaging policy.
-
-For the hosted MCP workflow, see [connecting an agent](./docs/mcp-client.md). MCP is unreleased;
-the public endpoint and client distribution are still pending. Ordinary MCP OAuth is separate
-from CLI/API-key onboarding and does not require installing the CLI.
-
 ## Installation
 
 **Using an AI agent?** Give it this instruction: "Read
@@ -173,11 +163,6 @@ const signal = await client.trading.placeOrder({
 
 All requests use the native Fetch API. Public request and response schemas are exported as
 Valibot schemas alongside their inferred TypeScript types.
-
-The SDK also accepts `bearerToken` for backends supporting API access tokens. It is mutually
-exclusive with `apiKey`; health requests send neither credential. Callers obtain and renew the
-token. See [SDK authentication](./packages/sdk/README.md#bearer-authentication) for token audience
-requirements. CLI login continues to use API keys.
 
 ## License
 
