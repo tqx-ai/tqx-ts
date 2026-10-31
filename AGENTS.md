@@ -2,7 +2,7 @@
 
 ## Scope And Ownership
 
-- This Bun 1.4.2+ workspace publishes the Node.js 22.18+ `@tqx-ai/sdk` and
+- This Bun 1.4.4+ workspace publishes the Node.js 22.18+ `@tqx-ai/sdk` and
   `@tqx-ai/cli` packages. Run workspace commands from this directory.
 - `packages/sdk` owns the public client, API paths, public types, Valibot validation, transport,
   response decoding, and typed API errors. `packages/cli` owns Citty commands, credentials,
@@ -40,7 +40,7 @@
 ## Tests And Release Checks
 
 - After editing Markdown (`.md`) files, run the workspace formatter on the changed files with
-  `bun run oxfmt <file...>` and review its diff. This also applies to documentation-only changes.
+  `bun fmt <file...>` and review its diff. This also applies to documentation-only changes.
 - Before handoff or commit, run `bun run format:check` from the workspace root. A formatter run
   that skips or excludes files does not replace this check; resolve formatting failures before
   reporting the changes as ready.
