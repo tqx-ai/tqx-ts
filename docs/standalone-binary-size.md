@@ -1,6 +1,6 @@
-# Standalone Binary Size Research (QuickJS / Perry / scriptc / Porffor)
+# Standalone Binary Size Research (QuickJS / Perry / scriptc / Porffor / TinyJS)
 
-Research date: 2026-09-27. Conclusions first:
+Research dates: 2026-09-27 and 2026-10-31. Conclusions first:
 
 - **No candidate can currently replace `bun build --compile` while keeping behavior identical to
   `node packages/cli/dist/index.mjs`.** The closest is Perry (24.2 MiB on macOS arm64, about 40% of
@@ -12,6 +12,26 @@ Research date: 2026-09-27. Conclusions first:
   byte with the Node.js reference on its own platform before release.
 - The earlier "stuck on the keychain" problem with Perry and scriptc is explained below in
   [Credential storage (keychain)](#credential-storage-keychain--why-earlier-attempts-stalled).
+- **Node SEA does not reduce the runtime cost.** On macOS arm64 with Node v26.13.0, a signed SEA
+  was 139.2 MiB (41.8 MiB gzip), compared with the 140.5 MiB Node executable it was based on.
+- **TinyJS's underlying txiki.js runtime is the first credible sub-10 MiB candidate.** A v26.6.0
+  macOS arm64 runtime and a compiled hello-world program were both about 5.9 MB. It cannot run the
+  current CLI unchanged because txiki.js is not Node-compatible; it requires a runtime port and a
+  new differential test pass.
+
+## Official project links
+
+Keep this index near the top of the report so future experiments can start from the primary project
+pages and documentation rather than from search results.
+
+| Project | Website | Documentation | GitHub |
+| ------- | ------- | ------------- | ------ |
+| Perry | [perryts.com](https://perryts.com/) | [docs.perryts.com](https://docs.perryts.com/) | [PerryTS/perry](https://github.com/PerryTS/perry) |
+| scriptc | [scriptc.dev](https://scriptc.dev/) | [scriptc docs](https://scriptc.dev/docs) · [Node compatibility](https://scriptc.dev/compatibility) | [vercel-labs/scriptc](https://github.com/vercel-labs/scriptc) |
+| Porffor | [porffor.dev](https://porffor.dev/) | [Porffor docs](https://porffor.dev/docs) | [CanadaHonk/porffor](https://github.com/CanadaHonk/porffor) |
+| QuickJS-ng | — | [QuickJS-ng README](https://github.com/quickjs-ng/quickjs#readme) | [quickjs-ng/quickjs](https://github.com/quickjs-ng/quickjs) |
+| TinyJS / txiki.js | [tinyjs.app](https://tinyjs.app/) | [TinyJS docs](https://tinyjs.app/docs/) · [txiki.js docs](https://tinyjs.app/docs/txiki) | [saghul/txiki.js](https://github.com/saghul/txiki.js) |
+| Node SEA | [Node.js](https://nodejs.org/) | [Single executable applications](https://nodejs.org/api/single-executable-applications.html) | [nodejs/node](https://github.com/nodejs/node) |
 
 ## Current state
 
@@ -90,13 +110,44 @@ however, passed only **48/80** cases and exposed these problems:
    so every failing command exits with 0. Only the literal `process.exitCode = N` form works. The
    alias write does work in a small standalone program but not in the real bundle, which points to
    a context-dependent compiler bug.
-3. **`@lezer/python`'s `parser.parse()` throws `TypeError: object is not a function`**, so local
-   strategy validation fails for every `research strategy create/save/update`. Minimal repro:
+3. **Perry loses the Lezer `Tree` prototype on the `@lezer/python` parse path**, so local strategy
+   validation fails for every `research strategy create/save/update`. The earlier shorthand that
+   `parser.parse()` itself throws `TypeError: object is not a function` was imprecise. With
+   Perry 0.5.1520, parsing completes, but the returned value is a null-prototype object:
 
    ```ts
    import { parser } from '@lezer/python'
-   parser.parse('def f(x):\n    return x + 1\n')
+   const tree = parser.parse('x = 1\n')
+   console.log(typeof tree)                 // object
+   console.log(Object.getPrototypeOf(tree)) // null (Perry)
+   console.log(tree.topNode)                // undefined (Perry)
+   console.log(tree.topNode.name)           // fails
    ```
+
+   There is no Python-specific function call at this point. The generated
+   `@lezer/python/dist/index.js` only deserializes the grammar at line 302:
+   `const parser = LRParser.deserialize({...})`. The relevant call chain is:
+
+   - `@lezer/common` `Parser.parse` (lines 1754-1759) calls `parse.advance()` until it
+     receives a tree.
+   - `@lezer/lr` `StackToTree.stackToTree` (lines 1521-1530) calls
+     `Tree.build({ buffer: StackBufferCursor.create(stack), ... })`.
+   - `@lezer/common` `Tree.build` (line 551) enters `buildTree`; its `makeTree` helper
+     (lines 1414-1423) returns `new Tree(...)`.
+   - The `Tree` API defines `get topNode()` at `@lezer/common` lines 450-452. That getter
+     lives on `Tree.prototype`. Since Perry returns a tree-shaped object with
+     `Object.getPrototypeOf(tree) === null`, the getter is absent and `tree.topNode` is
+     `undefined`. The next access in TQX, `root.name` (`packages/sdk/src/research/strategy-validation/validate.ts`
+     line 163), then fails. Traversal getters such as `TreeNode.firstChild` (line 781),
+     `parent` (lines 804-805), and `nextSibling` (lines 807-808) are affected for the same
+     reason.
+
+   Node 22/26 returns an actual `Tree` instance and `tree.topNode.name === "Script"` for the
+   same input. Perry also supports ordinary class getters and direct `new Tree(...)` in smaller
+   probes, so this is a compiler/runtime bug in the cross-module `StackBufferCursor` →
+   `Tree.build` path, rather than a syntax error in the Python grammar. The exact Perry error
+   text can vary by which missing method is reached; the full CLI previously reported
+   `TypeError: object is not a function`.
 
 4. Some nested objects (such as `params` from the API and error `data`) are **printed with keys
    sorted alphabetically**, while JavaScript requires insertion order, which changes `--json`
@@ -114,23 +165,24 @@ Perry's issue numbers are past 11,000, and issues such as "exits 0 where node ex
 is not a function" keep recurring on real npm packages while being fixed. **Perry should not be
 used for the trading CLI until it passes our differential suite.**
 
-### scriptc (vercel-labs/scriptc, tested version 0.1.6)
+### scriptc (vercel-labs/scriptc, current release v0.4.7)
 
-- A static compiler: after TypeScript type checking it lowers TS to C/LLVM with a small native
-  runtime. npm dependencies need `--dynamic`, which runs them in an embedded quickjs-ng "dynamic
-  island" (about +620 KB).
-- Compiling the bundled JS directly fails: it checks the inlined @lezer code against the
-  repository's strict tsconfig (`noImplicitOverride`, "used before being assigned", and so on).
-- After compiling `packages/cli/src/index.ts` (with `__TQX_BUILD_*__` replaced by literals and the
-  SDK pointed at its source), `scriptc coverage --dynamic` reports that only **70% of statements
-  compile statically**. The blockers are exactly the CLI's core patterns: passing `fetch` as a
-  function value, `instanceof` on `unknown`, records with index signatures, `Object.values`,
-  `new Error(msg, { cause })`, `globalThis`, generic interface method calls,
-  `BunSecretsCredentialStore`, and more.
-- Its design is "report an error for anything that cannot compile statically", which means
-  rewriting a large amount of code into its subset, and it has documented intentional divergences
-  such as `JSON.stringify` key order and Date parsing. **It does not meet the goal of matching
-  `node xxx.ts`.**
+- Compared with the `0.1.6` version tested in the September report, `v0.4.7` adds substantial
+  Node-parity coverage: `http`, `path`, `querystring`, `Intl`, `Proxy`, streams, typed arrays,
+  process behavior, and more. The release is still explicitly experimental and supports only a
+  subset of JavaScript, TypeScript, and Node.js APIs. See the [v0.4.7 changelog](https://github.com/vercel-labs/scriptc/releases/tag/v0.4.7)
+  and [documented limitations](https://scriptc.dev/docs/limitations).
+- `v0.4.6` also added **Node islands**, which can load Node.js in-process for code the native tier
+  cannot compile. This is a useful compatibility escape hatch, but it embeds or requires the Node
+  runtime and therefore does not solve the small standalone-binary goal.
+- The old `scriptc coverage --dynamic` result of **70% static statements** applies only to `0.1.6`;
+  it should not be presented as a current `0.4.7` measurement. We have not yet rerun the complete
+  TQX coverage and differential suite on `0.4.7`.
+- The remaining TQX risk is still structural: the CLI uses dynamic function values, `unknown`/`any`
+  flows, index-signature records, `Object.values`, generic calls, `globalThis`, `Error` causes,
+  Bun credential storage, and runtime-dependent behavior. A fresh coverage run is worthwhile, but
+  this is still a porting project rather than a drop-in compiler. **It is the second-closest option,
+  behind Perry.**
 
 ### Porffor (CanadaHonk/porffor)
 
@@ -144,6 +196,82 @@ used for the trading CLI until it passes our differential suite.**
 - Running the CLI fails immediately with `Could not find export 'parseArgs' in module 'util'`, and
   the probe showed that sync APIs such as `fs.existsSync` are missing as well. It also has no
   supported way to embed a script into a single-file executable. **Not usable.**
+
+### Additional evaluation: Node single executable applications (SEA, 2026-10-31)
+
+Node v26.13.0 now has the built-in `node --build-sea` workflow (introduced in Node v25.5.0). SEA
+injects a preparation blob into a copy of the Node executable; it does not provide a smaller
+runtime. See the [official SEA documentation](https://nodejs.org/api/single-executable-applications.html).
+
+The experiment used the current bundled CLI entry and a temporary esbuild bundle because the
+repository's normal CLI output still leaves `citty`, `valibot`, and `picocolors` as external imports.
+SEA's injected module can load built-ins by default, but external packages must be bundled first.
+The resulting macOS arm64 measurements were:
+
+| Artifact                                 |       Bytes |      Size |
+| ---------------------------------------- | ----------: | --------: |
+| Node v26.13.0 executable                 | 147,346,864 | 140.5 MiB |
+| Signed SEA with the CLI                  | 145,928,240 | 139.2 MiB |
+| Signed SEA, gzip -9                      |  43,830,050 |  41.8 MiB |
+| Bundled CLI JavaScript injected into SEA |     235,370 |   230 KiB |
+
+The SEA ran the real CLI's `--version` and `--help` commands successfully after bundling. On macOS,
+the binary must be re-signed after injection; running the unsigned artifact was terminated with
+exit status 137. `useCodeCache` and `useSnapshot` were disabled for the size comparison.
+
+SEA is therefore a compatibility option when Node's runtime is required, not a size optimization.
+It is substantially larger than the Bun release assets and still requires a platform-specific
+build and signing step.
+
+### Additional evaluation: TinyJS / txiki.js (2026-10-31)
+
+[TinyJS](https://tinyjs.app/) is a desktop application framework whose backend runs on
+[txiki.js](https://github.com/saghul/txiki.js/). The small binary is txiki.js itself: QuickJS-ng plus
+libuv and selected native modules. TinyJS's GUI launcher and system WebView are useful for desktop
+apps, but are unnecessary for a terminal CLI. The relevant CLI path is `tjs compile`, not
+`tinyjs build`.
+
+The official v26.6.0 macOS arm64 archive was downloaded and tested locally:
+
+| Artifact                             |     Bytes |     Size |
+| ------------------------------------ | --------: | -------: |
+| `tjs` runtime                        | 5,913,888 | 5.64 MiB |
+| `tjs compile` hello-world executable | 5,914,109 | 5.64 MiB |
+
+The compiled program executed a standard `fetch()` request successfully. txiki.js also provides
+file I/O, subprocesses, sockets, WebCrypto, `randomUUID`, compression streams, SQLite, and
+standalone compilation. Its [runtime documentation](https://tinyjs.app/docs/txiki) explicitly states
+that it has no `require`, `process`, `Buffer`, or `node:*` modules.
+
+The current TQX CLI cannot be passed to `tjs compile` unchanged. Running `tjs bundle
+packages/cli/dist/index.mjs` fails on the CLI's Node imports:
+
+```text
+Could not resolve "node:fs/promises"
+Could not resolve "node:os"
+Could not resolve "node:path"
+Could not resolve "node:fs"
+Could not resolve "node:crypto"
+Could not resolve "node:child_process"
+```
+
+The required port is broader than replacing one import. The runtime boundary would need adapters for
+`fs`/`fs/promises`, `os`, `path`, `crypto.createHash`, `child_process.spawn`, `util.parseArgs`,
+`zlib.gunzip`, `process.argv`/`process.env`/`process.exitCode`, `Buffer`, and credential storage.
+The SDK also reads `process.env` directly. Pure JavaScript dependencies such as Valibot and most of
+the CLI code may bundle, but `@lezer/python` and every output/error path still need compatibility
+tests on QuickJS.
+
+TinyJS's `app.secrets` API is an OS credential-store API for a TinyJS app backend. A direct `tjs`
+CLI does not inherit the existing Bun service/account contract, so a port must either define a new
+credential store or implement a migration-compatible adapter. The current self-update flow would
+also need to be rewritten around txiki.js's APIs.
+
+**Conclusion:** txiki.js is the most promising route for reducing a TQX standalone binary to roughly
+6 MB, but it is a new runtime target rather than a packaging switch. Prototype it behind the existing
+runtime abstraction with `--version`, `--help`, `health`, one authenticated request, and credential
+read/write first. Keep Bun as the production runtime until the existing differential suite passes for
+all commands and all release platforms.
 
 ## Credential storage (keychain) — why earlier attempts stalled
 
