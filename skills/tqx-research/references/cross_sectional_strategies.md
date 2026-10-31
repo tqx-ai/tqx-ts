@@ -45,12 +45,12 @@ Write the screening results into the stock list of strategy codes, and then use 
 
 Use a static universe only when the user explicitly requests a frozen universe, fundamentals do not affect later eligibility, or the backtest is known not to cross a new disclosure period. If hard fundamental conditions such as revenue growth, gross margin, or cash flow determine eligibility, do not use a start-date static list for a one-year backtest.
 
-Example that has been run in production environment:
+Example that has been run in production environment (the sample source files are from the legacy Python CLI and are not shipped in this repository; do not try to open them, and build the strategy from [`strategy_templates.md`](strategy_templates.md) instead):
 
-| Market | Sample File | Financial-report cutoff | Hard-condition filter results |
+| Market | Candidate universe | Financial-report cutoff | Hard-condition filter results |
 |---|---|---|---|
-| US stocks | `tqx_cli/tests/nasdq100_cs_st.py` | `2025-01-01` | `NVDA.NB`, `AVGO.NB` |
-| Hong Kong stocks | `tqx_cli/tests/hsi_cs_st.py` | `2025-01-01` | `1810.HK`, `3690.HK` |
+| US stocks | Nasdaq-100 | `2025-01-01` | `NVDA.NB`, `AVGO.NB` |
+| Hong Kong stocks | Hang Seng Index | `2025-01-01` | `1810.HK`, `3690.HK` |
 
 The hard conditions are that revenue growth is greater than 20% year-on-year, gross profit margin is greater than 20%, and operating cash flow is greater than 0. The above list is only for the candidate scope and financial reporting caliber.
 The results are valid only for that candidate universe, reporting basis, and cross-section date. Re-screen whenever the date or candidate universe changes; do not treat the sample list as a permanent conclusion.

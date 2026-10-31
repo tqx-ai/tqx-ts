@@ -4,9 +4,11 @@ This reference covers `tqx_data` inside Qube strategy source. For the `tqx-data`
 
 ## Qube Strategy Availability
 
-Qube strategies can call every method documented in `tqx_data_usage.md` except `calculate_indicators`; the Qube server rejects `tqx_data` calls whose names do not start with `get_`. The CLI strategy validator enforces the same set, and its "not in the allowlist" error lists it.
+The allowlist for Qube strategy source is: every `get_*` method documented in `tqx_data_usage.md`. `calculate_indicators` is the only documented method excluded; the Qube server rejects `tqx_data` calls whose names do not start with `get_`. The CLI strategy validator enforces the same set, and its "not in the allowlist" error lists it. The "Qube strategy source" column below is a routing guide, not a separate allowlist.
 
-Before calling a method, read its full section in `tqx_data_usage.md` and verify parameters, fields, dates, and market limits.
+Before calling a method, read its full section in `tqx_data_usage.md` and verify parameters, fields, dates, and market limits. That file is long (about 4,500 lines, in Chinese); locate the section by searching for `方法名：<method_name>` (for example `方法名：get_hk_daily`) and read that section plus the introduction, instead of loading the whole file.
+
+`get_event_devidend` is the real method name; keep the misspelling exactly as written.
 
 If saving a strategy fails with `quality_gate_failed` for `get_event_devidend`, or for `market="nb"` in `get_tick_data` or `get_filing_announcement`, the Qube server has not received its registry fix yet. Until it does, fetch dividend events locally with tqx-data and keep the dependent calculation outside Qube.
 
