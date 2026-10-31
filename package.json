@@ -28,12 +28,12 @@
     "test": "bun run docs:check && bun run format:check && bun run lint && bun run typecheck && bun run test:unit && bun run build && bun run test:smoke"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.19.2",
     "lerna": "^9.0.7",
-    "oxlint": "^1.74.0",
-    "tsdown": "^0.22.12",
+    "oxlint": "^1.90.0",
+    "tsdown": "^0.22.14",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.12"
   },
   "packageManager": "bun@1.4.4"
 }

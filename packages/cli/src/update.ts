@@ -324,18 +324,22 @@ function normalizeVersion(value: string): string {
 }
 
 function compareVersions(a: string, b: string): number {
-  const parse = (value: string) => {
-    const [core, prerelease] = normalizeVersion(value).split('-', 2)
-    return { core: core!.split('.').map(Number), prerelease }
-  }
-  const left = parse(a)
-  const right = parse(b)
+  const left = parseVersionForComparison(a)
+  const right = parseVersionForComparison(b)
   for (let index = 0; index < 3; index += 1)
     if (left.core[index]! !== right.core[index]!) return left.core[index]! - right.core[index]!
   if (left.prerelease === right.prerelease) return 0
   if (!left.prerelease) return 1
   if (!right.prerelease) return -1
   return left.prerelease.localeCompare(right.prerelease, 'en', { numeric: true })
+}
+
+function parseVersionForComparison(value: string): {
+  core: number[]
+  prerelease: string | undefined
+} {
+  const [core, prerelease] = normalizeVersion(value).split('-', 2)
+  return { core: core!.split('.').map(Number), prerelease }
 }
 
 function detectMethod(input: UpdateDependencies): { method: UpdateMethod; path: string } {
