@@ -13,8 +13,8 @@
     "dev": "bun run --env-file=.env --env-file=.env.dev tsdown --workspace --out-dir output --watch",
     "docs:check": "bun scripts/sync-install-docs.ts --check",
     "docs:sync": "bun scripts/sync-install-docs.ts",
-    "format": "oxfmt --threads=4 .",
-    "format:check": "oxfmt --threads=4 --check .",
+    "format": "bun fmt --threads=4 .",
+    "format:check": "bun fmt --threads=4 --check .",
     "lint": "oxlint --deny-warnings .",
     "pack:check": "bun pm pack --cwd packages/sdk --dry-run && bun pm pack --cwd packages/cli --dry-run && bun run test:package",
     "publish:cli": "bun run build && bun publish --cwd packages/cli --access public --tag latest",
@@ -30,11 +30,10 @@
   "devDependencies": {
     "@types/node": "^24.0.0",
     "lerna": "^9.0.7",
-    "oxfmt": "^0.59.0",
     "oxlint": "^1.74.0",
     "tsdown": "^0.22.12",
     "typescript": "^7.0.2",
     "vitest": "^4.1.10"
   },
-  "packageManager": "bun@1.4.2"
+  "packageManager": "bun@1.4.4"
 }
