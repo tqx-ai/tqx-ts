@@ -21,7 +21,7 @@ env:
   NODE_VERSION: 22.18.0
   TQX_BUILD_BASE_URL: https://www.tqx.trade/pandaApi
   TQX_BUILD_TRADING_BASE_URL: https://www.tqx.trade
-  TQX_BUILD_GET_API_KEY_URL: https://www.tqx.trade/hk/competition-manage?catalog=2
+  TQX_BUILD_GET_API_KEY_URL: https://www.tqx.ai/user-center?tab=ai-accounts
 
 jobs:
   quality:

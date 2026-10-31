@@ -24,14 +24,14 @@ Research dates: 2026-09-27 and 2026-10-31. Conclusions first:
 Keep this index near the top of the report so future experiments can start from the primary project
 pages and documentation rather than from search results.
 
-| Project | Website | Documentation | GitHub |
-| ------- | ------- | ------------- | ------ |
-| Perry | [perryts.com](https://perryts.com/) | [docs.perryts.com](https://docs.perryts.com/) | [PerryTS/perry](https://github.com/PerryTS/perry) |
-| scriptc | [scriptc.dev](https://scriptc.dev/) | [scriptc docs](https://scriptc.dev/docs) · [Node compatibility](https://scriptc.dev/compatibility) | [vercel-labs/scriptc](https://github.com/vercel-labs/scriptc) |
-| Porffor | [porffor.dev](https://porffor.dev/) | [Porffor docs](https://porffor.dev/docs) | [CanadaHonk/porffor](https://github.com/CanadaHonk/porffor) |
-| QuickJS-ng | — | [QuickJS-ng README](https://github.com/quickjs-ng/quickjs#readme) | [quickjs-ng/quickjs](https://github.com/quickjs-ng/quickjs) |
-| TinyJS / txiki.js | [tinyjs.app](https://tinyjs.app/) | [TinyJS docs](https://tinyjs.app/docs/) · [txiki.js docs](https://tinyjs.app/docs/txiki) | [saghul/txiki.js](https://github.com/saghul/txiki.js) |
-| Node SEA | [Node.js](https://nodejs.org/) | [Single executable applications](https://nodejs.org/api/single-executable-applications.html) | [nodejs/node](https://github.com/nodejs/node) |
+| Project           | Website                             | Documentation                                                                                      | GitHub                                                        |
+| ----------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Perry             | [perryts.com](https://perryts.com/) | [docs.perryts.com](https://docs.perryts.com/)                                                      | [PerryTS/perry](https://github.com/PerryTS/perry)             |
+| scriptc           | [scriptc.dev](https://scriptc.dev/) | [scriptc docs](https://scriptc.dev/docs) · [Node compatibility](https://scriptc.dev/compatibility) | [vercel-labs/scriptc](https://github.com/vercel-labs/scriptc) |
+| Porffor           | [porffor.dev](https://porffor.dev/) | [Porffor docs](https://porffor.dev/docs)                                                           | [CanadaHonk/porffor](https://github.com/CanadaHonk/porffor)   |
+| QuickJS-ng        | —                                   | [QuickJS-ng README](https://github.com/quickjs-ng/quickjs#readme)                                  | [quickjs-ng/quickjs](https://github.com/quickjs-ng/quickjs)   |
+| TinyJS / txiki.js | [tinyjs.app](https://tinyjs.app/)   | [TinyJS docs](https://tinyjs.app/docs/) · [txiki.js docs](https://tinyjs.app/docs/txiki)           | [saghul/txiki.js](https://github.com/saghul/txiki.js)         |
+| Node SEA          | [Node.js](https://nodejs.org/)      | [Single executable applications](https://nodejs.org/api/single-executable-applications.html)       | [nodejs/node](https://github.com/nodejs/node)                 |
 
 ## Current state
 
@@ -118,10 +118,10 @@ however, passed only **48/80** cases and exposed these problems:
    ```ts
    import { parser } from '@lezer/python'
    const tree = parser.parse('x = 1\n')
-   console.log(typeof tree)                 // object
+   console.log(typeof tree) // object
    console.log(Object.getPrototypeOf(tree)) // null (Perry)
-   console.log(tree.topNode)                // undefined (Perry)
-   console.log(tree.topNode.name)           // fails
+   console.log(tree.topNode) // undefined (Perry)
+   console.log(tree.topNode.name) // fails
    ```
 
    There is no Python-specific function call at this point. The generated

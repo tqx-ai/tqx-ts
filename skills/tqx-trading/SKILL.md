@@ -19,8 +19,8 @@ Operational trading intent takes precedence over the TQX overview Skill. If this
 
 When the user does not have an API key, tell them to complete these steps in the TQX web app:
 
-1. [Create an account](https://www.tqx.ai/user-center?tab=accounts). TQX currently supports a Huatai live account or a TQX simulation account.
-2. [Create a competition instance](https://www.tqx.ai/user-center?tab=agents).
+1. [Open AI accounts](https://www.tqx.ai/user-center?tab=ai-accounts). TQX currently supports live accounts from Huatai, Panda Securities, and Tiger, along with TQX simulation accounts.
+2. Create a competition instance from the AI accounts page.
 
 After the competition instance is created, ask the user to provide the generated API key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
 

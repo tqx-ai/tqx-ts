@@ -4,7 +4,7 @@ Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`;
 
 ## Gateway and Authentication
 
-If the user does not have an API key, direct them to the TQX web app to [create an account](https://www.tqx.ai/user-center?tab=accounts), then [create a competition instance](https://www.tqx.ai/user-center?tab=agents). After the instance is created, ask the user to provide the generated key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
+If the user does not have an API key, direct them to the TQX web app's [AI accounts page](https://www.tqx.ai/user-center?tab=ai-accounts) to create an account and competition instance. After the instance is created, ask the user to provide the generated key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
 
 Check `tqx --version` and `tqx research --help` before Research commands; for a missing or outdated CLI follow [`install.md`](install.md).
 

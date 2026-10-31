@@ -77,7 +77,7 @@ The following sections use `tqx` for brevity. When running from source, replace 
 
 ## Environment and Authentication
 
-If the user does not have an API key, direct them to the TQX web app to [create an account](https://www.tqx.ai/user-center?tab=accounts), then [create a competition instance](https://www.tqx.ai/user-center?tab=agents). After the instance is created, ask the user to provide the generated key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
+If the user does not have an API key, direct them to the TQX web app's [AI accounts page](https://www.tqx.ai/user-center?tab=ai-accounts) to create an account and competition instance. After the instance is created, ask the user to provide the generated key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
 
 - `TQX_BASE_URL`: Runtime API address, which takes precedence over the build-time default address.
 - `TQX_API_KEY`: process-level API key, takes precedence over persistent credentials.

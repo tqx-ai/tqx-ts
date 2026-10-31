@@ -39,6 +39,11 @@
 
 ## Tests And Release Checks
 
+- After editing Markdown (`.md`) files, run the workspace formatter on the changed files with
+  `bun run oxfmt <file...>` and review its diff. This also applies to documentation-only changes.
+- Before handoff or commit, run `bun run format:check` from the workspace root. A formatter run
+  that skips or excludes files does not replace this check; resolve formatting failures before
+  reporting the changes as ready.
 - Add focused Vitest coverage for URL selection, HTTP method, headers, body mapping, query
   serialization, validation failures, and CLI output/exit status.
 - Unit tests resolve `@tqx-ai/sdk` to source through `vitest.config.ts`; do not rely on local

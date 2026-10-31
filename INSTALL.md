@@ -2,7 +2,7 @@
 
 Command: `tqx`. Releases: `https://github.com/tqx-ai/tqx-ts/releases` (standalone binaries plus
 `SHA256SUMS`). npm fallback package: `@tqx-ai/cli` (needs Node.js 22.18+). API keys:
-`https://www.tqx.ai/user-center?tab=agents`.
+`https://www.tqx.ai/user-center?tab=ai-accounts`.
 
 This file is the single source for installing, updating, verifying, and repairing the TQX CLI and
 the four TQX Skills. It is
@@ -298,8 +298,8 @@ tqx status --json
 do not need it again. Use the process variable `TQX_API_KEY` instead only for a one-off isolated task
 or when the user does not want the key stored. Never repeat the full key in replies.
 
-If there is no key, ask the user to sign in at `https://www.tqx.ai/user-center?tab=accounts`, create a
-competition instance at `https://www.tqx.ai/user-center?tab=agents`, and paste the generated API key
+If there is no key, ask the user to sign in at `https://www.tqx.ai/user-center?tab=ai-accounts`, create a
+competition instance there, and paste the generated API key
 into the conversation.
 
 ## Step 7: First connection check

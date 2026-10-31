@@ -45,8 +45,8 @@ Use this skill only for the overview and routing. Keep installation, authenticat
 
 If the user asks where to get an API key, direct them to complete these steps in the TQX web app before handing off to the relevant specialized skill:
 
-1. [Create an account](https://www.tqx.ai/user-center?tab=accounts). TQX currently supports a Huatai live account or a TQX simulation account.
-2. [Create a competition instance](https://www.tqx.ai/user-center?tab=agents).
+1. [Open AI accounts](https://www.tqx.ai/user-center?tab=ai-accounts). TQX currently supports live accounts from Huatai, Panda Securities, and Tiger, along with TQX simulation accounts.
+2. Create a competition instance from the AI accounts page.
 
 After the competition instance is created, the user can provide the generated API key directly in the current conversation. Never ask them to paste it into source code, public logs, or a repository.
 

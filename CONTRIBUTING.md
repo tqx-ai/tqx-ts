@@ -26,7 +26,7 @@ public gateway URLs:
 ```dotenv
 TQX_BUILD_BASE_URL=https://www.tqx.trade/pandaApi
 TQX_BUILD_TRADING_BASE_URL=https://www.tqx.trade
-TQX_BUILD_GET_API_KEY_URL=https://www.tqx.trade/hk/competition-manage?catalog=2
+TQX_BUILD_GET_API_KEY_URL=https://www.tqx.ai/user-center?tab=ai-accounts
 ```
 
 `.env`, `.env.dev`, and `.env.prod` are ignored by Git. `bun run dev` loads `.env`, then
