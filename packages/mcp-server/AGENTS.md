@@ -181,3 +181,4 @@ When implementation begins, development should proceed through the following pha
 7. **Open-Source Boundary Hygiene:** `tqx-ts` is a public repository. Committed code must never reference internal private IPs, closed-source repository internals, or proprietary internal cluster headers. All external interactions must go through standard public HTTP/OAuth interfaces.
 8. **Forwarding Only:** Business domain logic, persistence, and trading execution belong to upstream services. The MCP server must only validate, translate, and stream.
 9. **Specification Compliance:** Always align wire protocol messages with MCP Specification `2026-07-28`.
+10. **Utility Organization:** Place reusable helper functions in `src/utils/`, grouped by purpose. Keep configuration assembly and OAuth-specific behavior in their owning modules.

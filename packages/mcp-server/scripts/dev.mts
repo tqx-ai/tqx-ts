@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { createServer } from 'node:net'
+import { loadEnvFile } from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import { waitForServer } from './wait-for-server'
@@ -61,6 +62,13 @@ process.once('SIGINT', () => stop(130))
 process.once('SIGTERM', () => stop(143))
 
 try {
+  try {
+    loadEnvFile(fileURLToPath(new URL('../.env', import.meta.url)))
+  } catch (error) {
+    // Exported environment variables can be used without a local .env file.
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+
   // Avoid mistaking an already-running server's health check for this child's readiness.
   await new Promise<void>((resolve, reject) => {
     const probe = createServer()
@@ -73,7 +81,7 @@ try {
   start('bun', ['--hot', 'src/index.ts'])
   await waitForServer(`${baseUrl}/healthz`, controller.signal)
   controller.signal.throwIfAborted()
-  console.log('[mcp-dev] Server is ready. Starting MCP Inspector...')
+  console.log('[mcp-dev] Server is ready. Starting MCP Inspector (Authorization Code + PKCE)...')
   start('bunx', [
     '@modelcontextprotocol/inspector',
     '--server-url',

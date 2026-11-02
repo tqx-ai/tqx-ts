@@ -6,6 +6,14 @@ import { beforeEach, describe, expect, it } from 'vitest'
 
 import { version } from '../package.json'
 import { createApp } from '../src/app'
+import { createOAuthFixture, testConfig } from './helpers/oauth'
+
+const oauth = await createOAuthFixture()
+const accessToken = await oauth.sign()
+
+function testApp() {
+  return createApp({ config: testConfig, fetch: oauth.fetch })
+}
 
 type ProtocolVersion = '2025-11-25' | '2026-07-28'
 
@@ -21,6 +29,7 @@ function request(
     method: 'POST',
     headers: {
       Host: '127.0.0.1',
+      Authorization: `Bearer ${accessToken}`,
       ...(method === 'initialize' ? {} : { 'MCP-Protocol-Version': protocolVersion }),
       ...(modern ? { 'Mcp-Method': method } : {}),
       ...(modern && typeof params.name === 'string' ? { 'Mcp-Name': params.name } : {}),
@@ -71,7 +80,7 @@ async function readResponse(response: Response, protocolVersion: ProtocolVersion
 
 describe('MCP server', () => {
   it('serves a health check', async () => {
-    const response = await createApp().request('http://127.0.0.1/healthz', {
+    const response = await testApp().request('http://127.0.0.1/healthz', {
       headers: { Host: '127.0.0.1' },
     })
 
@@ -89,7 +98,7 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
   }
 
   beforeEach(async () => {
-    app = createApp()
+    app = testApp()
     if (protocolVersion === '2025-11-25') {
       initialization = await readResponse(
         await call('initialize', {

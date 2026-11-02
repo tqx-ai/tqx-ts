@@ -1,0 +1,30 @@
+name: tqx-ts
+
+services:
+  mcp-server:
+    platform: linux/amd64
+    build:
+      context: ../../..
+      dockerfile: packages/mcp-server/docker/Dockerfile
+    env_file:
+      - ../.env
+    environment:
+      TQX_MCP_BIND_HOST: 0.0.0.0
+    ports:
+      - '61102:61102'
+    restart: unless-stopped
+    init: true
+    healthcheck:
+      test:
+        - CMD
+        - bun
+        - --no-env-file
+        - -e
+        - >-
+          const response = await fetch('http://127.0.0.1:61102/healthz',
+          { headers: { Host: new URL(process.env.TQX_MCP_RESOURCE_URL).host } });
+          process.exit(response.ok ? 0 : 1);
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
