@@ -17,6 +17,15 @@ In principle, this server acts strictly as an **intelligent forwarding and proto
 
 ## 2. Core Technology Stack & Specifications
 
+Before making any MCP-related change, read the relevant official
+[MCP TypeScript SDK v2 documentation](https://ts.sdk.modelcontextprotocol.io/v2/)
+and protocol specification first. Verify the recommended API against the installed
+SDK version before editing code; do not rely on remembered APIs or deprecated examples.
+Use `McpServer.registerTool` for ordinary tools and follow the official
+[Valibot schema integration](https://ts.sdk.modelcontextprotocol.io/v2/advanced/schema-libraries#register-a-tool-with-a-valibot-schema).
+Use low-level request handlers only when a concrete requirement cannot be met by
+the documented high-level API.
+
 All development in this package must strictly adhere to the following stack:
 
 | Component                    | Technology                | Specification / Version                                                                                                                                                                                                                               |
@@ -99,8 +108,8 @@ In alignment with workspace standards (which utilize Valibot in `@tqx-ai/sdk`), 
    - Define parameter schemas using Valibot constructs (`v.object`, `v.string`, `v.number`, `v.optional`, etc.).
    - Convert Valibot schemas to standard JSON Schema format required by MCP tools using `@valibot/to-json-schema`.
 2. **Payload Validation:**
-   - Use `v.safeParse()` or `v.parse()` for incoming tool execution arguments, query parameters, and configuration blocks.
-   - Map validation failures to standard MCP JSON-RPC protocol error codes (e.g., `-32602 Invalid params`) with clear, localized issue descriptions.
+   - Register tool input schemas with `toStandardJsonSchema()` and let `McpServer.registerTool` validate arguments with Valibot before invoking the handler. Use `v.safeParse()` or `v.parse()` for query parameters and configuration blocks outside that flow.
+   - Follow the SDK's documented error semantics: tool argument validation failures return tool results with `isError: true` and clear issue descriptions. Protocol-level failures, such as unknown tools or malformed requests, use JSON-RPC errors. Do not override `tools/list` or `tools/call` just to change standard tool validation errors into `-32602` responses.
 3. **No Zod Dependency:**
    - The official MCP TS SDK v2 is schema-agnostic or supports pluggable adapters; do not bring in `zod` as an indirect dependency for tool schemas.
 

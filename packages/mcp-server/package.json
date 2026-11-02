@@ -3,7 +3,11 @@
   "version": "0.6.1",
   "private": true,
   "type": "module",
-  "module": "index.ts",
+  "module": "src/index.ts",
+  "scripts": {
+    "dev": "bun scripts/dev.mts",
+    "start": "bun src/index.ts"
+  },
   "dependencies": {
     "@modelcontextprotocol/hono": "^2.0.2",
     "@modelcontextprotocol/server": "^2.4.0",
