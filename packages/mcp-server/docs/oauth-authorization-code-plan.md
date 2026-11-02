@@ -123,7 +123,7 @@ sequenceDiagram
 | `TQX_MCP_OAUTH_ISSUER`                              | 唯一可信 AS issuer；JWKS 地址从可信 AS metadata 校验取得             |
 | `TQX_MCP_ALLOWED_HOSTS` / `TQX_MCP_ALLOWED_ORIGINS` | Hono Host / Origin 白名单；无 Origin 的原生客户端可正常接入          |
 
-`ALLOWED_HOSTS` 使用无 scheme/port 的 hostname；`ALLOWED_ORIGINS` 使用精确的 scheme + host + port，可显式设为空，仅允许不带 Origin 的原生客户端。生产 URL/origin 必须 HTTPS；非生产仅允许 loopback 使用 HTTP。具体示例由 `packages/mcp-server/.env.example` 独立维护，本地配置放在同目录 `.env`，不修改工作区根 `.env.example`。在 `packages/mcp-server/` 中执行 `bun run dev`；`scripts/dev.mts` 按脚本位置显式加载包内 `.env`，再由子进程继承环境变量，已设置的进程环境变量优先。未提供 `.env` 时可使用已导出的变量，缺少必要配置仍拒绝启动。部署也可直接注入进程环境变量。配置 URL 规范化后与 AS/JWT 严格比较，不能使用含凭证、query 或 fragment 的配置。
+`ALLOWED_HOSTS` 使用无 scheme/port 的 hostname；`ALLOWED_ORIGINS` 使用精确的 scheme + host + port，可显式设为空，仅允许不带 Origin 的原生客户端。生产 URL/origin 必须 HTTPS；非生产允许 HTTP，包括局域网地址和主机名，Host/Origin 白名单与 token 校验仍生效。具体示例由 `packages/mcp-server/.env.example` 独立维护，本地配置放在同目录 `.env`，不修改工作区根 `.env.example`。在 `packages/mcp-server/` 中执行 `bun run dev`；`scripts/dev.mts` 按脚本位置显式加载包内 `.env`，再由子进程继承环境变量，已设置的进程环境变量优先。未提供 `.env` 时可使用已导出的变量，缺少必要配置仍拒绝启动。部署也可直接注入进程环境变量。配置 URL 规范化后与 AS/JWT 严格比较，不能使用含凭证、query 或 fragment 的配置。
 
 生产只接受 HTTPS 公共地址，配置缺失/非法时启动失败，不静默退回匿名模式。本轮无需 MCP OAuth client secret、数据库或 SDK 构建变量，也不改变已有 `TQX_BASE_URL` 语义。
 

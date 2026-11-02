@@ -25,7 +25,7 @@ describe('MCP OAuth configuration', () => {
   })
 
   it.each([
-    'http://auth.example.test',
+    'ftp://auth.example.test',
     'https://user:secret@auth.example.test',
     'https://auth.example.test#',
     'https://auth.example.test?key=secret',
@@ -49,7 +49,7 @@ describe('MCP OAuth configuration', () => {
     '*',
     'null',
     'https://example.test/path',
-    'http://example.test',
+    'ftp://example.test',
     'https://example.test,,',
   ])('rejects origin allowlist %s', (origins) => {
     expect(() => loadMcpConfig({ ...testEnvironment, TQX_MCP_ALLOWED_ORIGINS: origins })).toThrow(
@@ -73,6 +73,55 @@ describe('MCP OAuth configuration', () => {
     expect(() => loadMcpConfig({ ...environment, NODE_ENV: 'production' })).toThrow(
       'TQX_MCP_RESOURCE_URL',
     )
+  })
+
+  it.each([undefined, 'development', 'test'])(
+    'allows HTTP resources, issuers and browser origins outside production (%s)',
+    (nodeEnv) => {
+      expect(
+        loadMcpConfig({
+          NODE_ENV: nodeEnv,
+          TQX_MCP_RESOURCE_URL: 'http://192.0.2.3:3001/mcp/',
+          TQX_MCP_OAUTH_ISSUER: 'http://auth.example.test:26823/',
+          TQX_MCP_ALLOWED_HOSTS: '192.0.2.3',
+          TQX_MCP_ALLOWED_ORIGINS: 'http://[2001:db8::3]:6274/',
+        }),
+      ).toEqual({
+        resourceUrl: 'http://192.0.2.3:3001/mcp',
+        issuer: 'http://auth.example.test:26823',
+        allowedHosts: ['192.0.2.3'],
+        allowedOrigins: ['http://[2001:db8::3]:6274'],
+      })
+    },
+  )
+
+  it.each([
+    ['TQX_MCP_RESOURCE_URL', 'http://192.0.2.3:3001/mcp'],
+    ['TQX_MCP_OAUTH_ISSUER', 'http://auth.example.test:26823'],
+    ['TQX_MCP_ALLOWED_ORIGINS', 'http://192.0.2.3:6274'],
+  ])('rejects HTTP %s in production', (name, value) => {
+    expect(() =>
+      loadMcpConfig({
+        ...testEnvironment,
+        NODE_ENV: 'production',
+        TQX_MCP_ALLOWED_ORIGINS: 'https://mcp.example.test',
+        [name]: value,
+      }),
+    ).toThrow(`[mcp-config] Invalid or missing ${name}`)
+  })
+
+  it.each([
+    'http://user:secret@auth.example.test',
+    'http://auth.example.test?',
+    'http://auth.example.test#',
+  ])('rejects credentials, query and fragment in development HTTP URLs (%s)', (issuer) => {
+    expect(() =>
+      loadMcpConfig({
+        ...testEnvironment,
+        NODE_ENV: 'development',
+        TQX_MCP_OAUTH_ISSUER: issuer,
+      }),
+    ).toThrow('[mcp-config] Invalid or missing TQX_MCP_OAUTH_ISSUER')
   })
 
   it('requires HTTPS browser origins in production', () => {

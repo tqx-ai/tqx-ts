@@ -18,8 +18,9 @@ build variables and are not embedded by tsdown. The package maintains its own
 | `TQX_MCP_ALLOWED_ORIGINS` | Comma-separated exact browser origins, including scheme and port. An explicitly empty value permits native clients only.               |
 
 All four variables must be explicitly set. Invalid or missing configuration stops
-startup; there is no anonymous fallback. Public URLs must use HTTPS. Loopback
-HTTP URLs/origins are allowed only outside `NODE_ENV=production`. Host and Origin
+startup; there is no anonymous fallback. Production URLs/origins must use HTTPS.
+HTTP URLs/origins, including LAN addresses and hostnames, are allowed outside
+`NODE_ENV=production`. Host and Origin
 checks remain enabled; native clients without an Origin header are supported.
 
 ## Run locally
@@ -77,8 +78,13 @@ The Dockerfile's companion ignore file excludes local configuration, credentials
 development dependencies, and unrelated source files from the build context.
 
 The image defaults to `NODE_ENV=production`, which requires HTTPS public URLs
-and browser origins. For local loopback HTTP testing, add `NODE_ENV=development`
-to the package's `.env`. Container `localhost` refers to the container itself;
+and browser origins. For local or LAN HTTP testing, add `NODE_ENV=development`
+to the package's `.env`, set the resource URL to the client-facing HTTP endpoint,
+and add its hostname/IP (without scheme or port) to `TQX_MCP_ALLOWED_HOSTS`.
+For browser clients, also add their exact origin to `TQX_MCP_ALLOWED_ORIGINS`.
+The OAuth server's resource configuration and token `aud` must match the resource URL.
+After changing `.env`, recreate the container with the Compose command above.
+Container `localhost` refers to the container itself;
 the OAuth issuer must be reachable from both the container and the MCP client,
 and match the issuer published by tqx-oauth. A host-side issuer such as
 `http://localhost:26823` needs an appropriate proxy or network setup before it

@@ -6,9 +6,8 @@ export function configurationError(name: string): Error {
 export function parsePublicUrl(value: string, name: string, production: boolean): URL {
   try {
     const url = new URL(value)
-    const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
     if (
-      (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback && !production)) ||
+      (url.protocol !== 'https:' && !(url.protocol === 'http:' && !production)) ||
       url.username ||
       url.password ||
       value.includes('?') ||
