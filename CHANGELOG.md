@@ -4,6 +4,20 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.7.0 - 2026-11-05
+
+### Changed
+
+- Migrate the bundled local tqx-data helper from username/password authentication to API-key
+  authentication, with persistent credential storage and explicit service URL configuration.
+- Document the local tqx-data API, parameters, and market support separately from the Qube
+  research runtime.
+- Update API-key onboarding links to the AI accounts page and add checks that keep bundled
+  installation references synchronized with `INSTALL.md`.
+- Require Bun 1.4.4 for development, CI, and release builds; update workspace dependencies and
+  migrate formatting to `bun fmt`.
+- Expand the standalone binary size analysis and build guidance.
+
 ## 0.6.1 - 2026-10-28
 
 ### Added
