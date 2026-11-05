@@ -1,6 +1,6 @@
 ---
 name: what-is-tqx
-description: Explain TQX as an umbrella for two separate systems, Qube investment research and account-based trading, plus the closed-beta tqx-data package for local market data, and route ambiguous introductory requests without conflating their simulation concepts. Use only for overview or routing questions such as what TQX is or how Qube relates to TQX. To install, update, or repair the `tqx` CLI or the TQX Skills, follow the install protocol (INSTALL.md) linked in this Skill. For "帮我参赛", "夺得冠军", "交易大赛", "投资比赛", "help me compete", account access, API-key authentication, balances, positions, orders, or trading operations, immediately hand off to tqx-trading and do not answer from this overview Skill alone. Use tqx-research for Qube, factor, strategy, analysis, or backtest tasks. Use tqx-data for the tqx-data Python package, a TQX data account, or market data outside Qube.
+description: Explain TQX as an umbrella for two separate systems, Qube investment research and account-based trading, plus the local API-Key tqx-data package for market data, and route ambiguous introductory requests without conflating their simulation concepts. Use only for overview or routing questions such as what TQX is or how Qube relates to TQX. To install, update, or repair the `tqx` CLI or the TQX Skills, follow the install protocol (INSTALL.md) linked in this Skill. For "帮我参赛", "夺得冠军", "交易大赛", "投资比赛", "help me compete", account access, API-key authentication, balances, positions, orders, or trading operations, immediately hand off to tqx-trading and do not answer from this overview Skill alone. Use tqx-research for Qube, factor, strategy, analysis, or backtest tasks. Use tqx-data for the tqx-data Python package or market data outside Qube.
 ---
 
 # What Is TQX
@@ -32,7 +32,10 @@ Present TQX as the umbrella for two separate systems:
 - **Qube research system**: Support factors, strategies, backtests, analyses, and research-assisted decisions through Qube and its local research CLI/API access.
 - **Trading system**: Support balances, positions, orders, fills, and order operations through a separate account-based service. Do not describe this service as Qube.
 
-Alongside them, the **tqx-data** Python package gives Hong Kong and US market, reference, event, and fundamental data on the user's own computer. It is in closed beta and needs a TQX data account, an email and password that come with a data membership; Audrey ([audrey@tqx.ai](mailto:audrey@tqx.ai)) enables access. This account is separate from the trading API key, and tqx-data is neither Qube nor a trading channel. Route its setup, login, and queries to [`tqx-data`](../tqx-data/SKILL.md).
+Alongside them, the **tqx-data** Python package gives Hong Kong and US market,
+reference, event, and fundamental data on the user's own computer. It uses an
+API key and is separate from both Qube and the trading API. Route its setup and
+queries to [`tqx-data`](../tqx-data/SKILL.md).
 
 Use this skill only for the overview and routing. Keep installation, authentication, and operational instructions in the selected specialized skill.
 
@@ -72,7 +75,7 @@ Use this table to select the next skill:
 | User goal | Continue with |
 | --- | --- |
 | A Qube, factor, strategy, backtest, analysis, or research-code task, including data calls inside Qube strategy source | [`tqx-research`](../tqx-research/SKILL.md) / `$tqx-research` |
-| The `tqx-data` package, a TQX data account or data membership, or HK/US market data queried on the user's computer outside Qube | [`tqx-data`](../tqx-data/SKILL.md) / `$tqx-data` |
+| The `tqx-data` package or HK/US market data queried on the user's computer outside Qube | [`tqx-data`](../tqx-data/SKILL.md) / `$tqx-data` |
 | Installing, updating, or repairing the `tqx` CLI | The install protocol in "Install the TQX CLI first", then the Skill for the user's goal |
 | A generic "帮我参赛", "夺得冠军", or "help me compete" request | Fetch the canonical `tqx-trading` URL above; verify CLI authentication and query the account before discussing strategy |
 | Accounts, balances, positions, orders, fills, trading signals, PAPER/LIVE accounts, or order placement/modification/cancellation | Fetch and apply the canonical `tqx-trading` URL above |
@@ -96,4 +99,4 @@ The TQX CLI exposes `tqx bug report --title=<title> --desc=<markdown>`. Route a 
 
 ## Short Answer Pattern
 
-When the user asks only "What is TQX?", explain that TQX includes a Qube research system and a separate trading system. Explain that Qube is the web-based research and agent environment at `https://www.tqx.trade/agent_quant/`, and that its research capabilities can be accessed locally with an API key. Mention that the closed-beta tqx-data package provides HK/US data locally with a separate data account. Then ask whether the user wants research support, account-based trading, or local data, and route to the matching skill.
+When the user asks only "What is TQX?", explain that TQX includes a Qube research system and a separate trading system. Explain that Qube is the web-based research and agent environment at `https://www.tqx.trade/agent_quant/`, and that its research capabilities can be accessed locally with an API key. Mention that the tqx-data package provides HK/US data locally with an API key. Then ask whether the user wants research support, account-based trading, or local data, and route to the matching skill.

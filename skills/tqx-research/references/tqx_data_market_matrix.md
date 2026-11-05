@@ -1,13 +1,15 @@
-# TQX Data HK/US Parameter Matrix
+# Qube `tqx_data` HK/US Parameter Matrix
 
-These values apply to `tqx_data` in Qube strategy source and match the CLI strategy validator. The local `tqx-data` package uses different market parameters; see [`tqx-data`](../../tqx-data/references/qube-vs-local.md).
+These values apply only to `tqx_data` in Qube strategy source and match the CLI
+strategy validator. They do not describe the local PyPI `tqx-data` package,
+which has a separate public contract; see [`tqx-data`](../../tqx-data/references/qube-vs-local.md).
 
 | Data category | Hong Kong | United States | Note |
 |---|---|---|---|
-| Symbol | `0700.HK` | `TSLA.NB` | Suffix must match the interface |
+| Symbol | `0700.HK` | Depends on the method | Live minute and tick methods use `TSLA.NB`; check each method's symbol format |
 | Daily bars | `get_hk_daily` | `get_us_daily` (`market="nb"` or `"ny"` when passed) | Unadjusted; `alt_close` equals `close` |
 | Minute bars | `get_hk_min` | `get_us_min` | `frequency` is `1m`, `5m`, `10m`, or `60m`; verify timezone, DST, and sessions |
-| Live minute bars and latest tick | `market="hk"` | `market="nb"` | `get_min_data` and `get_tick_data`; `get_min_data` also accepts `us` for existing sources |
+| Live minute bars and latest tick | `market="hk"` | `market="nb"` | `get_min_data` and `get_tick_data` select symbols by their suffix when symbols are provided; use `market` for a whole-market query |
 | Filings | `market="hk"` | `market="nb"` | `get_filing_announcement` |
 | Financial statements | `market="hk"` | `market="nb"` | `get_financial_statement`; filter by announcement time |
 | Factors | `type="hk"` | `type="nb"` | Factor type must match symbols |

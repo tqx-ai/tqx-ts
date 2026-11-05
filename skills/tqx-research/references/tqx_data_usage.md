@@ -4,7 +4,7 @@
 >
 > **修订日期**：2026-10-14
 >
-> **Qube 可用范围**：本文档中除 `calculate_indicators` 以外的方法都可以写进 Qube 策略源码（服务端拒绝不以 `get_` 开头的 `tqx_data` 调用）。`get_company_*` 与 `get_consensus_*` 中没有日期参数的方法返回的是最新快照，没有历史版本，放进回测会产生前视偏差，只能用于当前状态筛选；事件类数据须按公告日期过滤。若保存策略时 `get_event_devidend` 或 `market="nb"` 被拒（`quality_gate_failed`），说明 Qube 服务端尚未更新，可暂时在用户本机用 tqx-data（`skills/tqx-data`）获取分红事件。
+> **Qube 可用范围**：本文档中的 `get_` 方法可用于 Qube 策略源码，`calculate_indicators` 仅供助手侧计算。`get_company_*` 与 `get_consensus_*` 中没有日期参数的方法返回最新快照，没有历史版本，放进回测会产生前视偏差，只能用于当前状态筛选；事件类数据须按公告日期过滤。若某个已记录的方法当前不可用，请把依赖它的计算移到策略外部，直到该方法恢复可用。
 >
 > --- 
 
@@ -51,7 +51,6 @@
 | name         | str    | 股票名称              |
 | trade_status | int    | 交易状态代码          |
 | alt_close    | double | 备用收市价，与 close 相同；未做除权除息调整，不能当复权价使用 |
-| acvol_uns    | double | 成交股数（同volume）  |
 | bid          | double | 买盘价                |
 | ask          | double | 卖盘价                |
 | vwap         | double | 成交量加权平均价      |
@@ -63,7 +62,6 @@
 | uplimit      | double | 价格上限              |
 | lolimit_2    | double | 二级价格下限          |
 | uplimit_2    | double | 二级价格上限          |
-| navalue      | double | 资产净值              |
 | num_moves    | double | 成交笔数              |
 | uplimit_3    | double | 三级价格上限          |
 | lolimit_3    | double | 三级价格下限          |
@@ -174,7 +172,6 @@ symbol date ask bid vwap
 | ask          | double | 卖盘价           |
 | vwap         | double | 成交量加权平均价 |
 | num_moves    | double | 成交笔数         |
-| amount       | double | 成交额           |
 
 #### 2.4. 使用示例
 
@@ -829,6 +826,39 @@ print(result)
 }
 ```
 
+### 8. 获取公告数据
+
+#### 8.1. 方法名：get_filing_announcement
+
+#### 8.2. 入参
+
+| 字段 | 类型 | 描述 | 是否必填 |
+|:---|:---|:---|:---|
+| symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
+| start_date | Optional\[str\] | 开始日期，格式为 YYYYMMDD | 非必填 |
+| end_date | Optional\[str\] | 结束日期，格式为 YYYYMMDD | 非必填 |
+| fields | Optional\[List\[str\]\] | 返回字段 | 非必填 |
+| market | str | 市场，支持 hk 或 nb，默认为 hk | 非必填 |
+
+#### 8.3. 响应参数
+
+返回 `pandas.DataFrame`。传入 `fields` 时，结果会自动包含 `symbol` 与
+`date`，用于识别和排序；未传入 `fields` 时返回所选市场可用的公告字段。
+
+#### 8.4. 使用示例
+
+```python
+import tqx_data
+result = tqx_data.get_filing_announcement(
+    symbol=["0700.HK"],
+    start_date="20250101",
+    end_date="20251231",
+    fields=["symbol", "date"],
+    market="hk",
+)
+print(result)
+```
+
 ## 二、市场参考数据
 
 ### 1. 获取股票的详细信息
@@ -859,7 +889,6 @@ print(result)
 | abbrev_symbol           | str  | 股票的名称缩写   |
 | min_order_amount        | str  | 一手对应多少股   |
 | trading_code            | str  | 交易代码         |
-| asset_state             | str  | 交易状态         |
 | rcs_asset_category_name | str  | 资产类别名称     |
 | business_sector         | str  | 业务领域名称     |
 | economic_sector         | str  | 经济领域名称     |
@@ -872,13 +901,14 @@ print(result)
 | postal_code             | str  | 总部邮政编码     |
 | website                 | str  | 公司网站         |
 | listed_date             | str  | 上市日期         |
+| board_type              | str  | 板块类别         |
+| delisted_date           | str  | 退市日期         |
 
 ##### 1.3.2. us相应参数
 
 | 字段                    | 类型 | 描述             |
 |:------------------------|:-----|:-----------------|
 | symbol                  | str  | 股票代码         |
-| original_symbol         | str  | 原始股票代码     |
 | name                    | str  | 股票名称         |
 | listed_date             | str  | 上市日期         |
 | local_name              | str  | 本地组织名称     |
@@ -888,7 +918,6 @@ print(result)
 | abbrev_symbol           | str  | 股票的名称缩写   |
 | min_order_amount        | str  | 一手对应多少股   |
 | trading_code            | str  | 交易代码         |
-| asset_state             | str  | 交易状态         |
 | rcs_asset_category_name | str  | 资产类别名称     |
 | business_sector         | str  | 业务领域名称     |
 | economic_sector         | str  | 经济领域名称     |
@@ -2824,6 +2853,8 @@ symbol date volume
 | 字段      | 类型   | 描述                             |
 |:----------|:-------|:---------------------------------|
 | symbol    | str    | 股票代码                         |
+| date      | str    | 公告日期                         |
+| currency  | str    | 报告币种                         |
 | fields    | double | 需要返回的财务字段(见数据库设计) |
 | fy_period | str    | 财务年时间段                     |
 
@@ -4496,6 +4527,42 @@ financial_panel = pd.DataFrame(panel_rows)
 | HKD_CNY | double | 港币对人民币 |
 | USD_CNY | double | 美元对人民币 |
 | USD_HKD | double | 美元对港币   |
+| EUR_USD | double | 欧元对美元 |
+| USD_EUR | double | 美元对欧元 |
+| GBP_USD | double | 英镑对美元 |
+| USD_GBP | double | 美元对英镑 |
+| AUD_USD | double | 澳元对美元 |
+| USD_AUD | double | 美元对澳元 |
+| USD_CAD | double | 美元对加元 |
+| CAD_USD | double | 加元对美元 |
+| USD_CHF | double | 美元对瑞士法郎 |
+| CHF_USD | double | 瑞士法郎对美元 |
+| USD_JPY | double | 美元对日元 |
+| JPY_USD | double | 日元对美元 |
+| USD_SGD | double | 美元对新加坡元 |
+| SGD_USD | double | 新加坡元对美元 |
+| USD_ILS | double | 美元对以色列新谢克尔 |
+| ILS_USD | double | 以色列新谢克尔对美元 |
+| USD_PEN | double | 美元对秘鲁索尔 |
+| PEN_USD | double | 秘鲁索尔对美元 |
+| EUR_HKD | double | 欧元对港币 |
+| HKD_EUR | double | 港币对欧元 |
+| GBP_HKD | double | 英镑对港币 |
+| HKD_GBP | double | 港币对英镑 |
+| AUD_HKD | double | 澳元对港币 |
+| HKD_AUD | double | 港币对澳元 |
+| CAD_HKD | double | 加元对港币 |
+| HKD_CAD | double | 港币对加元 |
+| CHF_HKD | double | 瑞士法郎对港币 |
+| HKD_CHF | double | 港币对瑞士法郎 |
+| JPY_HKD | double | 日元对港币 |
+| HKD_JPY | double | 港币对日元 |
+| SGD_HKD | double | 新加坡元对港币 |
+| HKD_SGD | double | 港币对新加坡元 |
+| ILS_HKD | double | 以色列新谢克尔对港币 |
+| HKD_ILS | double | 港币对以色列新谢克尔 |
+| PEN_HKD | double | 秘鲁索尔对港币 |
+| HKD_PEN | double | 港币对秘鲁索尔 |
 
 #### 1.4. 使用示例
 
