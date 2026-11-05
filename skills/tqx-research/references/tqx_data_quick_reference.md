@@ -4,11 +4,16 @@ This reference covers `tqx_data` inside Qube strategy source. For the `tqx-data`
 
 ## Qube Strategy Availability
 
-Qube strategies can call every method documented in `tqx_data_usage.md` except `calculate_indicators`; the Qube server rejects `tqx_data` calls whose names do not start with `get_`. The CLI strategy validator enforces the same set, and its "not in the allowlist" error lists it.
+Qube strategies can call every `get_` method documented in
+`tqx_data_usage.md`. `calculate_indicators` is an assistant-side helper and is
+not callable from strategy source. The strategy validator enforces the
+documented method set.
 
 Before calling a method, read its full section in `tqx_data_usage.md` and verify parameters, fields, dates, and market limits.
 
-If saving a strategy fails with `quality_gate_failed` for `get_event_devidend`, or for `market="nb"` in `get_tick_data` or `get_filing_announcement`, the Qube server has not received its registry fix yet. Until it does, fetch dividend events locally with tqx-data and keep the dependent calculation outside Qube.
+If a documented method is rejected by the validator, treat that method as
+temporarily unavailable in strategy source and keep the dependent calculation
+outside Qube until the method is enabled again.
 
 ## Route by Research Task
 
@@ -17,10 +22,10 @@ If saving a strategy fails with `quality_gate_failed` for `get_event_devidend`, 
 | HK/US daily bars | `get_hk_daily` / `get_us_daily` | Same methods |
 | HK/US minute bars | `get_hk_min` / `get_us_min` | Not available |
 | Live minute, latest tick, live snapshot | `get_min_data` / `get_tick_data` / `get_live_market_data` | `TickStreamClient` stream |
-| Stock details, calendars | `get_stock_detail` / `get_trading_calendar` | Same names, different market parameters |
+| Stock details, calendars | `get_stock_detail` / `get_trading_calendar` | Same names; use `market="us"` for US data on both sides |
 | Index members | `get_index_component` | Not available |
 | Factors, filings | `get_factor` / `get_filing_announcement` | Not available |
-| Financial statements | `get_financial_statement` | `get_financial_statement` |
+| Financial statements | `get_financial_statement(market="nb")` for US data | `get_financial_statement(market="us")` for US data |
 | Dividends, splits, other corporate events | `get_event_*` | `get_event_*` |
 | Company fundamentals, holdings, consensus | `get_company_*` / `get_consensus_*` | Same methods |
 | FX | `get_currency` | `get_currency` |

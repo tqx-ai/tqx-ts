@@ -1,133 +1,116 @@
 ---
 name: tqx-data
-description: Use TQX Hong Kong and US stock data on the user's own computer through the `tqx-data` Python package and a TQX data account (closed beta). Covers installing the package in a dedicated environment, logging in once with the data account email and password so later tasks never ask again, and querying daily bars, FX, trading calendars, stock details, dividend/split and other corporate events, company fundamentals, consensus, financial statements, short interest, and the real-time tick stream. Use when users mention tqx-data, `pip install tqx-data`, a TQX data account or data membership, tqx_data outside Qube, or need data that Qube strategies cannot call. Do not use for Qube factors, strategies, or backtests (use tqx-research) or for trading accounts, balances, positions, or orders (use tqx-trading).
+description: Use the local API-Key tqx_data package for Hong Kong and US stock data. Covers installation, API-key setup, daily bars, reference data, corporate events, company fundamentals, financial statements, trading utilities, and the TickStreamClient WebSocket stream. Use tqx-research for the separate tqx_data runtime inside Qube strategies, and tqx-trading for account-based trading.
 ---
 
 # TQX Data
 
-## Access: closed beta
+This Skill operates the **local PyPI package**. It is a different build from
+the `tqx_data` module embedded in Qube. The local package documents 22 data
+methods and the `TickStreamClient` stream. Only methods documented in the
+package's `tqx_data.md` are supported. See [the API comparison](references/api-comparison.md)
+for the documented signatures and the Qube-only surface.
 
-`tqx-data` is in closed beta. It needs a **TQX data account**: an email and password that come with a data membership. This account is separate from the trading API key used by `tqx login` and from Qube.
+## Authentication
 
-If the user has no data account, or a login reports `access_denied`, tell them that tqx-data is in closed beta and that Audrey ([audrey@tqx.ai](mailto:audrey@tqx.ai)) enables data memberships. Do not try to register an account on their behalf.
+The local package uses an API key in the `X-API-Key` header. Username/password
+login is disabled. Initialize it explicitly or through environment variables:
 
-## System boundary
+```python
+import tqx_data
 
-- This Skill runs the `tqx-data` package locally. Qube's built-in `tqx_data` in strategy source is a different build with a different method set and parameter names; route Qube work to [`tqx-research`](../tqx-research/SKILL.md). Do not copy local-only methods into Qube strategy code, and do not assume that a Qube method exists locally. See [Qube vs local tqx-data](references/qube-vs-local.md).
-- Data supports research, verification, and the agent's own calculations. It is not trading authorization and not an order channel; route accounts and orders to [`tqx-trading`](../tqx-trading/SKILL.md).
-- Default to non-browser tools. Do not open a browser for this Skill unless the user asks for one.
-
-## Log in once, never ask again
-
-The user should type the email and password once per computer. Every later task, conversation, or scheduled run logs in silently.
-
-tqx-data 0.1.2 deletes its own session file whenever a Python process exits, so `tqx_data.init_token()` alone would need the password again in every new process. The bundled helper `scripts/tqx_data_auth.py` closes that gap:
-
-- `login` verifies the credentials with the data service, then saves them in the operating system's credential store: macOS Keychain, Windows Credential Manager, or the Linux Secret Service. Without a usable keychain it writes `credentials.json` with mode 0600 in the data home, the same fallback the TQX CLI uses for API keys.
-- `run` logs in from the saved credentials before executing the agent's code.
-
-Rules:
-
-- Ask for the email and password only when `status` or `run` exits with 3 (`not_logged_in`) or with 5 and `credentials_rejected`. On exit 1 (service or network failure), report the error and retry later; never ask for the password again because of it.
-- Pass the credentials only on stdin to `login`. Never put them in command arguments, environment variables, source code, files, logs, commit messages, or replies. Acknowledge receipt without repeating them.
-- Do not call `tqx_data.init_token()` yourself, do not set `DEFAULT_USERNAME` or `DEFAULT_PASSWORD`, and do not store the credentials anywhere else.
-- Run `logout` only when the user asks to sign out or switch accounts.
-
-## Workflow
-
-Resolve the absolute path of `scripts/tqx_data_auth.py` in this Skill's directory; the steps below call it `AUTH`. Invoke it with any Python 3.8 or later (`python3` on macOS and Linux, `py -3` on Windows). Every subcommand except `setup` switches into the dedicated environment by itself. Results are JSON on stdout, and errors are JSON on stderr.
-
-### 1. Check the state
-
-```bash
-python3 "$AUTH" status
+tqx_data.init(
+    api_key="sk-tqx-...",
+    base_url="https://tqxdata.tqx.ai",
+)
 ```
 
-| Exit | Meaning | Next step |
-| ---: | --- | --- |
-| 0 | Logged in | Step 4 |
-| 3 | No saved login | Step 3 |
-| 4 | Environment not set up | Step 2 |
-| 5 | `credentials_rejected` | Ask the user to re-enter the email and password, then step 3 |
-| 5 | `access_denied` | Explain the closed beta and Audrey's contact; stop |
-| 1 | Data service or network error | Report it and retry later; do not ask for the password |
+```bash
+export TQX_API_KEY="sk-tqx-..."
+export TQX_API_BASE_URL="https://tqxdata.tqx.ai"
+```
 
-### 2. Set up the environment once
+`api_key` takes precedence over `TQX_API_KEY`. `base_url` is the service base
+URL. Use the base URL supplied for your TQX environment.
+
+Use the bundled helper when a task needs a persistent local setup. It stores the
+key in the operating-system credential store when available and otherwise in a
+0600 file. It never prints the key:
 
 ```bash
 python3 "$AUTH" setup
-```
-
-`setup` creates the data home `~/.config/tqx/data` (`$XDG_CONFIG_HOME/tqx/data` when that is set, or `TQX_DATA_HOME` when the user wants another location), creates a Python 3.12 virtual environment in it, and installs `tqx-data` and `keyring`. It uses `uv` when available and otherwise a local Python 3.10-3.12. tqx-data pins `numpy<2.0`, so Python 3.13 and later cannot install it. If neither `uv` nor a supported Python exists, explain this and ask the user before installing `uv`.
-
-Use `setup --upgrade` to update the packages and `setup --recreate` to rebuild a broken environment. Do not install tqx-data into the user's project or global Python: the package places its session file at the nearest project root above its install directory, and the dedicated home keeps that file out of the user's repositories.
-
-### 3. Log in once
-
-Ask the user, in the conversation, for the email and password of their TQX data account. Then pass them on stdin:
-
-```bash
+python3 "$AUTH" status
 python3 "$AUTH" login <<'EOF'
-{"email": "<email>", "password": "<password>"}
+{"api_key":"<key>","base_url":"https://tqxdata.tqx.ai"}
 EOF
-```
-
-In PowerShell:
-
-```powershell
-@'
-{"email": "<email>", "password": "<password>"}
-'@ | py -3 $AUTH login
-```
-
-When `login` succeeds, tell the user that the login is saved on this computer and that they will not be asked again unless the password changes or they sign out.
-
-### 4. Query data
-
-Write ordinary Python that imports `tqx_data` and calls its methods, without any login code, then run it through the helper:
-
-```bash
-python3 "$AUTH" run analysis.py --any-script-args
-```
-
-For a short query, pass the code on stdin:
-
-```bash
-python3 "$AUTH" run - <<'EOF'
-import tqx_data
-print(tqx_data.get_hk_daily(symbol=["0700.HK"], start_date="20260901", end_date="20260930", fields=["date", "close"]))
-EOF
-```
-
-Keep scripts and outputs in the user's working directory, not in the data home.
-
-### 5. Read the installed documentation
-
-```bash
+python3 "$AUTH" run analysis.py
 python3 "$AUTH" info
+python3 "$AUTH" logout
 ```
 
-`info` reports `tqx_data_version` and `doc`, the `tqx_data.md` file shipped inside the installed package. That file and `help(tqx_data.<method>)` are the authority for local method names, parameters, and fields; read a method's section before calling it. Ignore `tqx_data_bk.md` in the same directory, which describes methods the package does not export.
+Ask the user for the key only when `status` or `run` reports that no key is
+stored. Never put a key in source code, command arguments, logs, generated
+files, or replies. `TQX_API_KEY` is the only process-scoped fallback; do not
+reuse the old email/password workflow.
 
-## Using the data correctly (tqx-data 0.1.2)
+## Package boundary
 
-- **Symbols**: Hong Kong `0700.HK`; US `AAPL.NB` for HTTP methods, even though the bundled document's introduction shows bare `AAPL`; the parameter validator requires the `.NB` suffix. Returned rows may drop it. `TickStreamClient(market="NB")` takes bare `AAPL` instead.
-- **Market names**: methods with a `market` parameter accept only `"hk"` or `"nb"`. Calendar and listing helpers take `exchange="HK"` or `"NB"`.
-- **`alt_close` is not an adjusted price.** It equals `close`. The bundled document calls it adjusted, but its own `0001.HK` example keeps the two equal across later dividend dates. For an adjusted or total-return series, list cash dividends, stock dividends, and splits over the window with `get_event_devidend`, apply them yourself, and keep the event rows as evidence. When the window has no such events, the unadjusted close already is the total-return series.
-- **Daily `bid` and `ask`** are the last quotes before the close, not live quotes.
-- **`get_stock_detail` can return many duplicate rows.** Drop exact duplicates, then confirm that the remaining rows agree on every field you use, such as `min_order_amount`. If they disagree, report the conflict instead of choosing a row.
-- **Point in time**: keep only events announced no later than the decision time. The announcement field differs by method, for example `publish_date` in `get_event_devidend` and `info_date` in `get_event_capital_market`.
-- **Request size**: dates are `YYYYMMDD`, one call covers at most five years, and you should request only the symbols and fields you need.
+- The local package returns `pandas.DataFrame` for HTTP data methods.
+- Hong Kong symbols use `.HK`, for example `0700.HK`.
+- The local package's documentation uses bare US symbols such as `AAPL`.
+  `TickStreamClient` also requires bare US symbols.
+- For the local package's combined methods, use `market="hk"` for Hong Kong
+  and `market="us"` for US data. `nb` is a legacy compatibility spelling in
+  methods that still accept it; use `us` in new code. This includes
+  `get_financial_statement`.
+- The local package has no Qube-only `get_hk_min`, `get_us_min`,
+  `get_min_data`, `get_tick_data`, `get_live_market_data`,
+  `calculate_indicators`, `get_index_component`, or `get_filing_announcement`.
+- Source-only readers that are absent from `tqx_data.md` are not part of the
+  supported local contract and must not be suggested.
+- Local minute/Tick streaming is provided by `TickStreamClient`, which shares
+  the API key initialized by `tqx_data.init`.
 
-## Bug reporting
+## Query rules
 
-When tqx-data returns wrong or inconsistent data reproducibly, prepare a report with the method, complete parameters, `tqx_data_version` from `info`, a complete response sample, and the expected result. When the TQX CLI is installed and the user authorized reporting, submit it with `tqx bug report` as described in [`what-is-tqx`](../what-is-tqx/SKILL.md); otherwise give the report to the user. Never include the email, password, or session token.
+Read the method section in the installed `tqx_data.md` before constructing a
+request. Dates use `YYYYMMDD` unless a method documents another form. Request
+only the symbols and fields needed. For a symbol-specific query, verify the
+returned `symbol` and date columns before using the result.
 
-## Remote file
+`alt_close` is not an adjusted price in this package: it equals `close`. Apply
+corporate events from `get_event_devidend` yourself when building an adjusted
+or total-return series. Event visibility is point-in-time: use the event's
+announcement field (`publish_date` or `info_date`) and keep only rows visible at
+the decision time. Undated company and consensus methods return the latest
+snapshot and must not be used as historical backtest inputs.
 
-When this Skill was loaded from a remote URL instead of a local installation, fetch these files from the same revision with a non-browser HTTP client:
+`get_stock_detail` may contain duplicate rows. Drop exact duplicates and verify
+that the remaining rows agree on every field used by the caller. Financial
+statement history must pass an announcement-date cutoff through `date` and use
+`is_latest=False` when constructing multi-period panels.
 
-- `scripts/tqx_data_auth.py`: save it as `tqx_data_auth.py` in the data home and use that path as `AUTH`.
-- `references/qube-vs-local.md`
+## Errors
 
-The canonical helper URL is `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/skills/tqx-data/scripts/tqx_data_auth.py`.
+Catch the package's typed errors rather than raw transport exceptions:
+
+- `ApiKeyInvalidError`: the key is invalid or no longer active.
+- `InsufficientScopeError`: the key does not have data access permission.
+- `RateLimitError`: the request rate is too high.
+- `ServiceError`: another service or data-access error.
+
+Explain these errors in user-facing terms. Do not expose implementation details
+from the response body.
+
+## Bug reports
+
+For a reproducible data issue, record the method, complete non-secret
+parameters, package version from `info`, a complete response sample, and the
+expected result. Never include the API key or any auth material.
+
+## Remote files
+
+When this Skill is loaded remotely, fetch `scripts/tqx_data_auth.py`,
+`references/qube-vs-local.md`, and `references/api-comparison.md` from the same
+revision. The canonical helper URL is
+`https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/skills/tqx-data/scripts/tqx_data_auth.py`.
