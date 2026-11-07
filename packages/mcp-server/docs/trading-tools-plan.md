@@ -1,8 +1,9 @@
 # TQX Trading MCP Tools 设计方案
 
-状态：方案评审稿  
+状态：首期实现完成；真实 OAuth/Trading 部署联调待完成
+
 范围：把现有 trading API 能力以独立 MCP 接口提供，不引入 `@tqx-ai/cli` 或 `@tqx-ai/sdk` 依赖  
-前提：按需求，MCP Token 置换 API Token 已完成，本方案不重新设计认证。当前 checkout 的 server 仍仅注册 ping，README 的置换进度可能落后于实际交付；实施时对接已完成模块，核对其注入接口即可。
+前提：按需求，MCP Token 置换 API Token 已完成，本方案不重新设计认证。OAuth 服务已实现置换协议；本轮在 MCP 包内新增 HTTP Basic/表单调用端、只读缓存和独立 trading gateway，按已完成服务的公开 HTTP 契约接入。
 
 目标：在保持完整交易能力的同时，控制 `tools/list` 的上下文成本、减少模型选错工具的机会，并把读操作与交易写操作清晰隔离。
 
@@ -10,13 +11,13 @@
 
 建议首期注册 **5 个 trading tools**，开发环境保留现有 `ping`，生产停用演示工具：
 
-| Tool               | 主要职责                     | 覆盖交易操作                                | 权限                                 | 是否改变账户状态              |
-| ------------------ | ---------------------------- | ------------------------------------------- | ------------------------------------ | ----------------------------- |
-| `trading_snapshot` | 读取账户概览、持仓           | `getAccount`、`listPositions`               | `trade:read`                         | 否                            |
-| `trading_activity` | 读取订单、成交、资金流水列表 | `listOrders`、`listTrades`、`listCashFlows` | `trade:read`                         | 否                            |
-| `trading_lookup`   | 查询单个订单或交易信号       | `getOrder`、`getSignal`                     | `trade:read`                         | 否                            |
-| `trading_order`    | 下单、改单、撤单             | `placeOrder`、`modifyOrder`、`cancelOrder`  | `order:write`                        | 是                            |
-| `trading_control`  | 标记 agent 当日活跃          | `hold`                                      | `order:write` 或后端定义的专用 scope | 会改变 agent 活跃状态，不下单 |
+| Tool               | 主要职责                     | 覆盖交易操作                                | 权限                                  | 是否改变账户状态              |
+| ------------------ | ---------------------------- | ------------------------------------------- | ------------------------------------- | ----------------------------- |
+| `trading_snapshot` | 读取账户概览、持仓           | `getAccount`、`listPositions`               | `trade:read`                          | 否                            |
+| `trading_activity` | 读取订单、成交、资金流水列表 | `listOrders`、`listTrades`、`listCashFlows` | `trade:read`                          | 否                            |
+| `trading_lookup`   | 查询单个订单或交易信号       | `getOrder`、`getSignal`                     | 订单 `trade:read`；信号 `order:write` | 否                            |
+| `trading_order`    | 下单、改单、撤单             | `placeOrder`、`modifyOrder`、`cancelOrder`  | `order:write`                         | 是                            |
+| `trading_control`  | 标记 agent 当日活跃          | `hold`                                      | `trade:read`                          | 会改变 agent 活跃状态，不下单 |
 
 这个数量的理由是：
 
@@ -221,7 +222,7 @@ MCP server 定义自己的 typed error 分类和错误映射，保持与上游 t
 - place 的返回是 signal envelope；必须明确 `state: ACCEPTED` 只表示请求被接受，不表示订单已经成交。
 - modify 的返回 `accepted` 只表示改单请求被接受。
 - cancel 的返回 `accepted` 只表示撤单请求被接受，不表示订单已经是 `CANCELLED`。
-- 写请求出现网络超时不能当作未执行。place 优先查询已有 signal；无 signal ID 时只能使用同一个 key、相同参数重试，并以已验证的上游幂等契约为前提。modify/cancel 没有现成幂等键支持，禁止盲目自动重试，先查询订单并报告不确定状态。
+- 写请求出现网络超时不能当作未执行。place 优先查询已有 signal；无 signal ID 时只能使用同一个 key、相同参数重试，并以已验证的上游幂等契约为前提。后端 modify/cancel 支持可选幂等键，缺省时按账户、订单和目标价派生；MCP 首期不暴露此可选参数，仍禁止自动重试，先查询订单并报告不确定状态。
 - 同一调用不自动轮询订单最终状态。模型需要最终状态时，再调用 `trading_lookup`；这能控制延迟和下游压力。
 - 写操作每次执行前都做实时 token exchange，不使用只读 token cache；这一点与 MCP 包现有架构约束一致。
 
@@ -243,7 +244,7 @@ MCP server 定义自己的 typed error 分类和错误映射，保持与上游 t
 - 返回上游 API 的原始业务字段 `agent_id`、`activity_date`、`is_active`、`first_active_at`、`newly_marked`。
 - `hold` 应当是幂等的：重复调用不会重复产生交易。
 - 工具描述必须写清“不会下单”，避免模型把它当成交易确认或订单操作。
-- 如果后端为 hold 定义了独立 scope，优先使用独立 scope；没有独立 scope 时再纳入 `order:write` 的权限策略，并在文档中说明这是权限复用而不是它会下单。
+- 后端当前要求 `trade:read`；权限与是否写入状态分开定义，不能根据 HTTP method 推导 scope。即便使用读取权限，hold 仍需要实时 exchange，不复用缓存。
 
 ## 4. 为什么不采用其他归并方式
 
@@ -279,15 +280,108 @@ MCP access token
 
 建议 scope 绑定：
 
-| Tool               | 必需 scope                     | Token cache                         |
-| ------------------ | ------------------------------ | ----------------------------------- |
-| `trading_snapshot` | `trade:read`                   | 允许短 TTL 只读缓存                 |
-| `trading_activity` | `trade:read`                   | 允许短 TTL 只读缓存                 |
-| `trading_lookup`   | `trade:read`                   | 允许短 TTL 只读缓存                 |
-| `trading_order`    | `order:write`                  | 禁止复用只读缓存，每次实时 exchange |
-| `trading_control`  | 专用 scope；否则 `order:write` | 建议实时 exchange                   |
+| Tool               | 必需 scope                            | Token cache                         |
+| ------------------ | ------------------------------------- | ----------------------------------- |
+| `trading_snapshot` | `trade:read`                          | 允许短 TTL 只读缓存                 |
+| `trading_activity` | `trade:read`                          | 允许短 TTL 只读缓存                 |
+| `trading_lookup`   | 订单 `trade:read`；信号 `order:write` | 订单允许缓存；信号每次实时 exchange |
+| `trading_order`    | `order:write`                         | 禁止复用只读缓存，每次实时 exchange |
+| `trading_control`  | `trade:read`                          | 必须实时 exchange，不读写缓存       |
 
 必须把 scope 检查放在 handler 执行之前。缺 scope 返回 HTTP/MCP 约定的 `403 insufficient_scope`，不要等到下游 API 才发现权限不足。MCP token 不得直接作为 trading API token 转发。
+
+`trading_lookup` 的权限挑战只读取 `type`：`signal` 要求 `order:write`，其余情况默认要求 `trade:read`。即便 id 长度非法或参数缺失，缺权限仍先返回 403；权限通过后才执行完整的 Valibot 输入校验。
+
+### Trading Resource 调用契约（2026-11-06 核对）
+
+- 向 `<issuer>/oauth/token` 发送 RFC 8693 表单，使用 HTTP Basic `<TQX_MCP_EXCHANGE_CLIENT_ID>:<secret>`；`resource` 通常为 `https://www.tqx.trade/openapi`，须与同一环境的后端 audience 精确一致。
+- trading 请求只发送 `Authorization: Bearer <置换后的 API Token>`，不发送 `X-API-Key`，不透传原始 MCP Token。后端会拒绝混合或重复凭证；无效 Bearer 不回退 API Key。
+- 账户、持仓、订单列表、成交、资金流水和订单详情要求 `trade:read`；信号详情要求 `order:write`；`hold` 要求 `trade:read`。后端路径为 `/openapi/v1/trading/...`，scope 不根据 method 推导。
+- 后端验证 RS256、issuer、精确 audience、`client_id`、`act.sub`、`delegated_client_id` 和有效期，并查询派生 JTI 的实时 active 状态以及 user/agent 归属。MCP 不自行构造这些声明。
+- 业务成功同时要求 HTTP 2xx 与 envelope `code == "0"`。信号 `time_in_force` 允许 null；改单返回的 `new_order_id` 和 action 状态必须保留，后续应跟踪新订单 ID。信号返回的 `available_cash`、`cash_max_quantity`、`margin_max_quantity` 保留，不能把含融资购买力当作现金可买额度。
+- 本地后端 OAuth 单测与 MCP 调用测试用于验证契约；它们不代表真实部署联调完成。
+
+部署时两侧配置必须逐项一致：
+
+| MCP server                 | Trading Resource         | 约定                                                      |
+| -------------------------- | ------------------------ | --------------------------------------------------------- |
+| `TQX_MCP_OAUTH_ISSUER`     | `OPENAPI_OAUTH_ISSUER`   | 同一个签发方，通常 `https://auth.tqx.ai`                  |
+| `TQX_MCP_TRADING_RESOURCE` | `OPENAPI_OAUTH_AUDIENCE` | 同一个下游 audience，通常 `https://www.tqx.trade/openapi` |
+
+`TQX_MCP_RESOURCE_URL` 仍为 MCP 自身的 audience（通常 `/mcp`），不要与 trading resource 混用。上述变量定义部署契约，并不表示已经读取或验证线上环境的实际值。
+
+### 5.1 进程内 KV 与 API Token 缓存
+
+采用用户提供的 `KvUtil` 思路：以 `Map` 保存值与绝对过期时间，读取时检查过期，后台清理只负责回收内存。只缓存已置换的 API Token，不缓存交易结果，不引入 Redis、数据库或磁盘持久化。进程重启或请求落到另一个副本时，缓存未命中就重新置换，不影响业务正确性。
+
+分为两层，均在 MCP 包内独立实现：
+
+| 模块                             | 职责                                                                                 |
+| -------------------------------- | ------------------------------------------------------------------------------------ |
+| `src/utils/kv-util.ts`           | 通用、实例化的 `KvUtil<T>`：TTL、容量上限、LRU 淘汰、删除、清理；不理解 OAuth 或权限 |
+| `src/auth/api-token-provider.ts` | 对接已完成的 token exchange；负责缓存键、有效期、scope、读写策略、并发合并和失效处理 |
+
+已实现的 KV 接口形态如下：
+
+```ts
+interface KvStore<T> {
+  get(key: string): T | undefined
+  set(key: string, value: T, ttlMs: number): void
+  delete(key: string): boolean
+  sweep(): void
+  clear(): void
+  dispose(): void
+}
+```
+
+实现采用惰性清理；通用 KV 另提供可选 `startCleanup()`，Token provider 默认不启动定时器。构造时注入 `now: () => number` 和 `maxEntries`；统一使用毫秒，避免原实现中 set 用分钟、inc 用秒的混用。缓存存储泛型对象，不要求把 token 元数据序列化为字符串。只在应用启动时创建一个有容量上限的缓存实例并注入 provider，不能随每次 MCP server/request 创建新缓存；也不使用公开的 static Map 或全局“当前用户”。缓存实例可共享，条目必须按身份和权限隔离。
+
+#### 相比原 KvUtil 的调整
+
+- 过期条件统一为 `expireAt <= now`，避免 getter 与定时清理在边界时间行为不同。
+- TTL 必须为有限正数；非法配置报错，已临近过期的 token 不入缓存，不默认延长寿命。
+- 设置容量上限，建议初始 `maxEntries=1000`，作为可调工程默认值；优先清理过期项，仍满时淘汰最久未使用项。命中只更新 LRU 顺序，不续期。
+- 读取时惰性删除过期项；可每分钟 sweep 一次，但不能依赖 interval 保证有效期。启动清理应幂等，`dispose()` 清除定时器和条目，测试不遗留 timer；支持时对 timer 调用 `unref()`。
+- 不沿用 `LIU_REDIS_KEY_PREFIX`、`LiuTimer` 或 `valTool` 依赖；配置由 MCP 包注入。通用 KV 不默认提供 10 分钟 token TTL。
+- 首期不需要 `toInc`；计数器和限流不是 token cache 的职责。不能用这个单实例 Map 实现跨副本订单幂等或持久化确认状态。
+
+#### 缓存键与有效期
+
+只有当前 MCP Bearer 已完成验证且当前操作 scope 检查通过后，才允许查缓存。provider 使用稳定序列化的元组作为键，至少包含：
+
+```text
+cacheVersion + trustedIssuer + SHA256(incomingMcpToken)
+  + verifiedClientId + verifiedAgentId
+  + downstreamResource + sortedUniqueRequestedScopes
+```
+
+摘要由服务端计算；agent/client 来自已验证身份，resource 来自受信任配置。不能仅按 userId、agentId 或 MCP session header 作为键。同一用户的不同授权 token、不同 agent、不同资源和不同 scope 集合不得混用；未来 research/trading 分别按实际下游资源隔离。原始 MCP Token 不进入 Map key，也不记录 key 摘要到日志。
+
+只缓存经过响应校验的成功置换结果，包括 API Token、实际授予的 scopes 和已确认的过期时间。使用已完成 exchange 模块提供的可信有效期；不能靠解码未验证 JWT 推断可信身份或有效期。
+
+```text
+cacheExpireAt = min(
+  exchangeStartedAt + 5 minutes,
+  downstreamTokenExpiresAt,
+  incomingMcpTokenExpiresAt
+) - safetyMargin
+```
+
+建议 `safetyMargin=30 seconds`。如果契约用 `expires_in`，以 exchange 开始时间保守折算有效期；若同时提供多个可信期限，取最早值。没有可确定有效期的响应不缓存，按既有 exchange 契约决定是否可直接使用。有效期不足安全余量时不使用该 token，返回明确错误，不能循环置换。TTL 取 `cacheExpireAt - now`，读命中不滑动延长。
+
+#### 读写策略与并发
+
+- `trading_snapshot/activity` 及 `lookup.order`：命中有效缓存时复用；未命中调用现有 exchange，再缓存满足条件的只读 token。
+- `trading_order` 的所有 action 以及 `trading_control.hold`：每次实时 exchange，绕过缓存读取、缓存写入以及只读请求的并发合并；写 token 使用后不放进共享只读缓存。hold 虽然不下单，也属于写操作。
+- `trading_lookup.signal` 虽为 GET，但需要 `order:write`，也绕过缓存及并发合并；其只读 annotation 和只读 401 最多刷新一次策略不变。
+- 同一个只读缓存键的并发未命中由 provider 使用独立的 in-flight Promise Map 合并，只发起一次 exchange。成功和失败都在 finally 清理；失败不缓存。不同键不合并。
+- in-flight 项目数也要有上限，exchange 设置超时，容量耗尽返回可重试的繁忙错误；不能让有效用户的大量不同请求形成无限 pending Map。一个等待方断开不取消其他等待方共享的 exchange。
+- 下游明确返回 token 无效/过期时，删除本次使用的缓存项。若该项已被更新，只删除与失败 token 匹配的旧版本。只读调用最多重新置换并重试一次；403 业务拒绝、网络错误或交易错误不能触发无限刷新或扩权。
+- 写操作失败仍遵守第 3.4 节的未知状态与幂等规则，token provider 不自动重放写请求。
+
+只读缓存意味着上游授权撤销后，仍可能在缓存剩余期限内被复用，除非下游另有实时撤销检查。不能把最多 5 分钟缓存称为即时撤销。写操作实时 exchange 只有在上游确实校验撤销状态时才提供该保障；已完成模块需按此契约衔接。
+
+缓存只暴露不含身份、key 或 token 的命中/未命中/淘汰数量和大小指标。工具结果、异常、调试日志均不得输出 token 或整个缓存对象。
 
 ## 6. Tool 描述和 schema 的写法
 
@@ -333,6 +427,10 @@ Schema 规则：
 用至少 20 个任务覆盖账户、分页、成交、资金流水、signal 查询、下单、改单、撤单与 hold，记录工具选择正确率、参数校验通过率、平均调用次数及总输入/输出 tokens。特别测试“撤单后查结果”“拒绝信号诊断”“资金流水不支持”“未知成交状态”。保持工具顺序稳定，不在每次调用后动态改变目录；不额外增加 discover/execute 两段式工具，当前 11 项能力不足以抵消发现轮次的成本。
 
 ## 8. 错误与审计
+
+下单的拒绝与超时可能返回 HTTP 409/422/504，同时在 envelope.data 携带公开 SignalData。此时结果仍为 `isError: true`，通过 `signalResponse` 校验后，把投影后的载荷放入 `error.signal`，保留 signal_id、state、币种、现金和持仓诊断；未知字段及 envelope.message 不透传。载荷校验失败时不返回 signal，仍保留安全 code、status、requestId。审计从已校验的错误载荷提取 signalId；改单成功时同时记录原 orderId 和 newOrderId。写操作继续禁止自动重试。
+
+合法数字型公共 code（例如 `400`、`401`、`403`、`500`）按原值保留。Token exchange 的 HTTP 429 或 OAuth `temporarily_unavailable` 归类为 `busy`，与本地容量限制一致，不自动重试。
 
 MCP server 应定义自己的 typed error 分类，并至少映射这些上游交易错误 code：
 
@@ -459,7 +557,7 @@ MCP server 不应在后台把 research tool 的输出直接拼成订单并执行
 ### P1：只读接入
 
 - 实现 snapshot、activity、lookup。
-- 接入 `trade:read` scope 和只读 token cache。
+- 接入 `trade:read` scope，按第 5.1 节实现独立 KV util 和 API token provider；衔接已有 exchange，不重复实现置换协议。
 - 验证 URL、HTTP method、headers、query、body、分页、响应 schema 和错误映射。
 
 完成标准：现有 trading API 的只读能力都有 MCP 等价路径；CLI 保持未修改，MCP 响应不泄漏认证信息。
@@ -499,13 +597,24 @@ MCP server 不应在后台把 research tool 的输出直接拼成订单并执行
 | isolation      | 两个用户并发调用不会复用身份、token 或 client                       |
 | runtime        | Node/Vitest 单元测试，Bun smoke test，完整 `bun run test`           |
 
+缓存验收需额外覆盖：注入时钟下的到期边界、无滑动续期、LRU 容量、非法 TTL、重复启动/释放 timer；不同 token/agent/resource/scope 隔离；相同键并发仅置换一次、失败后可恢复、in-flight 上限与超时；API/MCP token 有效期取最短；旧 token 失败不误删新条目；只读刷新最多一次；place/modify/cancel/hold 全部绕过缓存和并发合并；进程重启或另一副本缓存为空时正常置换。以上使用假 token 和注入的 exchange/fetch，不连接真实账户。
+
+### 首期实现交付记录
+
+- 实现目录：`src/trading/`、`src/tools/trading/`、`src/auth/token-exchange.ts`、`src/auth/api-token-provider.ts`、`src/utils/kv-util.ts`。
+- 配置：四项 trading/exchange 运行时配置全部提供时启用；全部省略保持认证服务，部分缺失启动失败。production trading 默认只发布五个业务 tools。
+- 输入 schema 用 `toStandardJsonSchema` 注册；转换适配器仅在 JSON Schema 发布时跳过无法表示的 `check`、`trim`、`to_upper_case`，Valibot 运行时仍执行这些动作。symbol 的输入 pattern 允许小写和两端空白，提交与审计使用归一化值。未替换 tools/list 或 tools/call 的底层 handler。
+- runtime options 暴露 `maxEntries`、`maxPending`、`maxConcurrent`、`maxPerPrincipal`。`exchangeTimeoutMs` 独立传给 HTTP exchange 和 provider 等待；`gatewayTimeoutMs` 仅控制 trading HTTP，避免两层超时互相覆盖。
+- API Token TTL/身份隔离/读请求合并/写绕过、下游只读 401 最多刷新一次、无写重放和单进程并发上限已实现。所有缓存和调用均独立于 CLI/SDK 包。
+- 上游错误保留安全 code/requestId，避免透传自由文本错误描述；响应仅投影已声明字段。审计为可注入结构化 sink，默认输出服务端 console。
+- 尚未执行真实账户交易或浏览器授权端到端测试；测试使用签名测试 token 和注入的 OAuth/Trading HTTP 响应，不代表公网部署联调通过。工具目录已设序列化字节上限回归测试；目标模型 tokenizer 的计数和 20 个真实任务的模型选择评测仍需目标客户端环境。
+
 ## 12. 参考资料
 
-本次已尝试访问官方文档，但浏览工具未返回可读正文；以上规范链接供实施复核，不能视作已完成在线版本核验。工具契约以已确认的 trading API、现有 CLI 行为和包内 AGENTS.md 为研究依据；运行实现不依赖 SDK/CLI，落地前按该指南核对安装版 MCP SDK 的 schema 与 annotations 支持。
+实现前已读取官方 Valibot/Standard Schema 集成文档，并对照已安装的 MCP server 类型定义核对 registerTool、scopeChallenge、AuthInfo 和请求级 factory。工具契约以已确认的 trading API、现有 CLI 行为和包内 AGENTS.md 为研究依据；运行实现不依赖 TQX SDK/CLI。协议规范链接仍保留供后续部署复核。
 
 - MCP Tools specification：<https://modelcontextprotocol.io/specification/2026-07-28/server/tools>
 - MCP TypeScript SDK v2 API：<https://ts.sdk.modelcontextprotocol.io/v2/advanced/schema-libraries>
-- MCP TypeScript SDK v2 tools guide：<https://ts.sdk.modelcontextprotocol.io/v2/server/tools>
 - 本仓库 MCP 认证和 token exchange 约束：<../README.md>
 - 现有 trading 行为参考：<../../cli/src/trading/command.ts>
 - 现有 trading API 字段参考：<../../sdk/src/trading/schemas.ts>

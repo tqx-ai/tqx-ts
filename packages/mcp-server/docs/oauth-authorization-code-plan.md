@@ -48,7 +48,7 @@
 | `GET /oauth/tx/:id`           | tqx-web 加载待处理授权事务，展示客户端、资源、scope 和有效期                                                   |
 | `POST /oauth/tx/:id/decision` | tqx-web 携带有效 web 登录 Bearer token，提交 `{ approved, agent_id? }`；返回 `{ redirect_to }`，由网页执行导航 |
 
-MCP server 不提供 OAuth callback，不保存 code、verifier、refresh token 或 web 登录凭证，不代理上述注册/同意接口。外部客户端的 client ID 与后续换票使用的机密客户端 `tqx_mcp_server` 是不同身份，不能混用。
+MCP server 不提供 OAuth callback，不保存 code、verifier、refresh token 或 web 登录凭证，不代理上述注册/同意接口。外部客户端的 client ID 与后续换票使用的机密客户端（由 `TQX_MCP_EXCHANGE_CLIENT_ID` 配置）是不同身份，不能混用。
 
 ## 4. 完整登录时序
 
@@ -125,7 +125,7 @@ sequenceDiagram
 
 `ALLOWED_HOSTS` 使用无 scheme/port 的 hostname；`ALLOWED_ORIGINS` 使用精确的 scheme + host + port，可显式设为空，仅允许不带 Origin 的原生客户端。生产 URL/origin 必须 HTTPS；非生产允许 HTTP，包括局域网地址和主机名，Host/Origin 白名单与 token 校验仍生效。具体示例由 `packages/mcp-server/.env.example` 独立维护，本地配置放在同目录 `.env`，不修改工作区根 `.env.example`。在 `packages/mcp-server/` 中执行 `bun run dev`；`scripts/dev.mts` 按脚本位置显式加载包内 `.env`，再由子进程继承环境变量，已设置的进程环境变量优先。未提供 `.env` 时可使用已导出的变量，缺少必要配置仍拒绝启动。部署也可直接注入进程环境变量。配置 URL 规范化后与 AS/JWT 严格比较，不能使用含凭证、query 或 fragment 的配置。
 
-生产只接受 HTTPS 公共地址，配置缺失/非法时启动失败，不静默退回匿名模式。本轮无需 MCP OAuth client secret、数据库或 SDK 构建变量，也不改变已有 `TQX_BASE_URL` 语义。
+生产只接受 HTTPS 公共地址，配置缺失/非法时启动失败，不静默退回匿名模式。Authorization Code 登录使用公共 MCP client，不需要 client secret；可选 Trading Token Exchange 由 `TQX_MCP_EXCHANGE_CLIENT_ID` 指定的 confidential client 负责，使用 `TQX_MCP_EXCHANGE_CLIENT_SECRET`，不改变已有 `TQX_BASE_URL` 语义。
 
 Docker 部署配置位于 `docker/compose.yaml` 和 `docker/Dockerfile`：Compose 项目名为 `tqx-ts`，仅包含 `mcp-server` 服务，读取 MCP 包内 `.env`，发布 `61102` 端口，不启动 Inspector。基镜像使用 `docker.cnb.cool/liangyunzhijing/docker-sync/oven-bun:1.4.4-slim_amd64`，目标平台为 `linux/amd64`。可选 `TQX_MCP_BIND_HOST` 控制 Bun 入口监听地址，本地默认 `127.0.0.1`，容器固定为 `0.0.0.0`。镜像默认 `NODE_ENV=production`，本地 HTTP 联调须显式设置 `NODE_ENV=development`；容器中的 localhost 不是宿主机，issuer 的网络可达性和 JWT 标识须同时满足。构建上下文由 `Dockerfile.dockerignore` 限制，不包含 `.env` 或凭据。
 

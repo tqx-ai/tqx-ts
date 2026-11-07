@@ -16,11 +16,18 @@ import type { VerifierOptions } from './auth/verifier'
 import { loadMcpConfig } from './config'
 import type { McpConfig } from './config'
 import { createServer } from './server'
+import { loadTradingConfig } from './trading/config'
+import type { TradingConfig } from './trading/config'
+import { createTradingRuntime } from './trading/runtime'
+import type { TradingRuntimeOptions } from './trading/runtime'
 
 export interface AppOptions extends VerifierOptions {
   config?: McpConfig
   verifier?: OAuthTokenVerifier
   serverFactory?: McpServerFactory
+  tradingConfig?: TradingConfig | null
+  trading?: TradingRuntimeOptions
+  demoPing?: boolean
 }
 
 export function createApp(options: AppOptions = {}) {
@@ -29,7 +36,25 @@ export function createApp(options: AppOptions = {}) {
     allowedHosts: [...config.allowedHosts],
     allowedOrigins: config.allowedOrigins.map((origin) => new URL(origin).hostname),
   })
-  const handler = createMcpHandler(options.serverFactory ?? createServer)
+  const tradingConfig =
+    options.tradingConfig === undefined ? loadTradingConfig(config.issuer) : options.tradingConfig
+  const runtime = tradingConfig
+    ? createTradingRuntime(config.issuer, tradingConfig, {
+        fetch: options.fetch,
+        now: options.now,
+        audit: (event) => console.info(JSON.stringify({ event: 'trading.write', ...event })),
+        ...options.trading,
+      })
+    : undefined
+  const handler = createMcpHandler(
+    options.serverFactory ??
+      ((context) =>
+        createServer(context, {
+          gateway: runtime?.gateway,
+          now: options.now,
+          demoPing: options.demoPing ?? (!runtime || process.env.NODE_ENV !== 'production'),
+        })),
+  )
   const metadata = createResourceMetadata(config)
   const authenticate = requireBearerAuth({
     verifier: options.verifier ?? createTokenVerifier(config, options),
@@ -83,5 +108,5 @@ export function createApp(options: AppOptions = {}) {
     return handler.fetch(c.req.raw, { parsedBody: c.get('parsedBody'), authInfo })
   })
 
-  return app
+  return Object.assign(app, { dispose: () => runtime?.dispose() })
 }

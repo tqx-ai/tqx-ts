@@ -91,12 +91,12 @@ To bridge MCP clients to downstream platform APIs without violating security spe
      - `resource=https://www.tqx.trade/api`
    - Client authentication uses standard RFC 7523 `private_key_jwt` (with the private key mounted via deployment secrets) or `client_secret_basic`.
 3. **Downstream API Dispatch:**
-   - The exchanged short-lived token (`aud=https://www.tqx.trade/api`, 5-minute TTL) is used by `@tqx-ai/sdk` to invoke:
+   - The exchanged short-lived token is used by the MCP package's independent gateway client to invoke:
      - **Java Research Gateway:** For quant analysis, backtests, workflows, and market data.
      - **Trading Gateway:** For portfolio, order, and position operations.
 4. **Least Privilege & Auditability:**
    - Exchanged tokens downscope scopes to only those required by the specific tool.
-   - Preserves actor audit trails (`act` claim) identifying that the invocation was performed by `tqx_mcp_server` on behalf of the user.
+   - Preserves actor audit trails (`act` claim) identifying that the invocation was performed by the configured exchange client on behalf of the user.
 
 ---
 
@@ -158,13 +158,13 @@ When implementation begins, development should proceed through the following pha
 
 - Implement a lightweight adapter converting Valibot schemas to MCP-compatible JSON Schemas via `@valibot/to-json-schema`.
 - Build a modular Tool Registry where tools register their name, description, Valibot schema, and execution handler.
-- Integrate `@tqx-ai/sdk` as the backing client for trading and quant data capabilities.
+- Implement gateway clients, types, Valibot schemas and errors inside this package. Do not import `@tqx-ai/sdk` or `@tqx-ai/cli`, including type-only or relative source imports.
 
 ### Phase 4: RFC 8693 Token Exchange & Upstream Forwarding
 
 - Implement the RFC 8693 Token Exchange client interfacing with `tqx-oauth` (`grant_type=urn:ietf:params:oauth:grant-type:token-exchange`).
 - Implement the in-memory token cache (LRU + TTL <= 5 min) for read-only tools and cache-bypass logic for `order:write` tools.
-- Configure `@tqx-ai/sdk` with the exchanged API tokens to invoke downstream endpoints.
+- Configure the independent MCP gateway client with the exchanged API tokens to invoke downstream endpoints.
 - Add rate limiting and maximum concurrency guards per client connection.
 - Verify execution under Bun v1.4.4+, and execute compatibility checks against Node.js 26 and TypeScript 7 compiler checks (`tsc --noEmit`).
 
@@ -182,3 +182,14 @@ When implementation begins, development should proceed through the following pha
 8. **Forwarding Only:** Business domain logic, persistence, and trading execution belong to upstream services. The MCP server must only validate, translate, and stream.
 9. **Specification Compliance:** Always align wire protocol messages with MCP Specification `2026-07-28`.
 10. **Utility Organization:** Place reusable helper functions in `src/utils/`, grouped by purpose. Keep configuration assembly and OAuth-specific behavior in their owning modules.
+
+## 8. Current Trading Implementation
+
+Trading is opt-in through the four runtime values in `.env.example`. The public
+trading token audience is separately configured (normally `/openapi`); do not
+reuse the older generic `/api` examples above as a deployment contract. Only
+HTTP Basic confidential-client authentication is implemented for exchange.
+Research gateway integration remains future work. See
+[trading-tools-plan.md](docs/trading-tools-plan.md) and README for the implemented
+contracts, read-cache revocation window and validation limits. CLI and SDK
+packages must remain independent and unchanged by MCP implementation work.
