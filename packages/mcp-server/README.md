@@ -228,9 +228,9 @@ The AS's global discovery may still advertise Device Flow.
 JWT verification uses JOSE with RS256, trusted issuer, exact MCP audience, expiry,
 optional `nbf`, and Valibot-validated identity claims. AS metadata must report the
 configured issuer; JWKS must be on that issuer's origin. Discovery requests reject
-redirects, omit credentials, time out after five seconds, and accept at most 64 KiB
-per document and 32 keys. Public metadata/keys are cached in process for at most
-ten minutes; unknown-key refreshes and failed-fetch retries have a 30-second
+redirects, omit credentials, time out after five seconds, and parse JSON using
+`Response.json()`. JWKS documents accept at most 32 keys. Public metadata/keys
+are cached in process for at most ten minutes; unknown-key refreshes and failed-fetch retries have a 30-second
 cooldown. Publish old and new keys together during rotation. No database is used.
 
 Invalid tokens receive 401. Per-operation scope challenges use the SDK's HTTP 403

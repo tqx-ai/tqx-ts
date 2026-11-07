@@ -221,7 +221,7 @@ describe('OAuth discovery failures', () => {
     () => new Response('<html>secret</html>', { headers: { 'Content-Type': 'text/html' } }),
     () => new Response('not-json-secret', { headers: { 'Content-Type': 'application/json' } }),
     () => Response.json({ keys: Array.from({ length: 33 }, () => ({})) }),
-    () => new Response('x'.repeat(65_537), { headers: { 'Content-Type': 'application/json' } }),
+    () => new Response(null, { headers: { 'Content-Type': 'application/json' } }),
   ])('fails closed on an invalid JWKS response %#', async (response) => {
     oauth.fetch.mockImplementation(async (url) =>
       String(url) === oauth.metadata.jwks_uri ? response() : Response.json(oauth.metadata),

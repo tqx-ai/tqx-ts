@@ -40,50 +40,52 @@ export function createTokenVerifier(
   let metadataRetryAt = 0
   let pending: Promise<ReturnType<typeof createRemoteJWKSet>> | undefined
 
+  async function loadResolver() {
+    const metadata = v.parse(
+      metadataSchema,
+      await fetchOAuthJson(metadataUrl.href, fetchImplementation),
+    )
+    const jwksUrl = new URL(metadata.jwks_uri)
+    // Pin key discovery to the configured AS origin, never a token-supplied URL.
+    if (
+      metadata.issuer !== config.issuer ||
+      jwksUrl.origin !== issuer.origin ||
+      jwksUrl.username ||
+      jwksUrl.password ||
+      jwksUrl.search ||
+      jwksUrl.hash
+    ) {
+      throw new Error('OAuth discovery unavailable')
+    }
+    let jwksRetryAt = 0
+    const keys = createRemoteJWKSet(jwksUrl, {
+      timeoutDuration: 5000,
+      cacheMaxAge: CACHE_TTL_MS,
+      cooldownDuration: RETRY_COOLDOWN_MS,
+      [customFetch]: async (url, init) => {
+        if (now() < jwksRetryAt) throw new Error('OAuth keys unavailable')
+        try {
+          const document = v.parse(
+            jwksSchema,
+            await fetchOAuthJson(url, fetchImplementation, init?.signal ?? undefined),
+          )
+          return Response.json(document)
+        } catch {
+          jwksRetryAt = now() + RETRY_COOLDOWN_MS
+          throw new Error('OAuth keys unavailable')
+        }
+      },
+    })
+    resolver = keys
+    metadataExpiresAt = now() + CACHE_TTL_MS
+    return keys
+  }
+
   async function discover() {
     if (resolver && now() < metadataExpiresAt) return resolver
     if (pending) return pending
     if (now() < metadataRetryAt) throw new Error('OAuth discovery unavailable')
-    pending = (async () => {
-      const metadata = v.parse(
-        metadataSchema,
-        await fetchOAuthJson(metadataUrl.href, fetchImplementation),
-      )
-      const jwksUrl = new URL(metadata.jwks_uri)
-      // Pin key discovery to the configured AS origin, never a token-supplied URL.
-      if (
-        metadata.issuer !== config.issuer ||
-        jwksUrl.origin !== issuer.origin ||
-        jwksUrl.username ||
-        jwksUrl.password ||
-        jwksUrl.search ||
-        jwksUrl.hash
-      ) {
-        throw new Error('OAuth discovery unavailable')
-      }
-      let jwksRetryAt = 0
-      const keys = createRemoteJWKSet(jwksUrl, {
-        timeoutDuration: 5000,
-        cacheMaxAge: CACHE_TTL_MS,
-        cooldownDuration: RETRY_COOLDOWN_MS,
-        [customFetch]: async (url, init) => {
-          if (now() < jwksRetryAt) throw new Error('OAuth keys unavailable')
-          try {
-            const document = v.parse(
-              jwksSchema,
-              await fetchOAuthJson(url, fetchImplementation, init?.signal ?? undefined),
-            )
-            return Response.json(document)
-          } catch {
-            jwksRetryAt = now() + RETRY_COOLDOWN_MS
-            throw new Error('OAuth keys unavailable')
-          }
-        },
-      })
-      resolver = keys
-      metadataExpiresAt = now() + CACHE_TTL_MS
-      return keys
-    })()
+    pending = loadResolver()
     try {
       return await pending
     } catch {
