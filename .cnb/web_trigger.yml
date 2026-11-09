@@ -1,0 +1,8 @@
+branch:
+  - buttons:
+      - name: 构建 tqx-mcp-server 镜像
+        groupName: 发布
+        description: 自动递增版本并推送 tqx-mcp-server 镜像到火山引擎 Registry
+        event: web_trigger_build_image
+        permissions:
+          roles: [master, developer]
