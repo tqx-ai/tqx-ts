@@ -27,7 +27,7 @@
         script: |
           set -eu
           export REGISTRY_VERSION_MODE=workflow
-          VERSION="$(bash autoPackageScripts/registry_next_version.sh)"
+          VERSION="$(bash scripts/registry_next_version.sh)"
           printf '%s' "$VERSION" > .image-version
           echo "Image version: $VERSION"
       - name: build-and-push-image
