@@ -1,0 +1,22 @@
+{
+  "name": "@tqx-ai/mcp-server",
+  "version": "0.6.1",
+  "private": true,
+  "type": "module",
+  "module": "src/index.ts",
+  "scripts": {
+    "dev": "bun scripts/dev.mts",
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/hono": "^2.0.2",
+    "@modelcontextprotocol/server": "^2.4.0",
+    "@valibot/to-json-schema": "^1.8.0",
+    "hono": "^4.13.14",
+    "jose": "^6.2.15",
+    "valibot": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

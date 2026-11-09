@@ -1,0 +1,53 @@
+# 构建并推送 tqx-mcp-server 镜像到火山引擎 Registry。
+# 手动触发：web_trigger_build_image；API 触发：api_trigger_build_image。
+.tqx-mcp-server-build-image: &tqx-mcp-server-build-image
+  - name: build-and-push-image
+    runner:
+      tags: cnb:arch:amd64
+      cpus: 8
+    docker:
+      image: python:3.12-slim
+    services:
+      - name: docker
+        options:
+          rootlessBuildkitd:
+            enabled: true
+    imports:
+      - https://cnb.cool/liangyunzhijing/pandaai/workflow-secrets/-/blob/main/volcengine.yml
+    lock:
+      key: tqx-mcp-server-build-image
+      wait: true
+    env:
+      DOCKER_IMAGE: panda-cn-shanghai.cr.volces.com/panda/tqx-mcp-server
+      DOCKERFILE: packages/mcp-server/docker/Dockerfile
+      VERSION_TAG_PREFIX: 0.0.
+    stages:
+      - name: resolve-version-and-login
+        timeout: 10m
+        script: |
+          set -eu
+          export REGISTRY_VERSION_MODE=workflow
+          VERSION="$(bash autoPackageScripts/registry_next_version.sh)"
+          printf '%s' "$VERSION" > .image-version
+          echo "Image version: $VERSION"
+      - name: build-and-push-image
+        timeout: 20m
+        script: |
+          set -eu
+          VERSION="$(cat .image-version)"
+          IMAGE_TAG="${DOCKER_IMAGE}:${VERSION}"
+          CACHE="type=registry,ref=${DOCKER_IMAGE}:buildcache"
+          docker buildx build \
+            --platform linux/amd64 \
+            --file "$DOCKERFILE" \
+            --tag "$IMAGE_TAG" \
+            --cache-from "$CACHE" \
+            --cache-to "${CACHE},mode=max,image-manifest=true,oci-mediatypes=true,ignore-error=true" \
+            --push \
+            .
+          echo "Pushed $IMAGE_TAG"
+          echo "Pull with: docker pull $IMAGE_TAG"
+
+$:
+  web_trigger_build_image: *tqx-mcp-server-build-image
+  api_trigger_build_image: *tqx-mcp-server-build-image

@@ -4,6 +4,7 @@
   "description": "TypeScript SDK for the TQX Open API",
   "keywords": [
     "openapi",
+    "quant",
     "sdk",
     "tqx",
     "trading"

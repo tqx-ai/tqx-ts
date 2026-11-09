@@ -25,10 +25,18 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .env.production.local
 .env.local
 
+# UAT deployment manifests and runtime configuration
+/deploy/uat/
+
 # caches
 .eslintcache
 .cache
 *.tsbuildinfo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
 
 # IntelliJ based IDEs
 .idea

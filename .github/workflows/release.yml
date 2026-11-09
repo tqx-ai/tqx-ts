@@ -382,7 +382,7 @@ jobs:
           Decompress it, for example with `gunzip`, to get the same binary.
 
           Standalone binaries include the CLI runtime and do not require Node.js. For installation,
-          upgrades, authentication, and architecture details, see the [TQX CLI skill installation guide](https://github.com/tqx-ai/tqx-ts/blob/__TAG__/skills/tqx-trading/references/commands.md). Installed CLIs can check and upgrade themselves with `tqx self-update`.
+          upgrades, authentication, and architecture details, see the [TQX CLI installation guide](https://github.com/tqx-ai/tqx-ts/blob/__TAG__/INSTALL.md). Installed CLIs can check and upgrade themselves with `tqx self-update`.
 
           `SHA256SUMS` is included below as a release asset for integrity verification.
 

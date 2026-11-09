@@ -1,0 +1,12 @@
+**
+!package.json
+!bun.lock
+!packages/
+!packages/sdk/
+!packages/sdk/package.json
+!packages/cli/
+!packages/cli/package.json
+!packages/mcp-server/
+!packages/mcp-server/package.json
+!packages/mcp-server/src/
+!packages/mcp-server/src/**
