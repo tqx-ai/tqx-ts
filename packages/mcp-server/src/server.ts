@@ -8,6 +8,8 @@ import { registerActivity } from './tools/trading/activity'
 import { registerLookup } from './tools/trading/lookup'
 import { registerOrder } from './tools/trading/order'
 import { registerControl } from './tools/trading/control'
+import { registerBugReportPrompt } from './tools/bug-report/prompt'
+import { registerBugReport } from './tools/bug-report/submit'
 import type { TradingGateway } from './trading/gateway'
 
 export function createServer(
@@ -18,6 +20,7 @@ export function createServer(
 
   if (options.demoPing !== false) registerPingTool(server)
   if (options.gateway) {
+    registerBugReportPrompt(server)
     const tools = {
       auth: context?.authInfo,
       gateway: options.gateway,
@@ -28,6 +31,7 @@ export function createServer(
     registerLookup(server, tools)
     registerOrder(server, tools)
     registerControl(server, tools)
+    registerBugReport(server, tools)
   }
 
   return server

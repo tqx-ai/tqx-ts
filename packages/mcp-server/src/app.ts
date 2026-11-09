@@ -42,7 +42,8 @@ export function createApp(options: AppOptions = {}) {
     ? createTradingRuntime(config.issuer, tradingConfig, {
         fetch: options.fetch,
         now: options.now,
-        audit: (event) => console.info(JSON.stringify({ event: 'trading.write', ...event })),
+        audit: (event) =>
+          console.info(JSON.stringify({ event: `${event.domain}.write`, ...event })),
         ...options.trading,
       })
     : undefined

@@ -293,6 +293,10 @@ export const holdResponse = v.object({
   first_active_at: text,
   newly_marked: v.boolean(),
 })
+export const bugReportResponse = v.object({
+  bug_id: text,
+  created_at: text,
+})
 
 export type SnapshotInput = v.InferOutput<typeof snapshotSchema>
 export type ActivityInput = v.InferOutput<typeof activitySchema>

@@ -130,6 +130,25 @@ describe('API token provider', () => {
     expect(s.exchange).toHaveBeenCalledTimes(1)
   })
 
+  it('allows a non-Agent exchange when the caller opts out of the Agent requirement', async () => {
+    const s = setup()
+    const identity = { ...s.auth, scopes: ['ranking:read'], extra: { sub: 'user-1' } }
+    await expect(s.provider.get(identity, ['ranking:read'], true, false)).resolves.toMatchObject({
+      scopes: ['ranking:read'],
+    })
+    expect(s.exchange).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['ranking:read'] }))
+  })
+
+  it('invalidates a cached non-Agent exchange with the same cache key', async () => {
+    const s = setup()
+    const identity = { ...s.auth, scopes: ['ranking:read'], extra: { sub: 'user-1' } }
+    const first = await s.provider.get(identity, ['ranking:read'], false, false)
+    await s.provider.invalidate(identity, ['ranking:read'], first)
+    const second = await s.provider.get(identity, ['ranking:read'], false, false)
+    expect(second).not.toBe(first)
+    expect(s.exchange).toHaveBeenCalledTimes(2)
+  })
+
   it('caps caching at the incoming MCP token lifetime', async () => {
     const s = setup()
     s.auth.expiresAt = 1100

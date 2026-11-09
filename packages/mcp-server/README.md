@@ -124,13 +124,14 @@ Configure `TQX_MCP_EXCHANGE_CLIENT_ID` and `TQX_MCP_EXCHANGE_CLIENT_SECRET` in b
 services with exactly the same values. The client ID is public configuration; the
 secret remains deployment-only.
 
-| Tool               | Request discriminator                             | Scope                                      |
-| ------------------ | ------------------------------------------------- | ------------------------------------------ |
-| `trading_snapshot` | `sections`: account, positions (defaults to both) | `trade:read`                               |
-| `trading_activity` | `type`: orders, trades, cash_flows                | `trade:read`                               |
-| `trading_lookup`   | `type`: order, signal; exact `id`                 | order: `trade:read`; signal: `order:write` |
-| `trading_order`    | `action`: place, modify, cancel                   | `order:write`                              |
-| `trading_control`  | `action`: hold                                    | `trade:read`                               |
+| Tool                | Request discriminator                             | Scope                                                                  |
+| ------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| `trading_snapshot`  | `sections`: account, positions (defaults to both) | `trade:read`                                                           |
+| `trading_activity`  | `type`: orders, trades, cash_flows                | `trade:read`                                                           |
+| `trading_lookup`    | `type`: order, signal; exact `id`                 | order: `trade:read`; signal: `order:write`                             |
+| `trading_order`     | `action`: place, modify, cancel                   | `order:write`                                                          |
+| `trading_control`   | `action`: hold                                    | `trade:read`                                                           |
+| `submit_bug_report` | `title`, `description`, optional `idempotencyKey` | existing Trading scope: `ranking:read`, `trade:read`, or `order:write` |
 
 Every tool takes a required `request` object. Use `tools/list` for the complete
 current schema. Example `params` for a read:
@@ -157,6 +158,26 @@ results do not prove final status. Writes are never automatically replayed;
 transport/protocol failures may include `outcomeUnknown: true`. Client hosts
 must apply their authorization/confirmation policy; a boolean tool argument
 cannot prove human confirmation. Hold marks agent activity and does not trade.
+
+`submit_bug_report` writes `POST /openapi/v1/bug-reports` and returns the
+upstream `bug_id` and `created_at`. It is marked as a destructive, idempotent
+write and always performs a fresh token exchange. It dynamically uses an
+existing Trading Resource scope from the MCP token, preferring `ranking:read`
+(which does not require an Agent), then `trade:read` or `order:write` when an
+Agent binding is present. If no usable Trading scope is present, the MCP server
+returns a scope challenge for `ranking:read` so the client can perform step-up
+authorization. The deployed contract has no `bug:write`. Reuse `idempotencyKey` only for retrying the same report. The
+`prepare_bug_report` prompt helps compose a reproducible report and never calls
+the upstream API. It instructs the Agent to investigate ownership first, submit
+only when the evidence points to a TQX issue, produce a short title and a
+structured Markdown description, call `submit_bug_report` directly after the
+evidence is organized, and report the send status while displaying the exact
+submitted title and description. When the client/host supports rich UI, the
+prompt asks the Agent to prefer an envelope-style card or panel; otherwise it
+falls back to structured Markdown and does not invent an unsupported UI
+protocol. User-facing output follows the user's current language and writing
+system, including Traditional Chinese when appropriate; API field names,
+identifiers, code, logs, and request/response values remain unchanged.
 
 Rejected or timed-out placements remain tool errors (`isError: true`). When the
 upstream error contains a valid public signal, `error.signal` retains the signal
@@ -193,7 +214,7 @@ provider wait, including injected exchanges. `gatewayTimeoutMs` (10000) controls
 only trading HTTP requests; the two timeout budgets are independent.
 
 When trading is enabled in production, the demonstration `ping` tool is disabled
-by default, leaving five business tools. It remains available in development or
+by default, leaving six business tools. It remains available in development or
 authentication-only mode. Health checks and the MCP protocol ping remain usable.
 Research APIs are reserved for a later phase.
 
@@ -263,7 +284,9 @@ error `-32602`, following the SDK's standard behavior.
 `src/app.ts` provides an injectable Fetch app factory, `src/auth/` owns resource
 metadata, JWT verification and token exchange/caching, `src/trading/` owns the
 independent gateway contracts and transport, `src/tools/trading/` owns the five
-tool handlers, `src/server.ts` registers tools, and `src/index.ts` is the Bun entry. Reusable helpers live in `src/utils/`, with configuration parsing
+trading tool handlers, `src/tools/bug-report/` owns the bug-report tool and
+prompt, `src/server.ts` registers tools and prompts, and `src/index.ts` is the
+Bun entry. Reusable helpers live in `src/utils/`, with configuration parsing
 helpers in `src/utils/config.ts`. Other runtimes can serve `createApp().fetch` through an HTTP
 adapter. Tests run the core under Node/Vitest and exercise authentication under Bun.
 

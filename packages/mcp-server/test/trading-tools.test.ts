@@ -2,12 +2,13 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../src/app'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
-import { account, envelope, hold, order, signal, tradingConfig } from './helpers/trading'
+import { account, bugReport, envelope, hold, order, signal, tradingConfig } from './helpers/trading'
 
 const oauth = await createOAuthFixture()
 const mcpToken = await oauth.sign({ scope: 'trade:read order:write', agent_id: 'agent-1' })
 const readToken = await oauth.sign({ scope: 'trade:read', agent_id: 'agent-1' })
 const writeToken = await oauth.sign({ scope: 'order:write', agent_id: 'agent-1' })
+const rankingToken = await oauth.sign({ scope: 'ranking:read' })
 const researchToken = await oauth.sign({ scope: 'research:read' })
 
 function setup() {
@@ -21,6 +22,7 @@ function setup() {
     const pathname = new URL(String(url)).pathname
     if (pathname.endsWith('/account')) return envelope(account)
     if (pathname.endsWith('/hold')) return envelope(hold)
+    if (pathname.endsWith('/bug-reports')) return envelope(bugReport, 201)
     if (pathname.endsWith('/orders/order-1')) return envelope(order)
     if (pathname.includes('/signals/')) return envelope(signal)
     if (pathname.endsWith('/orders')) return envelope({ items: [], next_cursor: 'opaque+/=' })
@@ -119,7 +121,7 @@ const place = {
 }
 
 describe('trading MCP tools over authenticated HTTP', () => {
-  it('lists exactly five compact tools with object roots, scoped writes and annotations', async () => {
+  it('lists six compact business tools with object roots, scoped writes and annotations', async () => {
     const s = setup()
     const response = await s.rpc('tools/list')
     expect(response.status).toBe(200)
@@ -132,6 +134,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
       'trading_lookup',
       'trading_order',
       'trading_control',
+      'submit_bug_report',
     ])
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe('object')
@@ -148,8 +151,43 @@ describe('trading MCP tools over authenticated HTTP', () => {
       destructiveHint: false,
       idempotentHint: true,
     })
+    expect(tools[5].annotations).toMatchObject({
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+    })
     expect(JSON.stringify(tools).length).toBeLessThan(20_000)
     expect(s.exchange).not.toHaveBeenCalled()
+  })
+
+  it('lists and renders the bug-report preparation prompt', async () => {
+    const s = setup()
+    const listed = await s.rpc('prompts/list')
+    expect((await parse(listed)).result.prompts).toEqual([
+      expect.objectContaining({ name: 'prepare_bug_report' }),
+    ])
+    const response = await s.rpc('prompts/get', {
+      name: 'prepare_bug_report',
+    })
+    const body = await parse(response)
+    expect(body.result.messages[0].content.text).toContain(
+      'First investigate the reported problem and determine whether the responsibility belongs to TQX',
+    )
+    expect(body.result.messages[0].content.text).toContain(
+      'After organizing the evidence, call submit_bug_report directly',
+    )
+    expect(body.result.messages[0].content.text).toContain(
+      "Match the user's language and writing system in all user-facing output",
+    )
+    expect(body.result.messages[0].content.text).toContain(
+      'Write description as well-structured Markdown',
+    )
+    expect(body.result.messages[0].content.text).toContain('prefer an envelope-style card or panel')
+    expect(body.result.messages[0].content.text).toContain(
+      'Do not fabricate a UI protocol unsupported by the current host',
+    )
+    expect(s.exchange).not.toHaveBeenCalled()
+    expect(s.fetch).not.toHaveBeenCalled()
   })
 
   it('reads account and positions concurrently with one exchange and no MCP token passthrough', async () => {
@@ -219,6 +257,119 @@ describe('trading MCP tools over authenticated HTTP', () => {
     expect(response.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:6274')
     expect(s.exchange).not.toHaveBeenCalled()
     expect(s.fetch).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['trade:read', readToken],
+    ['order:write', writeToken],
+  ])(
+    'uses an existing %s scope for bug reports without an MCP scope challenge',
+    async (_scope, token) => {
+      const s = setup()
+      const { response, body } = await s.call(
+        'submit_bug_report',
+        { title: 'title', description: 'description' },
+        token,
+      )
+      expect(response.status).toBe(200)
+      expect(body.result.isError).not.toBe(true)
+      expect(s.exchange).toHaveBeenCalledWith(expect.objectContaining({ scopes: [_scope] }))
+      expect(s.fetch).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('challenges bug reports when no usable Trading Resource scope is present', async () => {
+    const s = setup()
+    const { response } = await s.call(
+      'submit_bug_report',
+      { title: 'title', description: 'description' },
+      researchToken,
+    )
+    expect(response.status).toBe(403)
+    expect(response.headers.get('WWW-Authenticate')).toContain('error="insufficient_scope"')
+    expect(response.headers.get('WWW-Authenticate')).toContain('scope="ranking:read"')
+    expect(s.exchange).not.toHaveBeenCalled()
+    expect(s.fetch).not.toHaveBeenCalled()
+  })
+
+  it('submits a bug report through the OpenAPI route with idempotency and a fresh exchange', async () => {
+    const s = setup()
+    const request = {
+      title: 'Broken quote',
+      description: 'Steps, environment, response, and request_id=request-1',
+      idempotencyKey: 'bug-report-001',
+    }
+    const first = await s.call('submit_bug_report', request, rankingToken)
+    const second = await s.call('submit_bug_report', request, rankingToken)
+    expect(first.body.result.structuredContent).toMatchObject({
+      kind: 'bug_report.submitted',
+      data: bugReport,
+    })
+    expect(second.body.result.structuredContent.data).toEqual(bugReport)
+    expect(s.exchange).toHaveBeenCalledTimes(2)
+    expect(s.exchange.mock.calls.map(([input]) => input.scopes)).toEqual([
+      ['ranking:read'],
+      ['ranking:read'],
+    ])
+    const [url, init] = s.fetch.mock.calls[0]!
+    expect(String(url)).toBe('https://trade.example.test/openapi/v1/bug-reports')
+    expect(init!.method).toBe('POST')
+    expect(new Headers(init!.headers).get('Authorization')).toBe('Bearer exchanged-api-token')
+    expect(new Headers(init!.headers).get('Idempotency-Key')).toBe('bug-report-001')
+    expect(JSON.parse(init!.body as string)).toEqual({
+      title: 'Broken quote',
+      description: 'Steps, environment, response, and request_id=request-1',
+    })
+    expect(s.audit).toHaveBeenCalledWith(
+      expect.objectContaining({ domain: 'bug-report', operation: 'bugReport', result: 'success' }),
+    )
+  })
+
+  it('submits a bug report with ranking:read and no Agent binding', async () => {
+    const s = setup()
+    const { response, body } = await s.call(
+      'submit_bug_report',
+      { title: 'title', description: 'description' },
+      rankingToken,
+    )
+    expect(response.status).toBe(200)
+    expect(body.result.isError).not.toBe(true)
+    expect(s.exchange).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['ranking:read'] }))
+    expect(s.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns a bug-report-specific error kind without exposing upstream messages', async () => {
+    const s = setup()
+    s.reply(
+      Response.json(
+        {
+          code: 'report_processing_unavailable',
+          data: null,
+          message: 'internal classifier details',
+          request_id: 'bug-request-1',
+        },
+        { status: 503 },
+      ),
+    )
+    const { body } = await s.call(
+      'submit_bug_report',
+      {
+        title: 'Broken quote',
+        description: 'Details',
+      },
+      rankingToken,
+    )
+    expect(body.result.structuredContent).toMatchObject({
+      kind: 'bug_report.error',
+      error: {
+        kind: 'api',
+        code: 'report_processing_unavailable',
+        status: 503,
+        requestId: 'bug-request-1',
+        message: 'Bug report API rejected operation (report_processing_unavailable)',
+      },
+    })
+    expect(JSON.stringify(body)).not.toContain('internal classifier details')
   })
 
   it.each(['2025-11-25', '2026-07-28'])(
@@ -376,6 +527,9 @@ describe('trading MCP tools over authenticated HTTP', () => {
     ['trading_order', { ...place, orderType: 'MARKET' }],
     ['trading_order', { ...place, idempotencyKey: '' }],
     ['trading_control', { action: 'hold', yes: true }],
+    ['submit_bug_report', { title: '', description: 'details' }],
+    ['submit_bug_report', { title: 'title', description: '' }],
+    ['submit_bug_report', { title: 'title', description: 'details', idempotencyKey: '\n' }],
   ])('rejects invalid %s arguments before exchange: %j', async (tool, request) => {
     const s = setup()
     const { body } = await s.call(tool as string, request)

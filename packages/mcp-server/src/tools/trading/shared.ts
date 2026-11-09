@@ -43,6 +43,7 @@ export function registerTradingTool<T extends v.GenericSchema>(
     description: string
     schema: T
     write?: boolean
+    errorKind?: string
     scopeChallenge?: ScopeChallengeHandler
     destructive?: boolean
     idempotent?: boolean
@@ -68,7 +69,7 @@ export function registerTradingTool<T extends v.GenericSchema>(
         if (!context.auth) throw new TradingError('authorization', 'Trading authorization required')
         return await handler(request, context.auth)
       } catch (error) {
-        const output = { kind: 'trading.error', error: publicError(error) }
+        const output = { kind: definition.errorKind ?? 'trading.error', error: publicError(error) }
         return {
           isError: true,
           structuredContent: output,

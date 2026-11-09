@@ -62,6 +62,10 @@ export const hold = {
   first_active_at: time,
   newly_marked: true,
 }
+export const bugReport = {
+  bug_id: 'BR-20261106-ABC123',
+  created_at: time,
+}
 export function auth(now = Date.now()): AuthInfo {
   return {
     token: 'incoming-mcp-token',

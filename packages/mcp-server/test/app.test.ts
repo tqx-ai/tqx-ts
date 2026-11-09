@@ -123,12 +123,14 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
   it('discovers the server version and tool capability using the protocol lifecycle', async () => {
     const serverInfo = { name: '@tqx-ai/mcp-server', version }
     if (protocolVersion === '2025-11-25') {
+      expect(initialization.result.capabilities).not.toHaveProperty('prompts')
       expect(initialization).toMatchObject({
         result: { protocolVersion, capabilities: { tools: {} }, serverInfo },
       })
     } else {
       // Modern clients discover directly without an initialize handshake.
       const body = await readResponse(await call('server/discover'), protocolVersion)
+      expect(body.result.capabilities).not.toHaveProperty('prompts')
       expect(body).toMatchObject({
         result: {
           supportedVersions: [protocolVersion],

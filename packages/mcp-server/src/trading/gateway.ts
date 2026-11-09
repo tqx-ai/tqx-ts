@@ -4,7 +4,7 @@ import * as v from 'valibot'
 import type { ApiTokenProvider } from '../auth/api-token-provider'
 import { readJson } from '../utils/http-json'
 import { TradingError } from './errors'
-import { operations, type OperationName } from './operations'
+import { operations, type OperationName, type TradingScope } from './operations'
 import { signalResponse } from './schemas'
 
 const envelopeSchema = v.object({
@@ -19,6 +19,10 @@ export interface GatewayRequest {
   query?: Record<string, string | number | undefined>
   body?: Record<string, unknown>
   idempotencyKey?: string
+  /** Internal token-exchange policy; never sent to the upstream API. */
+  requiresAgent?: boolean
+  /** Internal downstream scope override; never sent to the upstream API. */
+  tokenScope?: TradingScope
 }
 
 export class TradingGateway {
@@ -73,9 +77,11 @@ export class TradingGateway {
           request.id === '..')
       )
         throw new TradingError('validation', 'Invalid trading identifier')
-      const scopes = [op.scope]
-      const bypassCache = op.write || op.scope === 'order:write'
-      const token = await this.tokens.get(auth, scopes, bypassCache)
+      const scope = request.tokenScope ?? op.scope
+      const scopes = [scope]
+      const bypassCache = op.write || scope === 'order:write'
+      const requiresAgent = request.requiresAgent ?? true
+      const token = await this.tokens.get(auth, scopes, bypassCache, requiresAgent)
       const url = new URL(
         op.path + (request.id === undefined ? '' : `/${encodeURIComponent(request.id)}`),
         this.baseUrl,
@@ -141,7 +147,8 @@ export class TradingGateway {
             signalId = signal.signal_id
             if (signal.order_id !== null) orderId = signal.order_id
           }
-          throw new TradingError('api', `Trading API rejected operation (${apiCode})`, {
+          const apiName = op.domain === 'bug-report' ? 'Bug report API' : 'Trading API'
+          throw new TradingError('api', `${apiName} rejected operation (${apiCode})`, {
             code: apiCode,
             status: response.status,
             requestId: id,
@@ -163,7 +170,7 @@ export class TradingGateway {
       } catch (error) {
         if (!op.write && error instanceof TradingError && error.details.status === 401) {
           await this.tokens.invalidate(auth, scopes, token)
-          const refreshed = await this.tokens.get(auth, scopes, bypassCache)
+          const refreshed = await this.tokens.get(auth, scopes, bypassCache, requiresAgent)
           try {
             output = await execute(refreshed.token)
           } catch (retryError) {
@@ -191,6 +198,7 @@ export class TradingGateway {
         // An injected audit sink must not turn a completed order into a retryable failure.
         try {
           this.options.audit?.({
+            domain: op.domain,
             operation: name,
             at: new Date(this.#now()).toISOString(),
             subject: typeof auth.extra?.sub === 'string' ? auth.extra.sub : undefined,
@@ -220,6 +228,7 @@ export class TradingGateway {
 }
 
 export interface TradingAuditEvent {
+  domain: 'trading' | 'bug-report'
   operation: OperationName
   at: string
   subject?: string

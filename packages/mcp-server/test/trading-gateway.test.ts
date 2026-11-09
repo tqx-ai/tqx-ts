@@ -4,7 +4,16 @@ import { ApiTokenProvider } from '../src/auth/api-token-provider'
 import type { TokenExchange } from '../src/auth/token-exchange'
 import { publicError } from '../src/trading/errors'
 import { TradingGateway } from '../src/trading/gateway'
-import { account, auth, envelope, hold, order, signal, tradingConfig } from './helpers/trading'
+import {
+  account,
+  auth,
+  bugReport,
+  envelope,
+  hold,
+  order,
+  signal,
+  tradingConfig,
+} from './helpers/trading'
 
 function setup(
   options: { maxPerPrincipal?: number; maxConcurrent?: number; timeoutMs?: number } = {},
@@ -178,29 +187,51 @@ describe('independent trading gateway', () => {
       },
     ],
     ['hold', 'POST', 'hold', 'trade:read', hold],
+    ['bugReport', 'POST', 'bug-reports', 'ranking:read', bugReport],
   ] as const)(
     'matches public %s method, path, scope and credential contract',
     async (name, method, path, scope, data) => {
       const s = setup()
       s.fetch.mockImplementation(async () => envelope(data))
-      const principal = { ...auth(), scopes: [scope] }
+      const principal =
+        name === 'bugReport'
+          ? { ...auth(), scopes: [scope], extra: { sub: 'user-1' } }
+          : { ...auth(), scopes: [scope] }
       const request =
         name === 'signal'
           ? { id: 'signal-123' }
           : ['order', 'modify', 'cancel'].includes(name)
             ? { id: 'order-1' }
-            : {}
+            : name === 'bugReport'
+              ? {
+                  idempotencyKey: 'bug-report-001',
+                  requiresAgent: false,
+                  tokenScope: 'ranking:read' as const,
+                  body: { title: 'title', description: 'details' },
+                }
+              : {}
       await s.gateway.call(principal, name, request)
       expect(s.exchange).toHaveBeenCalledWith(
         expect.objectContaining({ scopes: [scope], resource: tradingConfig.resource }),
       )
       const [url, init] = s.fetch.mock.calls[0]!
-      expect(String(url)).toBe(`${tradingConfig.baseUrl}/openapi/v1/trading/${path}`)
+      expect(String(url)).toBe(
+        `${tradingConfig.baseUrl}${name === 'bugReport' ? '/openapi/v1/' : '/openapi/v1/trading/'}${path}`,
+      )
       expect(init!.method).toBe(method)
-      expect(Object.fromEntries(new Headers(init!.headers))).toEqual({
-        accept: 'application/json',
-        authorization: 'Bearer api-1',
-      })
+      expect(Object.fromEntries(new Headers(init!.headers))).toEqual(
+        name === 'bugReport'
+          ? {
+              accept: 'application/json',
+              authorization: 'Bearer api-1',
+              'content-type': 'application/json',
+              'idempotency-key': 'bug-report-001',
+            }
+          : {
+              accept: 'application/json',
+              authorization: 'Bearer api-1',
+            },
+      )
     },
   )
 

@@ -5,7 +5,7 @@
 范围：把现有 trading API 能力以独立 MCP 接口提供，不引入 `@tqx-ai/cli` 或 `@tqx-ai/sdk` 依赖  
 前提：按需求，MCP Token 置换 API Token 已完成，本方案不重新设计认证。OAuth 服务已实现置换协议；本轮在 MCP 包内新增 HTTP Basic/表单调用端、只读缓存和独立 trading gateway，按已完成服务的公开 HTTP 契约接入。
 
-目标：在保持完整交易能力的同时，控制 `tools/list` 的上下文成本、减少模型选错工具的机会，并把读操作与交易写操作清晰隔离。
+目标：在保持完整交易能力的同时，控制 `tools/list` 的上下文成本、减少模型选错工具的机会，并把读操作与外部写操作清晰隔离。
 
 ## 1. 结论
 
@@ -28,6 +28,16 @@
 - `hold` 保持单独 tool，避免模型把“保持活跃”误认为订单操作。
 
 如果后续发现 `trading_activity` 的多态 schema 让目标模型选择率下降，可以把它拆成 `trading_orders` 和 `trading_ledger`，总数变为 6；不建议一开始就拆成每个接口一个 tool。
+
+### 1.2 Bug report capability
+
+已完成 `submit_bug_report` MCP tool 和 `prepare_bug_report` prompt：
+
+- `submit_bug_report` 调用 `POST /openapi/v1/bug-reports`，输入为 `title`、`description` 和可选 `idempotencyKey`，返回 `bug_id` 与 `created_at`。
+- 该 tool 是外部写操作，annotations 为 `readOnlyHint=false`、`destructiveHint=true`、`idempotentHint=true`，每次调用都绕过下游 token 只读缓存。
+- MCP tool 从当前 MCP token 动态选择已有 Trading Resource scope：优先使用 `ranking:read`（不要求 Agent），没有时使用带 Agent 的 `trade:read` 或 `order:write`。没有可用 Trading scope 时返回 `ranking:read` scope challenge，让客户端可以进行 step-up 授权。本次不新增 `bug:write`，也不修改 `tqx-oauth` 或 `panda_openapi` 的 scope 契约。当前真实 OAuth、panda_openapi 和部署联调仍待完成。
+- `prepare_bug_report` 只在 trading gateway 启用时注册，不接收预填参数，只生成给 Agent 的工作流指令：先排查问题归属，只有证据表明是 TQX 问题时才整理证据；整理完成后直接调用 `submit_bug_report`，并在调用后用用户当前对话的语言和文字体系报告发送状态、`bug_id`/`created_at`，优先使用 client/host 支持的“信封”式富 UI 展示实际提交的标题和 description，不支持时退化为 Markdown，也不伪造未支持的 UI 协议。API 字段名、标识符、代码、日志和请求/响应值保持原样。Prompt 本身不访问上游，实际提交由 Agent 调用 tool 完成。
+- 当前仍依赖已有 trading resource 配置；使用 `ranking:read` 时 bug report 不依赖 Agent，上游只有 `trade:read`/`order:write` 时则沿用其 Agent 绑定要求。真实 OAuth、panda_openapi 和部署联调待完成。
 
 ## 1.1 独立实现边界
 
@@ -552,7 +562,7 @@ MCP server 不应在后台把 research tool 的输出直接拼成订单并执行
 - 为 5 个 tools 编写独立 schema、description、annotations 和 handler。
 - 用可注入的 Fetch、token exchange client 和 trading gateway client 测试参数映射和错误转换。
 
-完成标准：开发环境 `tools/list` 最多 6 个工具（含 `ping`）；生产建议停用演示 ping，使用 MCP 协议 ping/HTTP health 检查，保持 5 个业务工具，schema 没有互相冲突的宽松可选字段。
+完成标准：开发环境 `tools/list` 最多 7 个工具（含 `ping`）；生产建议停用演示 ping，使用 MCP 协议 ping/HTTP health 检查，保持 6 个业务工具，schema 没有互相冲突的宽松可选字段。
 
 ### P1：只读接入
 
@@ -584,25 +594,26 @@ MCP server 不应在后台把 research tool 的输出直接拼成订单并执行
 
 至少补充以下 focused tests：
 
-| 类别           | 必测内容                                                            |
-| -------------- | ------------------------------------------------------------------- |
-| tool discovery | tool 名称、描述、annotations、输入 schema、总数                     |
-| snapshot       | account/positions 单独和组合调用；字段映射；分页                    |
-| activity       | 三个 type 分支的 query 映射；非法字段被拒绝；cash flow 错误         |
-| lookup         | order/signal ID 编码；signal 与 order 状态说明                      |
-| order          | place/modify/cancel 分支；HTTP method、headers、body；幂等键        |
-| validation     | MARKET/LIMIT、数量/价格、日期、cursor、limit 边界                   |
-| auth           | 缺 scope 的 403；MCP token 不直接下游转发；写操作绕过只读 cache     |
-| errors         | typed API error、network、protocol、validation 错误均不泄漏原始异常 |
-| isolation      | 两个用户并发调用不会复用身份、token 或 client                       |
-| runtime        | Node/Vitest 单元测试，Bun smoke test，完整 `bun run test`           |
+| 类别           | 必测内容                                                                             |
+| -------------- | ------------------------------------------------------------------------------------ |
+| tool discovery | tool 名称、描述、annotations、输入 schema、总数                                      |
+| bug report     | prompt 整理、动态 Trading scope/step-up challenge、POST 路径、幂等键、响应和写入审计 |
+| snapshot       | account/positions 单独和组合调用；字段映射；分页                                     |
+| activity       | 三个 type 分支的 query 映射；非法字段被拒绝；cash flow 错误                          |
+| lookup         | order/signal ID 编码；signal 与 order 状态说明                                       |
+| order          | place/modify/cancel 分支；HTTP method、headers、body；幂等键                         |
+| validation     | MARKET/LIMIT、数量/价格、日期、cursor、limit 边界                                    |
+| auth           | 缺 scope 的 403；MCP token 不直接下游转发；写操作绕过只读 cache                      |
+| errors         | typed API error、network、protocol、validation 错误均不泄漏原始异常                  |
+| isolation      | 两个用户并发调用不会复用身份、token 或 client                                        |
+| runtime        | Node/Vitest 单元测试，Bun smoke test，完整 `bun run test`                            |
 
 缓存验收需额外覆盖：注入时钟下的到期边界、无滑动续期、LRU 容量、非法 TTL、重复启动/释放 timer；不同 token/agent/resource/scope 隔离；相同键并发仅置换一次、失败后可恢复、in-flight 上限与超时；API/MCP token 有效期取最短；旧 token 失败不误删新条目；只读刷新最多一次；place/modify/cancel/hold 全部绕过缓存和并发合并；进程重启或另一副本缓存为空时正常置换。以上使用假 token 和注入的 exchange/fetch，不连接真实账户。
 
 ### 首期实现交付记录
 
-- 实现目录：`src/trading/`、`src/tools/trading/`、`src/auth/token-exchange.ts`、`src/auth/api-token-provider.ts`、`src/utils/kv-util.ts`。
-- 配置：四项 trading/exchange 运行时配置全部提供时启用；全部省略保持认证服务，部分缺失启动失败。production trading 默认只发布五个业务 tools。
+- 实现目录：`src/trading/`、`src/tools/trading/`、`src/tools/bug-report/`、`src/auth/token-exchange.ts`、`src/auth/api-token-provider.ts`、`src/utils/kv-util.ts`。
+- 配置：四项 trading/exchange 运行时配置全部提供时启用；全部省略保持认证服务，部分缺失启动失败。production trading 默认发布五个 trading tools 和一个 bug-report tool，共六个业务 tools。
 - 输入 schema 用 `toStandardJsonSchema` 注册；转换适配器仅在 JSON Schema 发布时跳过无法表示的 `check`、`trim`、`to_upper_case`，Valibot 运行时仍执行这些动作。symbol 的输入 pattern 允许小写和两端空白，提交与审计使用归一化值。未替换 tools/list 或 tools/call 的底层 handler。
 - runtime options 暴露 `maxEntries`、`maxPending`、`maxConcurrent`、`maxPerPrincipal`。`exchangeTimeoutMs` 独立传给 HTTP exchange 和 provider 等待；`gatewayTimeoutMs` 仅控制 trading HTTP，避免两层超时互相覆盖。
 - API Token TTL/身份隔离/读请求合并/写绕过、下游只读 401 最多刷新一次、无写重放和单进程并发上限已实现。所有缓存和调用均独立于 CLI/SDK 包。

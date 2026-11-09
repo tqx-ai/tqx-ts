@@ -51,26 +51,31 @@ export class ApiTokenProvider {
     ])
   }
 
-  #validateAuth(auth: AuthInfo, scopes: readonly string[]): void {
+  #validateAuth(auth: AuthInfo, scopes: readonly string[], requireAgent: boolean): void {
     if (
       !auth.token ||
       !Number.isFinite(auth.expiresAt) ||
       auth.expiresAt! * 1000 <= this.#now() ||
-      typeof auth.extra?.agent_id !== 'string' ||
-      !auth.extra.agent_id ||
-      !scopes.every((scope) => auth.scopes.includes(scope))
+      !scopes.every((scope) => auth.scopes.includes(scope)) ||
+      (requireAgent && (typeof auth.extra?.agent_id !== 'string' || !auth.extra.agent_id))
     )
-      throw new TradingError('authorization', 'Valid trading authorization and agent required')
+      throw new TradingError(
+        'authorization',
+        requireAgent
+          ? 'Valid trading authorization and agent required'
+          : 'Valid authorization required',
+      )
   }
 
   async get(
     auth: AuthInfo,
     requestedScopes: readonly string[],
     write = false,
+    requireAgent = true,
   ): Promise<ExchangedToken> {
     const scopes = [...new Set(requestedScopes)].toSorted()
     if (this.#closed) throw new TradingError('busy', 'Token provider closed')
-    this.#validateAuth(auth, scopes)
+    this.#validateAuth(auth, scopes, requireAgent)
     if (write) return this.#fresh(auth, scopes)
     const key = await this.#key(auth, scopes)
     const cached = this.#cache.get(key)
