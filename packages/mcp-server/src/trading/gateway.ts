@@ -23,6 +23,8 @@ export interface GatewayRequest {
   requiresAgent?: boolean
   /** Internal downstream scope override; never sent to the upstream API. */
   tokenScope?: TradingScope
+  /** Internal downstream scope set; an empty set is reserved for scope-free operations. */
+  tokenScopes?: readonly TradingScope[]
 }
 
 export class TradingGateway {
@@ -78,8 +80,8 @@ export class TradingGateway {
       )
         throw new TradingError('validation', 'Invalid trading identifier')
       const scope = request.tokenScope ?? op.scope
-      const scopes = [scope]
-      const bypassCache = op.write || scope === 'order:write'
+      const scopes = request.tokenScopes ?? (scope ? [scope] : [])
+      const bypassCache = op.write || scopes.includes('order:write')
       const requiresAgent = request.requiresAgent ?? true
       const token = await this.tokens.get(auth, scopes, bypassCache, requiresAgent)
       const url = new URL(

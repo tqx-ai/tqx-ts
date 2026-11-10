@@ -259,37 +259,17 @@ describe('trading MCP tools over authenticated HTTP', () => {
     expect(s.fetch).not.toHaveBeenCalled()
   })
 
-  it.each([
-    ['trade:read', readToken],
-    ['order:write', writeToken],
-  ])(
-    'uses an existing %s scope for bug reports without an MCP scope challenge',
-    async (_scope, token) => {
-      const s = setup()
-      const { response, body } = await s.call(
-        'tqx_submit_bug_report',
-        { title: 'title', description: 'description' },
-        token,
-      )
-      expect(response.status).toBe(200)
-      expect(body.result.isError).not.toBe(true)
-      expect(s.exchange).toHaveBeenCalledWith(expect.objectContaining({ scopes: [_scope] }))
-      expect(s.fetch).toHaveBeenCalledTimes(1)
-    },
-  )
-
-  it('challenges bug reports when no usable Trading Resource scope is present', async () => {
+  it('submits bug reports without an MCP scope challenge or user Trading scope', async () => {
     const s = setup()
-    const { response } = await s.call(
+    const { response, body } = await s.call(
       'tqx_submit_bug_report',
       { title: 'title', description: 'description' },
       researchToken,
     )
-    expect(response.status).toBe(403)
-    expect(response.headers.get('WWW-Authenticate')).toContain('error="insufficient_scope"')
-    expect(response.headers.get('WWW-Authenticate')).toContain('scope="ranking:read"')
-    expect(s.exchange).not.toHaveBeenCalled()
-    expect(s.fetch).not.toHaveBeenCalled()
+    expect(response.status).toBe(200)
+    expect(body.result.isError).not.toBe(true)
+    expect(s.exchange).toHaveBeenCalledWith(expect.objectContaining({ scopes: [] }))
+    expect(s.fetch).toHaveBeenCalledTimes(1)
   })
 
   it('submits a bug report through the OpenAPI route with idempotency and a fresh exchange', async () => {
@@ -299,18 +279,15 @@ describe('trading MCP tools over authenticated HTTP', () => {
       description: 'Steps, environment, response, and request_id=request-1',
       idempotencyKey: 'bug-report-001',
     }
-    const first = await s.call('tqx_submit_bug_report', request, rankingToken)
-    const second = await s.call('tqx_submit_bug_report', request, rankingToken)
+    const first = await s.call('tqx_submit_bug_report', request, researchToken)
+    const second = await s.call('tqx_submit_bug_report', request, researchToken)
     expect(first.body.result.structuredContent).toMatchObject({
       kind: 'bug_report.submitted',
       data: bugReport,
     })
     expect(second.body.result.structuredContent.data).toEqual(bugReport)
     expect(s.exchange).toHaveBeenCalledTimes(2)
-    expect(s.exchange.mock.calls.map(([input]) => input.scopes)).toEqual([
-      ['ranking:read'],
-      ['ranking:read'],
-    ])
+    expect(s.exchange.mock.calls.map(([input]) => input.scopes)).toEqual([[], []])
     const [url, init] = s.fetch.mock.calls[0]!
     expect(String(url)).toBe('https://trade.example.test/openapi/v1/bug-reports')
     expect(init!.method).toBe('POST')
@@ -323,19 +300,6 @@ describe('trading MCP tools over authenticated HTTP', () => {
     expect(s.audit).toHaveBeenCalledWith(
       expect.objectContaining({ domain: 'bug-report', operation: 'bugReport', result: 'success' }),
     )
-  })
-
-  it('submits a bug report with ranking:read and no Agent binding', async () => {
-    const s = setup()
-    const { response, body } = await s.call(
-      'tqx_submit_bug_report',
-      { title: 'title', description: 'description' },
-      rankingToken,
-    )
-    expect(response.status).toBe(200)
-    expect(body.result.isError).not.toBe(true)
-    expect(s.exchange).toHaveBeenCalledWith(expect.objectContaining({ scopes: ['ranking:read'] }))
-    expect(s.fetch).toHaveBeenCalledTimes(1)
   })
 
   it('returns a bug-report-specific error kind without exposing upstream messages', async () => {

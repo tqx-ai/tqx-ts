@@ -42,6 +42,28 @@ describe('RFC 8693 exchange client', () => {
     })
   })
 
+  it('sends an explicit empty scope and accepts a scope-free response', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      Response.json({ ...response, scope: '' }),
+    )
+    const exchange = createTokenExchange(tradingConfig, { fetch, now: () => 1000 })
+    expect(await exchange({ ...input, scopes: [] })).toEqual({
+      token: 'downstream-token',
+      expiresAt: 301_000,
+      scopes: [],
+    })
+    expect((fetch.mock.calls[0]![1]!.body as URLSearchParams).get('scope')).toBe('')
+  })
+
+  it('rejects permissions in response to a scope-free exchange', async () => {
+    const exchange = createTokenExchange(tradingConfig, {
+      fetch: vi.fn(async () => Response.json(response)),
+    })
+    await expect(exchange({ ...input, scopes: [] })).rejects.toThrow(
+      'Invalid token exchange permissions',
+    )
+  })
+
   it.each([
     { ...response, expires_in: 0 },
     { ...response, token_type: 'other' },

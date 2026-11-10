@@ -42,15 +42,15 @@ export const operations = {
   // The public hold route is a read-scoped activity mark even though it mutates
   // server-side activity state; it still bypasses the read token cache.
   hold: operation(paths.hold, schemas.holdResponse, 'POST', 'trade:read'),
-  // panda_openapi authenticates this route with any valid trading-resource scope;
-  // ranking:read is the least-privileged existing scope and does not require Agent.
-  // It remains a write operation so the token is never cached or replayed.
+  // panda_openapi authenticates this route with any valid Trading Resource
+  // token, including a scope-free token. It remains a write operation so the
+  // token is never cached or replayed.
   bugReport: {
     domain: 'bug-report' as const,
     path: paths.bugReports,
     schema: schemas.bugReportResponse,
     method: 'POST' as const,
-    scope: 'ranking:read' as const,
+    scope: undefined,
     write: true as const,
   },
 } as const

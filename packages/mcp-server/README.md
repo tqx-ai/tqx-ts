@@ -128,14 +128,14 @@ All tool names use the `tqx_` prefix, including the demonstration `tqx_ping`
 tool. Clients using the previous unprefixed names must refresh `tools/list` and
 update their tool references and allowlists; the old names are no longer registered.
 
-| Tool                    | Request discriminator                             | Scope                                                                  |
-| ----------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
-| `tqx_trading_snapshot`  | `sections`: account, positions (defaults to both) | `trade:read`                                                           |
-| `tqx_trading_activity`  | `type`: orders, trades, cash_flows                | `trade:read`                                                           |
-| `tqx_trading_lookup`    | `type`: order, signal; exact `id`                 | order: `trade:read`; signal: `order:write`                             |
-| `tqx_trading_order`     | `action`: place, modify, cancel                   | `order:write`                                                          |
-| `tqx_trading_control`   | `action`: hold                                    | `trade:read`                                                           |
-| `tqx_submit_bug_report` | `title`, `description`, optional `idempotencyKey` | existing Trading scope: `ranking:read`, `trade:read`, or `order:write` |
+| Tool                    | Request discriminator                             | Scope                                                     |
+| ----------------------- | ------------------------------------------------- | --------------------------------------------------------- |
+| `tqx_trading_snapshot`  | `sections`: account, positions (defaults to both) | `trade:read`                                              |
+| `tqx_trading_activity`  | `type`: orders, trades, cash_flows                | `trade:read`                                              |
+| `tqx_trading_lookup`    | `type`: order, signal; exact `id`                 | order: `trade:read`; signal: `order:write`                |
+| `tqx_trading_order`     | `action`: place, modify, cancel                   | `order:write`                                             |
+| `tqx_trading_control`   | `action`: hold                                    | `trade:read`                                              |
+| `tqx_submit_bug_report` | `title`, `description`, optional `idempotencyKey` | authenticated MCP session; no user scope or Agent binding |
 
 Every tool takes a required `request` object. Use `tools/list` for the complete
 current schema. Example `params` for a read:
@@ -165,12 +165,9 @@ cannot prove human confirmation. Hold marks agent activity and does not trade.
 
 `tqx_submit_bug_report` writes `POST /openapi/v1/bug-reports` and returns the
 upstream `bug_id` and `created_at`. It is marked as a destructive, idempotent
-write and always performs a fresh token exchange. It dynamically uses an
-existing Trading Resource scope from the MCP token, preferring `ranking:read`
-(which does not require an Agent), then `trade:read` or `order:write` when an
-Agent binding is present. If no usable Trading scope is present, the MCP server
-returns a scope challenge for `ranking:read` so the client can perform step-up
-authorization. The deployed contract has no `bug:write`. Reuse `idempotencyKey` only for retrying the same report. The
+write and always performs a fresh scope-free Trading Resource token exchange.
+It does not request a user Trading scope or Agent binding; the deployed
+contract has no `bug:write`. Reuse `idempotencyKey` only for retrying the same report. The
 `prepare_bug_report` prompt helps compose a reproducible report and never calls
 the upstream API. It instructs the Agent to investigate ownership first, submit
 only when the evidence points to a TQX issue, produce a short title and a
@@ -239,7 +236,7 @@ Discovery advertises all six TQX scopes, matching the API key permission groups:
 `research:read`, `research:write`, `research:run`, `trade:read`, `order:write`, and
 `ranking:read`. Clients that use the advertised list as their initial scope set
 will request all six; clients can explicitly request a subset. Consent involving
-`trade:read` or `order:write` requires an Agent selection in tqx-web. Existing
+`trade:read`, `order:write`, or `ranking:read` requires an Agent selection in tqx-web. Existing
 transactions and tokens retain their scopes; start a new authorization to request
 additional permissions. `tqx_ping` itself has no additional business scope requirement
 beyond a valid MCP token. Business tools are enabled separately through the trading configuration above.

@@ -10,7 +10,7 @@ const responseSchema = v.object({
   issued_token_type: v.literal(tokenType),
   token_type: v.literal('Bearer'),
   expires_in: v.pipe(v.number(), v.safeInteger(), v.minValue(1)),
-  scope: v.pipe(v.string(), v.minLength(1), v.maxLength(512)),
+  scope: v.pipe(v.string(), v.maxLength(512)),
 })
 
 export interface ExchangedToken {
@@ -70,7 +70,7 @@ export function createTokenExchange(
       const parsed = v.safeParse(responseSchema, raw)
       if (!parsed.success) throw new TradingError('protocol', 'Invalid token exchange response')
       const result = parsed.output
-      const granted = result.scope.split(' ')
+      const granted = result.scope ? result.scope.split(/\s+/).filter(Boolean) : []
       if (
         granted.length !== scopes.length ||
         new Set(granted).size !== granted.length ||

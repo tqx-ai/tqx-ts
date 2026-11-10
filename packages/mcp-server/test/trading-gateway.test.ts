@@ -187,7 +187,7 @@ describe('independent trading gateway', () => {
       },
     ],
     ['hold', 'POST', 'hold', 'trade:read', hold],
-    ['bugReport', 'POST', 'bug-reports', 'ranking:read', bugReport],
+    ['bugReport', 'POST', 'bug-reports', undefined, bugReport],
   ] as const)(
     'matches public %s method, path, scope and credential contract',
     async (name, method, path, scope, data) => {
@@ -195,8 +195,8 @@ describe('independent trading gateway', () => {
       s.fetch.mockImplementation(async () => envelope(data))
       const principal =
         name === 'bugReport'
-          ? { ...auth(), scopes: [scope], extra: { sub: 'user-1' } }
-          : { ...auth(), scopes: [scope] }
+          ? { ...auth(), scopes: ['research:read'], extra: { sub: 'user-1' } }
+          : { ...auth(), scopes: [scope!] }
       const request =
         name === 'signal'
           ? { id: 'signal-123' }
@@ -206,13 +206,16 @@ describe('independent trading gateway', () => {
               ? {
                   idempotencyKey: 'bug-report-001',
                   requiresAgent: false,
-                  tokenScope: 'ranking:read' as const,
+                  tokenScopes: [],
                   body: { title: 'title', description: 'details' },
                 }
               : {}
       await s.gateway.call(principal, name, request)
       expect(s.exchange).toHaveBeenCalledWith(
-        expect.objectContaining({ scopes: [scope], resource: tradingConfig.resource }),
+        expect.objectContaining({
+          scopes: name === 'bugReport' ? [] : [scope],
+          resource: tradingConfig.resource,
+        }),
       )
       const [url, init] = s.fetch.mock.calls[0]!
       expect(String(url)).toBe(
