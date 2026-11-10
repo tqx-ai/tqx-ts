@@ -28,6 +28,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # UAT deployment manifests and runtime configuration
 /deploy/uat/
 
+# PROD deployment manifests and runtime configuration
+/deploy/production/
+
 # caches
 .eslintcache
 .cache
