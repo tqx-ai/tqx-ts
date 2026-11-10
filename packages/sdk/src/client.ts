@@ -83,8 +83,10 @@ export class TqxClient {
     this.trading = new TradingApiClient((path, options) =>
       this.#request(path, { ...options, baseUrl: this.#tradingBaseUrl }),
     )
-    this.research = new ResearchApiClient((path, options) =>
-      this.#request(path, { ...options, baseUrl: this.#baseUrl, responseType: 'gateway' }),
+    this.research = new ResearchApiClient(
+      (path, options) =>
+        this.#request(path, { ...options, baseUrl: this.#baseUrl, responseType: 'gateway' }),
+      (path, options) => this.#stream(path, options),
     )
     this.user = new UserApiClient({
       request: (path, options) =>
@@ -115,34 +117,9 @@ export class TqxClient {
     path: string,
     options: RequestOptions<TSchema>,
   ): Promise<v.InferOutput<TSchema>> {
-    const authenticated = options.authenticated ?? true
-    if (authenticated && !this.#apiKey) {
-      throw new TqxConfigurationError('An API key is required for this request')
-    }
-
-    const baseUrl = options.baseUrl ?? this.#baseUrl
-    if (!baseUrl) {
-      throw new TqxConfigurationError(
-        'baseUrl is required because the SDK was built without TQX_BUILD_BASE_URL',
-      )
-    }
-    const url = new URL(path, `${baseUrl}/`)
-    for (const [name, value] of Object.entries(options.query ?? {})) {
-      if (value !== undefined) url.searchParams.set(name, String(value))
-    }
-
-    const method = options.method ?? 'GET'
-    const headers = new Headers(options.headers)
-    headers.set('Accept', 'application/json')
-    if (authenticated) headers.set('X-API-Key', this.#apiKey!)
-    if (this.#clientMac) headers.set('X-TQX-Client-MAC', this.#clientMac)
-    if (this.#clientVersion) headers.set('X-TQX-Client-Version', this.#clientVersion)
-    if (options.body !== undefined) headers.set('Content-Type', 'application/json')
-    const requestInit: RequestInit = {
-      method,
-      headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    }
+    const { url, requestInit } = this.#prepareRequest(path, options)
+    const method = requestInit.method
+    const headers = new Headers(requestInit.headers)
     const retryableRequest = method === 'GET' || headers.has('Idempotency-Key')
     let lastRetryableResponse: RetryableResponseMetadata | undefined
 
@@ -179,17 +156,75 @@ export class TqxClient {
         await sleep(retryDelay(attempt))
         continue
       }
-
       return decodeResponse(response, url, options)
     }
     /* eslint-enable no-await-in-loop */
-
     throw new TqxNetworkError('Unable to reach the TQX API', {
       status: lastRetryableResponse?.status,
       requestId: lastRetryableResponse?.requestId,
       url: lastRetryableResponse?.url ?? url.toString(),
       attempts: MAX_REQUEST_ATTEMPTS,
     })
+  }
+
+  #prepareRequest(path: string, options: Omit<RequestOptions<v.UnknownSchema>, 'schema'>) {
+    const authenticated = options.authenticated ?? true
+    if (authenticated && !this.#apiKey) {
+      throw new TqxConfigurationError('An API key is required for this request')
+    }
+
+    const baseUrl = options.baseUrl ?? this.#baseUrl
+    if (!baseUrl) {
+      throw new TqxConfigurationError(
+        'baseUrl is required because the SDK was built without TQX_BUILD_BASE_URL',
+      )
+    }
+    const url = new URL(path, `${baseUrl}/`)
+    for (const [name, value] of Object.entries(options.query ?? {})) {
+      if (value !== undefined) url.searchParams.set(name, String(value))
+    }
+
+    const method = options.method ?? 'GET'
+    const headers = new Headers(options.headers)
+    headers.set('Accept', 'application/json')
+    if (authenticated) headers.set('X-API-Key', this.#apiKey!)
+    if (this.#clientMac) headers.set('X-TQX-Client-MAC', this.#clientMac)
+    if (this.#clientVersion) headers.set('X-TQX-Client-Version', this.#clientVersion)
+    if (options.body !== undefined) headers.set('Content-Type', 'application/json')
+    const requestInit: RequestInit = {
+      method,
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    }
+    return { url, requestInit }
+  }
+
+  async #stream(
+    path: string,
+    options: { query: Record<string, string | number | undefined>; signal?: AbortSignal },
+  ): Promise<Response> {
+    const { url, requestInit } = this.#prepareRequest(path, {
+      baseUrl: this.#baseUrl,
+      query: options.query,
+    })
+    const headers = new Headers(requestInit.headers)
+    headers.set('Accept', 'text/event-stream')
+    let response: Response
+    try {
+      response = await this.#fetch(url, { ...requestInit, headers, signal: options.signal })
+    } catch (cause) {
+      throw new TqxNetworkError('Unable to reach the TQX API', { cause, url: url.toString() })
+    }
+    if (!response.ok)
+      await decodeResponse(response, url, { schema: v.unknown(), responseType: 'gateway' })
+    if (
+      !response.body ||
+      !response.headers.get('Content-Type')?.toLowerCase().startsWith('text/event-stream')
+    ) {
+      await discardResponseBody(response)
+      throw protocolError(response, 'The TQX API returned an invalid research event stream', url)
+    }
+    return response
   }
 }
 
@@ -321,15 +356,24 @@ function decodeGatewayResponse(raw: unknown, response: Response): unknown {
       : response.statusText || 'TQX gateway request failed'
 
   if (!response.ok) {
+    const detailCode =
+      record && isRecord(record.detail) && typeof record.detail.code === 'string'
+        ? record.detail.code
+        : undefined
     throw new TqxApiError(
       message,
       response.status,
-      code ??
+      detailCode ??
+        code ??
         (record && typeof record.code !== 'undefined'
           ? String(record.code)
           : `http_${response.status}`),
       requestId,
-      record && 'data' in record ? record.data : data,
+      record && 'data' in record
+        ? record.data
+        : record && 'detail' in record
+          ? record.detail
+          : data,
     )
   }
   if (code !== undefined && !['0', '200', 'COMMON_SUCCESS'].includes(code)) {
@@ -339,6 +383,8 @@ function decodeGatewayResponse(raw: unknown, response: Response): unknown {
 }
 
 function isGatewayEnvelope(record: Record<string, unknown>): boolean {
+  // Resource source text is also named code; resource identity distinguishes it from an envelope.
+  if ('id' in record || 'code_type' in record) return false
   const hasEnvelopeMarker =
     'data' in record ||
     'request_id' in record ||
@@ -352,7 +398,7 @@ function gatewayCode(record: Record<string, unknown>): string | undefined {
   if (typeof record.code === 'number' && Number.isFinite(record.code)) return String(record.code)
   if (typeof record.code !== 'string') return undefined
   const code = record.code.trim()
-  return ['0', '200', '401', '403', 'COMMON_SUCCESS'].includes(code) ? code : undefined
+  return code || undefined
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

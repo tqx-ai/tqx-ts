@@ -1,87 +1,122 @@
 # TQX Research CLI Command Reference
 
-Source: `packages/cli/src/research/command.ts`. The executable command is `tqx`; do not use the migrated Python `tqx-cli`. Install, update, and troubleshoot it only with [`install.md`](install.md) in this directory.
+Use `tqx` from `@tqx-ai/cli`. Install and update it with [the install protocol](install.md).
+Research requests use an API key and a gateway base ending in `/tqxApi`.
+`TQX_API_KEY` overrides persisted credentials. Never print a key or write it into source files.
 
-## Gateway and Authentication
+Use `--json` for JSON stdout and JSON errors on stderr, or `--plain` for uncolored text.
+Exit codes are 2 for invalid input and 1 for API, network, protocol, failed run, cancellation,
+or local polling timeout. All resource, run, version, and tuning IDs are lowercase 24-character ObjectIds.
 
-If the user does not have an API key, direct them to the TQX web app's [AI accounts page](https://www.tqx.ai/user-center?tab=ai-accounts) to create an account and competition instance. After the instance is created, ask the user to provide the generated key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
-
-Check `tqx --version` and `tqx research --help` before Research commands; for a missing or outdated CLI follow [`install.md`](install.md).
-
-Research uses an API key, and the Qube gateway URL must contain `/pandaApi`:
-
-```powershell
-$env:TQX_BASE_URL = "https://gateway.example.com/pandaApi"
-$env:TQX_API_KEY = "<api-key>"
-tqx research factor list --json
-```
-
-`TQX_API_KEY` takes precedence over persistent credentials. When the user provides a key in the current conversation, use it directly from the agent context; do not ask the user to open a terminal or run setup commands. Prefer `tqx login --api-key=<api-key>`, run from the agent context, so the key is saved to the CLI credential store and stays usable across later sessions and terminal restarts; reach for the process-scoped `TQX_API_KEY` only for a one-off or isolated task, or when the user does not want the key persisted. The order of credentials is `TQX_API_KEY`, Bun system keychain, `$XDG_CONFIG_HOME/tqx/credentials.json` or `~/.config/tqx/credentials.json`. Do not echo the complete key in this or a later conversation, or write it to source code, command history, makefiles, logs, or output.
-
-`--json` outputs JSON to stdout, error JSON to stderr; `--plain` turns off coloring. Dates accept `YYYYMMDD` or `YYYY-MM-DD` and will be normalized to `YYYY-MM-DD`. `market` accepts case-insensitive `hk` / `us`. The exit code is `2` for usage or validation errors and `1` for API, network and protocol errors.
-
-## Factor Library
+## Factor definitions and analyses
 
 ```text
-tqx research factor create --market=hk|us (--formula=<formula> | --code=<python> | --file=<python-path>) [--name=<name>] [--description=<text>]
+tqx research factor create --market=hk|us (--formula=<formula> | --code=<python> | --file=<path>) [--title=<title>] [--description=<text>]
 tqx research factor info <factor-id>
-tqx research factor update <factor-id> [--market=hk|us] [--formula=<formula> | --code=<python> | --file=<python-path>] [--name=<name>] [--description=<text>]
-tqx research factor run <factor-id> [--name=<name>] [--startDate=<date>] [--endDate=<date>] [--adjustmentCycle=<positive-int>] [--groupNumber=2..20] [--factorDirection=Positive|Negative|1|0] [--pollInterval=<seconds>] [--timeout=<seconds>] [--noWait]
-tqx research factor stop <analysis-id> [--pollInterval=<seconds>] [--timeout=<seconds>]
+tqx research factor source <factor-id>
+tqx research factor save <factor-id> --baseSourceRevision=<revision> (--formula=<formula> | --code=<python> | --file=<path>)
+tqx research factor update <factor-id> --baseConfigRevision=<revision> [--title=<title>] [--description=<text>] [analysis-options]
+tqx research factor run <factor-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision> --startDate=<date> --endDate=<date> [analysis-options] [wait-options]
+tqx research factor stop <analysis-id>
 tqx research factor result <analysis-id>
-tqx research factor list [--market=all|hk|us] [--offset=<non-negative-int>] [--limit=1..100] [--keyword=<text>] [--includeContent]
+tqx research factor list [list-options]
 tqx research factor delete <factor-id>... --yes
 ```
 
-The default name of `create` is `TQX Factor`. You must provide one and only one source code input when creating; provide at most one when updating. `--formula` maps to `code_type: formula`, while `--code` / `--file` maps to `python`; `--file` is for Python source files only. Python factors must reference at least one `factors["field"]` or `factors['field']`. Formulas starting with a negative sign use `--formula=-close/ref(close,5)`.
+`analysis-options`: `--startDate`, `--endDate`, `--adjustmentCycle=1|3|5|10|20|30`,
+`--groupNumber=3|5|10|20`, `--factorDirection=Positive|Negative|1|-1`.
+Runs default to adjustment cycle 5, group number 5, and positive direction.
+Dates accept `YYYYMMDD` or `YYYY-MM-DD`. The analysis interval must increase and be shorter than five years.
 
-Python factor source is class-based. The minimal runnable shape is:
+Create requires exactly one source input; `--file` supplies Python code. A formula uses `code_type=formula`.
+Source saves retain the existing code type. The server validates source code; the client validates request shape.
 
-```python
-class DemoFactor(Factor):
-    def calculate(self, factors):
-        return factors["close"]
-```
-
-Define exactly one subclass of `Factor` in the factor source. Use `calculate(self, factors)` as the entry method, and read fields through `factors["field"]` / `factors['field']`. On Windows, prefer `--file` for multiline Python code; if you use `--code`, make sure shell escaping preserves the inner double quotes around `factors["field"]`.
-
-`run` defaults to `adjustmentCycle=5`, `groupNumber=5`, `factorDirection=Positive`. `--noWait` returns `SUBMITTED` and `analysis_id`; otherwise poll every 2 seconds, default up to 600 seconds. `stop` polls the cancellation status by default every second, up to 10 seconds; `request_accepted` does not mean that it has been cancelled.
-
-Factor save uses optimistic concurrency. Recommended flow: `factor info` or `factor versions` first, then `factor save --baseVersionId=<latest_version_id>`. If the server returns `409 version_conflict`, retry with the returned `latest_version_id` or pass `--confirmRebase` when you intentionally want to save on the latest HEAD.
-
-## Strategy Library and Backtests
+## Strategy definitions and backtests
 
 ```text
-tqx research strategy create --market=hk|us (--code=<python> | --file=<path>) [--name=<name>] [--description=<text>] [--strictMarketApi] [backtest-options]
+tqx research strategy create --market=hk|us (--code=<python> | --file=<path>) [--title=<title>] [--description=<text>] [backtest-options]
 tqx research strategy info <strategy-id>
-tqx research strategy update <strategy-id> [--market=hk|us] [--code=<python> | --file=<path>] [--name=<name>] [--description=<text>] [--versionSummary=<text>] [--strictMarketApi] [backtest-options]
-tqx research strategy run <strategy-id> [backtest-options] [--pollInterval=<seconds>] [--timeout=<seconds>] [--noWait] [--download[=<path>]]
+tqx research strategy source <strategy-id>
+tqx research strategy save <strategy-id> --baseSourceRevision=<revision> (--code=<python> | --file=<path>)
+tqx research strategy update <strategy-id> --baseConfigRevision=<revision> [--title=<title>] [--description=<text>] [backtest-options]
+tqx research strategy run <strategy-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision> [backtest-options] [wait-options] [--download=<path>]
 tqx research strategy stop <run-id>
-tqx research strategy result <run-id> [--download[=<path>]]
-tqx research strategy list [--market=all|hk|us] [--offset=<non-negative-int>] [--limit=1..100] [--keyword=<text>] [--includeContent]
+tqx research strategy result <run-id> [--download=<path>]
+tqx research strategy list [list-options]
 tqx research strategy delete <strategy-id>... --yes
-tqx research backtest list [--market=all|hk|us] [--offset=<non-negative-int>] [--limit=1..100] [--keyword=<text>] [--includeContent]
-tqx research backtest result <run-id> [--download[=<path>]]
+tqx research backtest list [list-options]
+tqx research backtest result <run-id> --field=equity|trades|logs|symbol_performance|account_summary [--offset=<integer>] [--limit=1..500] [--symbol=<symbol>]
 ```
 
-`backtest-options`: `--startDate`, `--endDate`, `--startCapital`, `--commissionRate`, `--slippage`, `--frequency=1d|1M`, `--symbols=<symbol1,symbol2,...>`. When creating a strategy, the defaults are `startCapital=10000000`, `commissionRate=1`, `slippage=0`, and `frequency=1d`. `commissionRate` is the raw backend commission parameter value and is not automatically interpreted as a percent or basis-point value by the CLI. `slippage` is a proportional backend slippage input that affects simulated fill prices. Updates and runs retain saved parameters unless explicitly overridden. The CLI rebuilds only supported saved fields and ignores the server's `margin_rate`, `standard_symbol`, and `null` values, so changing the dates does not require deleting and recreating the strategy. The CLI rejects requests whose end date is not later than the start date.
+`backtest-options`: `--startDate`, `--endDate`, `--startCapital`, `--commissionRate`, `--slippage`,
+`--frequency=1d|1M`. Create defaults to capital 10000000, commission 1, slippage 0, and daily bars.
+The commission value passes through unchanged; slippage is proportional. Run and update submit only
+specified overrides; the server merges them with saved configuration. Daily intervals allow up to ten
+years and minute intervals up to one year. The CLI requires the end date to be later than the start date.
+The result page's symbol filter applies only to trades.
 
-Strategy runs are polled every 2 seconds by default, for up to 600 seconds. A timeout stops local waiting only; it does not cancel the remote run, and the output includes a `stop_command`. `--download` saves the raw result JSON: with no value it writes to the Downloads directory, with a directory it generates a filename there, and with a file path it writes to that file. List commands hide source code by default. `backtest list` also removes large fields and provides `equity_count` and `trade_count`; use `backtest result` for the complete result.
+`wait-options`: `--pollInterval=<seconds>`, `--timeout=<seconds>`, `--noWait`.
+Default polling is every 2 seconds for up to 600 seconds. A timeout stops local waiting and leaves the
+remote task running. The response includes a stop command. `stop` returns the current cancellation
+state; a request accepted by the server may still be running.
 
-Strategy save follows the same optimistic concurrency flow: check `strategy info` or `strategy versions` first, save with `--baseVersionId=<latest_version_id>`, and on `409 version_conflict` retry with the returned `latest_version_id` or use `--confirmRebase` for an intentional rebase onto the latest HEAD.
+`list-options`: `--market=all|hk|us|stock|future`, `--cursor=<next_cursor>`, `--limit=<integer>`,
+`--keyword=<text>`, `--includeContent`. Library limits are 1-100; backtest summary limits are 1-10.
+Outputs contain `has_more` and `next_cursor`, plus market `counts` for libraries. Source is omitted
+by default; `--includeContent` fetches each resource's source or run detail.
 
-## Local source code check and success status
+## Named versions and restoration
 
-Strategy source code cannot call `eval`, `exec`, `open`, `__import__`, `compile`, `input`, `globals`, `locals`, `vars`, or `dir` outside strings and comments. `from ... import *` may appear only at module top level. For the current bar, use `data[symbol]` directly and validate the returned bar fields; do not call `data.get(...)` or do membership checks against `data`. Hong Kong strategies should import `panda_backtest.api.stock_hk_api`, and US strategies should import `panda_backtest.api.stock_us_api`. A wrong-market import, the mainland `stock_api`, or a missing expected import produces a warning; `--strictMarketApi` turns it into an error.
-
-`done` is mapped to `SUCCESS`; `failed` is `FAILED`, `cancelled` is `CANCELLED`. `PENDING`, `RUNNING`, `SUBMITTED`, `TIMEOUT` and `STOP_REQUESTED` do not complete successfully. Command exit codes are not a substitute for responses, final states, logs, transactions, and result checks.
-
-## Bug report
-
-For a reproducible TQX/Qube product defect, submit a complete diagnostic report when the task authorizes reporting:
+Replace `<kind>` with `factor` or `strategy`:
 
 ```text
-tqx bug report --title="Short title" --desc="Steps to reproduce, environment, complete response, and request_id" --json
+tqx research <kind> versions <resource-id>
+tqx research <kind> version <version-id>
+tqx research <kind> version-create <resource-id> <successful-run-id> --name=<name> [--description=<text>]
+tqx research <kind> version-restore <resource-id> <version-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision>
+tqx research factor analysis-restore <factor-id> <analysis-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision>
+tqx research strategy backtest-restore <strategy-id> <run-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision>
 ```
 
-Use only the documented title and description flags. Make the description as detailed as possible: record the complete input parameters and complete response result with original field names and values, plus the reproduction steps and environment. If reporting was not authorized, prepare the report and ask first. If `tqx bug report --help` is unavailable in the installed version, do not call an undocumented endpoint.
+Read current revisions with `info` before saving, configuring, running, restoring, or applying tuning.
+Source and configuration revisions advance independently. On `SOURCE_CONFLICT`, `CONFIG_CONFLICT`,
+or a restore/apply conflict, read current state and reconcile the intended changes before retrying.
+The CLI generates request IDs for individual mutations. Tuning JSON supplies an explicit `requestId`
+so the same request can be safely resubmitted.
+
+## Parameter tuning
+
+```text
+tqx research <kind> tuning list <resource-id>
+tqx research <kind> tuning get <tuning-id>
+tqx research <kind> tuning create <resource-id> --file=<request.json>
+tqx research <kind> tuning cancel <tuning-id>
+tqx research <kind> tuning rerun <tuning-id>
+tqx research factor tuning apply <tuning-id> --trialId=<trial-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision>
+tqx research strategy tuning apply <tuning-id> <candidate-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision>
+```
+
+The JSON file uses SDK camelCase input fields and is validated by the SDK. Factor example:
+
+```json
+{
+  "requestId": "factor-tuning-1",
+  "expectedSourceRevision": 2,
+  "expectedConfigRevision": 3,
+  "candidates": [{ "baseline": true }, { "factorParameters": { "window": 20 } }],
+  "researchPeriod": { "periodStart": "2026-01-01", "periodEnd": "2026-06-30" },
+  "warmupTradingDays": 20
+}
+```
+
+Factor tuning requires exactly one baseline with no overrides, at most 32 candidates, a full research
+period, and warmup days (0-5000). Objective is `rank_ic_mean`; holdout is disabled. Candidate overrides
+are `parameters` (analysis dimensions excluding dates) and `factorParameters` (finite numeric values).
+
+Strategy tuning uses `candidates: [{"strategyParameters":{"window":20}}]` and a sorted, unique
+`tradingDates` array of 2-4000 ISO dates. Objective is `total_return` (default), `sharpe`, or
+`max_drawdown`. `validationEnabled` defaults to true. The server adds and deduplicates the baseline.
+
+Server run states are `preparing`, `queued`, `running`, `succeeded`, `failed`, and `cancelled`.
+CLI execution output maps `succeeded` to `SUCCESS`. `SUBMITTED`, `PENDING`, `RUNNING`, `FAILED`,
+`CANCELLED`, and `TIMEOUT` do not mean a successful completed analysis/backtest.

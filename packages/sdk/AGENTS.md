@@ -15,7 +15,7 @@
   response decoding. Domain clients receive an injected typed request function and do not fetch
   directly.
 - Add all service paths to `src/config/APIs.ts`. Trading/OpenAPI paths are root-relative; Qube paths
-  are relative to a `baseUrl` ending in `/pandaApi`, for example `agent_quant/api/factors`.
+  are relative to a `baseUrl` ending in `/tqxApi`, for example `qube/api/factors`.
 - OpenAPI responses use the strict `ApiEnvelopeSchema`. Qube gateway responses can be raw resource
   data or a gateway envelope; retain its `data`, business code, message, and request ID in errors.
 - All authenticated requests use `X-API-Key`. Research must use the same API-key transport as

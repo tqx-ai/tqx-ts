@@ -15,7 +15,7 @@ The repository is public, so both npm publishes use GitHub OIDC and include prov
 - Confirm the release version and update `CHANGELOG.md`.
 - Confirm that `LICENSE` and all package manifests declare `GPL-3.0-only`.
 - Configure `.env.prod` with valid HTTPS values for the research/non-trading
-  `TQX_BUILD_BASE_URL` (ending in `/pandaApi`), `TQX_BUILD_TRADING_BASE_URL`, and
+  `TQX_BUILD_BASE_URL` (ending in `/tqxApi`), `TQX_BUILD_TRADING_BASE_URL`, and
   `TQX_BUILD_GET_API_KEY_URL`.
 - Configure the GitHub repository variables `TQX_BUILD_BASE_URL`,
   `TQX_BUILD_TRADING_BASE_URL`, and `TQX_BUILD_GET_API_KEY_URL` with valid production HTTPS URLs.

@@ -28,7 +28,7 @@ After the competition instance is created, ask the user to provide the generated
 
 TQX Research has two well-defined layers:
 
-- **Resource management and execution**: Use `@tqx-ai/cli` or `@tqx-ai/sdk` published by `tqx-ts` to access the `/pandaApi` gateway with an API key. Do not use the Python `tqx-cli`, account/password login, session tokens, or `workflow_*`.
+- **Resource management and execution**: Use `@tqx-ai/cli` or `@tqx-ai/sdk` published by `tqx-ts` to access the `/tqxApi` gateway with an API key. Do not use the Python `tqx-cli`, account/password login, session tokens, or `workflow_*`.
 - **Strategy runtime and data research**: `panda_backtest` and `tqx_data` remain available in Qube Python strategy source. They are not replacements for the TypeScript Research client; they are domain infrastructure that must be verified when generating, reviewing, and running strategies.
 
 ## Install, update, or repair the CLI
@@ -49,11 +49,11 @@ Before a CLI task, and whenever `tqx` is missing, outdated, or failing before it
 
 ## How to work
 
-1. Confirm the market is `hk` or `us`, and distinguish between factor definition, factor analysis, strategy definition, strategy backtesting and local source code generation. Resource ID must be a positive integer.
+1. Confirm the market is `hk` or `us`, and distinguish between factor definition, factor analysis, strategy definition, strategy backtesting and local source code generation. Resource IDs are lowercase 24-character Mongo ObjectIds.
 2. When only generating source code, research designs or command drafts, no authentication, no remote resources creation, no analysis or backtesting are performed.
 3. `create`, `update`, `run`, `stop`, and `delete` all have remote side effects. Run them only when explicitly requested by the user; deletion requires `--yes`.
-4. Before a remote operation, confirm that an API key is available and that the Research gateway's `TQX_BASE_URL` (or build-time default) ends with `/pandaApi`. Use a key supplied in the current conversation directly from the agent context; never output API keys, persistent credentials, or environment variable values.
-5. Keep the `factor_id` / `strategy_id` in the create response and the `analysis_id` / `run_id` in the run response. `SUBMITTED`, `PENDING`, `RUNNING`, `FAILED`, `CANCELLED`, `TIMEOUT` are not completed successfully; only `SUCCESS` of CLI corresponds to server `done`.
+4. Before a remote operation, confirm that an API key is available and that the Research gateway's `TQX_BASE_URL` (or build-time default) ends with `/tqxApi`. Use a key supplied in the current conversation directly from the agent context; never output API keys, persistent credentials, or environment variable values.
+5. Keep the `factor_id` / `strategy_id` in the create response and the `analysis_id` / `run_id` in the run response. `SUBMITTED`, `PENDING`, `RUNNING`, `FAILED`, `CANCELLED`, `TIMEOUT` are not completed successfully; only `SUCCESS` of CLI corresponds to server `succeeded`.
 6. Use `--json` for machine-readable stdout; error JSON is written to stderr. List commands omit source code by default; use `--includeContent` to request it.
 
 ## Research Quality Boundary

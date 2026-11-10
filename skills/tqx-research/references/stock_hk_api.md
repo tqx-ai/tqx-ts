@@ -5,13 +5,13 @@ This document is used to write the strategy code of `tqx research strategy creat
 
 ## 1. Interface layering
 
-| Layer | Purpose | Entrance |
-|---|---|---|
-| Strategy life cycle | Backtesting engine calls user code | `initialize/before_trading/handle_data/after_trading` |
-| Current market price | Read current data for each bar | `data[symbol]` |
-| Hong Kong stock market history | Low-frequency reading of daily or minute lines | `panda_backtest.api.stock_hk_api` |
-| Placing orders and orders | Simulated trading | `panda_backtest.api.api` |
-| QUBE CLI | Create, run, query and stop | `tqx research strategy`, `tqx research backtest` |
+| Layer                          | Purpose                                        | Entrance                                              |
+| ------------------------------ | ---------------------------------------------- | ----------------------------------------------------- |
+| Strategy life cycle            | Backtesting engine calls user code             | `initialize/before_trading/handle_data/after_trading` |
+| Current market price           | Read current data for each bar                 | `data[symbol]`                                        |
+| Hong Kong stock market history | Low-frequency reading of daily or minute lines | `panda_backtest.api.stock_hk_api`                     |
+| Placing orders and orders      | Simulated trading                              | `panda_backtest.api.api`                              |
+| QUBE CLI                       | Create, run, query and stop                    | `tqx research strategy`, `tqx research backtest`      |
 
 Do not call internal `run_stock_backtest()` in the strategy code; QUBE backtest running is handed over to `tqx research`.
 
@@ -26,7 +26,7 @@ from panda_backtest.api.stock_hk_api import *
 - Hong Kong stock codes use 4 digits plus `.HK`, such as `0700.HK`, `0941.HK`, `0005.HK`.
 - Do not use 5-digit number formats such as `00941.HK`, and do not import A-share or US stock quotation modules.
 - The number of shares per lot of Hong Kong stocks varies depending on the underlying stock. `min_order_amount` must be read and cached at low frequency and cannot be fixed at 100 for the entire market.
-- It is recommended to use `--strictMarketApi` when creating or updating.
+- It is recommended to use server-side validation when creating or updating.
 
 ## 3. `stock_hk_api` officially public function
 
@@ -45,13 +45,13 @@ def stock_api_quotation(
 ) -> pandas.DataFrame
 ```
 
-| Parameters | Rules |
-|---|---|
-| `symbol_list` | Must be a non-empty `list` or `tuple`; uses 4-digit `.HK` code |
-| `start_date` | Daily line date; minute line can have time, and the boundary includes |
-| `end_date` | Same as above, must be no earlier than the start time |
-| `fields` | Sequence of field names; do not pass a single string |
-| `period` | Can only be lowercase `"1d"` or `"1m"` |
+| Parameters    | Rules                                                                 |
+| ------------- | --------------------------------------------------------------------- |
+| `symbol_list` | Must be a non-empty `list` or `tuple`; uses 4-digit `.HK` code        |
+| `start_date`  | Daily line date; minute line can have time, and the boundary includes |
+| `end_date`    | Same as above, must be no earlier than the start time                 |
+| `fields`      | Sequence of field names; do not pass a single string                  |
+| `period`      | Can only be lowercase `"1d"` or `"1m"`                                |
 
 Date support:
 
@@ -87,13 +87,13 @@ minute = stock_api_quotation(
 
 Daily field conversion:
 
-| Underlying fields | API return fields |
-|---|---|
-| `amount` | `turnover` |
-| `pre_close` | `preclose`, and add compatible alias `pre_close` |
-| `uplimit` | `limit_up` |
-| `lolimit` | `limit_down` |
-| `date` | Convert to string and add string `trade_date` |
+| Underlying fields | API return fields                                |
+| ----------------- | ------------------------------------------------ |
+| `amount`          | `turnover`                                       |
+| `pre_close`       | `preclose`, and add compatible alias `pre_close` |
+| `uplimit`         | `limit_up`                                       |
+| `lolimit`         | `limit_down`                                     |
+| `date`            | Convert to string and add string `trade_date`    |
 
 Commonly used daily fields are `symbol/date/trade_date/open/high/low/close/volume/turnover/vwap/preclose/`
 `pre_close/limit_up/limit_down/trade_status`. The complete column set and dtype depends on the data file.
@@ -116,7 +116,7 @@ def stock_api_pre_close(
 ```
 
 - `df_stock_code` must contain the `symbol` column.
--On success, only the two columns `symbol` and `pre_close` are returned.
+  -On success, only the two columns `symbol` and `pre_close` are returned.
 - `KeyError` may be thrown when empty input, no market price or missing fields, do not assume that an empty table will be returned stably.
 
 ```python
@@ -148,12 +148,12 @@ Don't make up your trading units. `0005.HK=400` and `0700.HK=100` have appeared 
 
 ## 5. Strategy lifecycle
 
-| Callback | Required | Calling time |
-|---|---|---|
-| `initialize(context)` | Yes | The strategy starts once, initializing the account, stock pool, parameters and cache |
-| `before_trading(context)` | No | Before each trading day, reset the daily status |
-| `handle_data(context, data)` | Yes | Each bar; only memory reading, signal calculation and order placement |
-| `after_trading(context)` | No | At the end of each trading day, output a low-frequency summary |
+| Callback                     | Required | Calling time                                                                         |
+| ---------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `initialize(context)`        | Yes      | The strategy starts once, initializing the account, stock pool, parameters and cache |
+| `before_trading(context)`    | No       | Before each trading day, reset the daily status                                      |
+| `handle_data(context, data)` | Yes      | Each bar; only memory reading, signal calculation and order placement                |
+| `after_trading(context)`     | No       | At the end of each trading day, output a low-frequency summary                       |
 
 Currently `tests/hk_ma.py` only implements `initialize` and `handle_data`. It uses `bar.trade_date` to prevent repetition of the same day
 Records close, so its reliable use is for daily strategies; at minute frequency, it records the first bar of the day, not the daily closing price.
@@ -218,11 +218,10 @@ Life cycle and moving average status examples should not be used directly for re
 
 ```powershell
 tqx research strategy create --market hk --file .\tests\hk_ma.py `
-  --name "Hong Kong stock moving average strategy" `
-  --startDate 20250101 --endDate 20250220 --frequency 1d `
-  --strictMarketApi
+  --title "Hong Kong stock moving average strategy" `
+  --startDate 20250101 --endDate 20250220 --frequency 1d
 
-tqx research strategy run <strategy_id> --timeout 1200
+tqx research strategy run <strategy_id> --expectedSourceRevision=<source_revision> --expectedConfigRevision=<config_revision> --timeout 1200
 ```
 
 This code is a state strategy of holding when the short moving average is higher than the long moving average and clearing when it is lower than the long moving average. It is not a strict cross event detection.
@@ -233,7 +232,7 @@ This code is a state strategy of holding when the short moving average is higher
 - OHLC, `volume`, and `preclose` may have outliers; protect the denominator before division, and do not directly fill in 0 for invalid market conditions.
 - Disable `eval/exec/open/compile/input/globals/locals/vars/dir/__import__`.
 - Use `--file` for multiple lines of code; markets, imported modules and code suffixes must be consistent.
-- Use `--strictMarketApi` and check for `market=hk` returned by QUBE after creation.
+- Use server-side validation and check for `market=hk` returned by QUBE after creation.
 - `TIMEOUT` only stops CLI waiting, not background tasks.
 
 ## 9. Confirmed and unconfirmed boundaries

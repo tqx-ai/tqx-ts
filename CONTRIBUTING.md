@@ -24,7 +24,7 @@ Copy `.env.example` to `.env`, `.env.dev`, or `.env.prod` as needed. The build-t
 public gateway URLs:
 
 ```dotenv
-TQX_BUILD_BASE_URL=https://www.tqx.trade/pandaApi
+TQX_BUILD_BASE_URL=https://www.tqx.trade/tqxApi
 TQX_BUILD_TRADING_BASE_URL=https://www.tqx.trade
 TQX_BUILD_GET_API_KEY_URL=https://www.tqx.ai/user-center?tab=ai-accounts
 ```

@@ -1,6 +1,6 @@
 # Qube Strategy Source Constraints
 
-The TypeScript CLI uploads Python source as opaque text. Its source checks supplement the documented Qube runtime: read `strategy_templates.md` and the market-specific API reference before generating source, and read the `tqx_data` references before using data APIs.
+The TypeScript CLI uploads Python source as opaque text. The server validates source against the Qube runtime: read `strategy_templates.md` and the market-specific API reference before generating source, and read the `tqx_data` references before using data APIs.
 
 ## Confirm before generation
 
@@ -12,14 +12,14 @@ Before writing source that will be uploaded or run, read the task-routed Qube re
 
 Without that material, draft a research specification or explain the missing contract instead of fabricating executable Python.
 
-## CLI-verifiable rules
+## Validation boundary
 
 - Factor definitions accept a formula or Python source. Python factor source must define exactly one subclass of `Factor`, implement `calculate(self, factors)`, and reference at least one `factors["field"]` or `factors['field']` expression inside that class.
 - Strategy definitions accept only Python source.
-- For Hong Kong strategies, the CLI expects `panda_backtest.api.stock_hk_api`; for US strategies, it expects `panda_backtest.api.stock_us_api`.
-- The CLI warns about the mainland `panda_backtest.api.stock_api`, the wrong market import, or a missing expected import. Pass `--strictMarketApi` to reject those warnings.
-- The CLI rejects calls to `eval`, `exec`, `open`, `__import__`, `compile`, `input`, `globals`, `locals`, `vars`, and `dir` when they occur outside strings and comments.
-- Star imports (`from ... import *`) must be at module top level. The CLI rejects nested star imports.
-- Current-bar data must use `data[symbol]` directly and then validate the returned bar fields. The CLI rejects `data.get(...)` and membership checks against `data`.
+- Hong Kong and US strategies must use the corresponding market API described in the runtime references.
+- Create and save upload source to the server. Read the returned validation diagnostics before running it.
+- The SDK also exposes explicit `validateFactor` and `validateStrategy` API calls. The optional local
+  `validateStrategyCode` utility is a static check and is not automatically applied to source uploads.
 
-The checks above are not a compiler, sandbox guarantee, data validation, or evidence that code will execute successfully on Qube.
+Client input checks validate IDs, dates, revisions, and request structure. Server source validation
+is not evidence of point-in-time correctness, data quality, or successful backtest execution.

@@ -8,7 +8,7 @@ import { CliUsageError } from '../utils/errors'
 import { optionalFloat, optionalNumber } from '../utils/numbers'
 import { isRecord } from '../utils/basic/type-guard'
 
-type FactorDirection = 0 | 1
+type FactorDirection = -1 | 1
 
 type StatusLike = {
   status?: string
@@ -17,7 +17,7 @@ type StatusLike = {
   cli_status?: string
 } & Record<string, unknown>
 
-type StatusResult = StatusLike & { id: number }
+type StatusResult = StatusLike & { id: string }
 
 type BacktestDisplayResult = StatusResult & { partial_result?: true }
 
@@ -38,7 +38,7 @@ export interface BacktestArgs {
 }
 
 export interface ListArgs {
-  offset?: string
+  cursor?: string
   limit?: string
   market?: string
   keyword?: string
@@ -49,13 +49,6 @@ export interface WaitArgs {
   timeout?: string
 }
 
-interface ResearchMarketClient {
-  research: {
-    deleteFactor(id: number): Promise<void>
-    deleteStrategy(id: number): Promise<void>
-  }
-}
-
 export const listArgs = {
   market: {
     type: 'enum' as const,
@@ -64,10 +57,9 @@ export const listArgs = {
   },
   limit: {
     type: 'string' as const,
-    description:
-      'Maximum number of results (1-100) for specific market, can be doubled with "--market=all"',
+    description: 'Maximum number of results (1-100; run summaries: 1-10)',
   },
-  offset: { type: 'string' as const, description: 'Offset into the list' },
+  cursor: { type: 'string' as const, description: 'Opaque next_cursor from the previous page' },
   keyword: { type: 'string' as const, description: 'Filter by name or keyword' },
   includeContent: { type: 'boolean' as const, description: 'Include source code in results' },
 }
@@ -85,7 +77,6 @@ export const backtestArgs = {
     description: 'Proportional slippage applied by backend to simulated fill price',
   },
   frequency: { type: 'enum' as const, options: ['1d', '1M'], description: 'Bar frequency' },
-  symbols: { type: 'string' as const, description: 'Comma-separated symbols' },
 }
 
 export const waitArgs = {
@@ -133,8 +124,19 @@ export function selectOptionalContent(
   const selected = candidates[0]
   if (selected === undefined) return undefined
   if (!selected.value.trim()) throw new CliUsageError('source code or formula cannot be empty')
-  if (selected.type === 'python' && allowFormula) validateFactorCode(selected.value)
   return selected
+}
+
+export function readJsonInput(path: string, name = 'JSON input'): Record<string, unknown> {
+  try {
+    const value: unknown = JSON.parse(readFileSync(path, 'utf8'))
+    if (typeof value !== 'object' || value === null || Array.isArray(value))
+      throw new Error('expected a JSON object')
+    return value as Record<string, unknown>
+  } catch (error) {
+    const reason = error instanceof Error ? `: ${error.message}` : ''
+    throw new CliUsageError(`unable to read ${name} "${path}"${reason}`)
+  }
 }
 
 function readSourceFile(path: string): string {
@@ -146,19 +148,6 @@ function readSourceFile(path: string): string {
   }
 }
 
-function validateFactorCode(code: string): void {
-  if (!/\bfactors\s*\[\s*['"][^'"]+['"]\s*\]/.test(code)) {
-    throw new CliUsageError('factor Python code must reference at least one factors["field"] value')
-  }
-}
-
-export function strategyWarnings(code: string, market: QubeMarket, strict: boolean): string[] {
-  void code
-  void market
-  void strict
-  return []
-}
-
 export function toMarket(value: string): QubeMarket {
   if (value.toUpperCase() === 'STOCK') return 'stock'
   if (value.toUpperCase() === 'FUTURE') return 'future'
@@ -167,17 +156,15 @@ export function toMarket(value: string): QubeMarket {
   throw new CliUsageError(`unsupported market: ${value}`)
 }
 
-export function resourceId(value: string | undefined, name: string): number {
-  const parsed = optionalNumber(value)
-  if (parsed === undefined || parsed <= 0)
-    throw new CliUsageError(`${name} must be a positive integer`)
-  return parsed
+export function resourceId(value: string | undefined, name: string): string {
+  if (value === undefined || !/^[0-9a-f]{24}$/.test(value))
+    throw new CliUsageError(`${name} must be a 24-character lowercase ObjectId`)
+  return value
 }
-
-export function resourceIds(values: string[] | undefined, name: string): number[] {
+export function resourceIds(values: string[] | undefined, name: string): string[] {
   const ids = (values ?? []).map((value) => resourceId(value, name))
   if (ids.length === 0) throw new CliUsageError(`${name} is required`)
-  return ids
+  return [...new Set(ids)]
 }
 
 export function numberArg(value: string | undefined, name: string): number {
@@ -209,8 +196,8 @@ export function factorDirection(value: string | undefined): FactorDirection | un
   if (value === undefined) return undefined
   const normalized = value?.trim().toLowerCase()
   if (normalized === '1' || normalized === 'positive') return 1
-  if (normalized === '0' || normalized === 'negative') return 0
-  throw new CliUsageError('factorDirection must be Positive, Negative, 1, or 0')
+  if (normalized === '-1' || normalized === 'negative') return -1
+  throw new CliUsageError('factorDirection must be Positive, Negative, 1, or -1')
 }
 
 export function normalizeDate(value: string | undefined): string | undefined {
@@ -265,7 +252,6 @@ export function backtestParameters(
       args.frequency === undefined
         ? (saved.frequency ?? (defaults ? '1d' : undefined))
         : (args.frequency as '1d' | '1M'),
-    symbols: args.symbols === undefined ? saved.symbols : parseSymbols(args.symbols),
   }
 }
 
@@ -282,20 +268,7 @@ function savedBacktestParameters(value: unknown): BacktestParameters {
     commissionRate: typeof raw.commission_rate === 'number' ? raw.commission_rate : undefined,
     slippage: typeof raw.slippage === 'number' ? raw.slippage : undefined,
     frequency: raw.frequency === '1d' || raw.frequency === '1M' ? raw.frequency : undefined,
-    symbols:
-      Array.isArray(raw.symbols) && raw.symbols.every((item) => typeof item === 'string')
-        ? raw.symbols
-        : undefined,
   }
-}
-
-function parseSymbols(value: string): string[] {
-  const symbols = value
-    .split(',')
-    .map((symbol) => symbol.trim())
-    .filter(Boolean)
-  if (symbols.length === 0) throw new CliUsageError('symbols must contain at least one symbol')
-  return symbols
 }
 
 export function hasBacktestInput(args: BacktestArgs): boolean {
@@ -348,10 +321,13 @@ export function resultStatus(result: StatusLike): string {
   const terminal = progress?.terminal
   if (typeof terminal === 'string' && terminal.toLowerCase() === 'cancelled') return 'CANCELLED'
   switch (String(result.status ?? '').toLowerCase()) {
+    case 'preparing':
+    case 'queued':
     case 'pending':
       return 'PENDING'
     case 'running':
       return 'RUNNING'
+    case 'succeeded':
     case 'done':
       return 'SUCCESS'
     case 'failed':
@@ -372,18 +348,16 @@ export function resultResponse<T extends StatusResult>(
 }
 
 export function listInput(args: ListArgs): {
-  offset?: number
+  cursor?: string
   limit?: number
   market?: QubeMarket
   keyword?: string
 } {
-  const offset = args.offset === undefined ? undefined : optionalNumber(args.offset)
   const limit = args.limit === undefined ? undefined : optionalNumber(args.limit)
-  if (offset !== undefined && offset < 0) throw new CliUsageError('offset cannot be negative')
   if (limit !== undefined && (limit < 1 || limit > 100))
     throw new CliUsageError('limit must be between 1 and 100')
   return {
-    offset,
+    cursor: args.cursor,
     limit,
     market: args.market === undefined || args.market === 'all' ? undefined : toMarket(args.market),
     keyword: args.keyword,
@@ -392,20 +366,12 @@ export function listInput(args: ListArgs): {
 
 export function pageResponse(
   page: QubePage<Record<string, unknown>>,
-  key: 'factors' | 'strategies' | 'backtests',
+  key: 'factors' | 'strategies' | 'backtests' | 'runs' | 'versions' | 'tunings',
   includeContent: boolean,
 ): Record<string, unknown> {
   const items = page.items.map((item) => {
     const result: Record<string, unknown> = { ...item }
     if (!includeContent) delete result.code
-    if (key === 'backtests') {
-      result.equity_count = Array.isArray(result.equity) ? result.equity.length : 0
-      result.trade_count = Array.isArray(result.trades) ? result.trades.length : 0
-      delete result.equity
-      delete result.trades
-      delete result.log
-      delete result.metric_views
-    }
     return result
   })
   return {
@@ -413,23 +379,9 @@ export function pageResponse(
     count: items.length,
     [key]: items,
     has_more: page.hasMore,
-    next_offset: page.nextOffset,
+    next_cursor: page.nextCursor,
+    ...(page.counts === undefined ? {} : { counts: page.counts }),
   }
-}
-
-export async function ensureMarket(
-  client: ResearchMarketClient,
-  resource: 'factor' | 'strategy',
-  id: number,
-  actual: QubeMarket | undefined,
-  expected: QubeMarket,
-): Promise<void> {
-  if (actual === undefined || actual === expected) return
-  if (resource === 'factor') await client.research.deleteFactor(id)
-  else await client.research.deleteStrategy(id)
-  throw new CliUsageError(
-    `Qube returned market ${actual} instead of ${expected}; the incorrectly mapped resource was deleted`,
-  )
 }
 
 export function addDownload(

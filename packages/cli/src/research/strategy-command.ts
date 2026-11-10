@@ -1,7 +1,5 @@
+import { randomUUID } from 'node:crypto'
 import { defineCommand } from 'citty'
-
-import type { QubePage, TqxClient } from '@tqx-ai/sdk'
-
 import type { CommandRuntime } from '../runtime/command-runtime'
 import { CliUsageError } from '../utils/errors'
 import {
@@ -10,139 +8,123 @@ import {
   backtestParameters,
   type BacktestArgs,
   type ContentArgs,
-  ensureMarket,
   hasBacktestInput,
   listArgs,
   listInput,
   type ListArgs,
-  pageResponse,
   pollOptions,
+  pageResponse,
   type WaitArgs,
   resourceId,
   resourceIdArg,
   resourceIds,
-  normalizeBacktestDisplay,
+  readJsonInput,
   resultResponse,
   resultStatus,
   selectContent,
-  selectOptionalContent,
   toMarket,
   waitArgs,
 } from './shared'
-
+const revision = (v: string | undefined, n: string) => {
+  const x = Number(v)
+  if (!Number.isSafeInteger(x) || x < 1) throw new CliUsageError(`${n} must be a positive integer`)
+  return x
+}
 export function createStrategyCommand(runtime: CommandRuntime) {
   return defineCommand({
     meta: { name: 'strategy', description: 'Manage Qube strategies and backtests' },
     subCommands: {
       create: defineCommand({
-        meta: { name: 'create', description: 'Create a strategy definition' },
+        meta: { name: 'create', description: 'Create a strategy' },
         args: {
-          market: {
-            type: 'enum',
-            options: ['stock', 'future', 'hk', 'us', 'STOCK', 'FUTURE', 'HK', 'US'],
-            required: true,
-          },
-          code: { type: 'string', description: 'Python strategy source' },
-          file: { type: 'string', description: 'Load strategy source from a file' },
-          name: { type: 'string', default: 'TQX Strategy', description: 'Strategy name' },
-          description: { type: 'string', description: 'Strategy description' },
-          strictMarketApi: { type: 'boolean', description: 'Reject invalid market API usage' },
+          market: { type: 'enum', options: ['hk', 'us'], required: true },
+          code: { type: 'string' },
+          file: { type: 'string' },
+          title: { type: 'string', default: 'TQX Strategy' },
+          description: { type: 'string' },
           ...backtestArgs,
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
             const content = selectContent(args as unknown as ContentArgs, false)
             const market = toMarket(args.market!)
-            await client.research.validateStrategyCode(content.value, market)
-            const createdStrategy = await client.research.createStrategy({
-              name: args.name!,
+            const strategy = await client.research.createStrategy({
+              requestId: randomUUID(),
+              title: args.title!,
               description: args.description,
               code: content.value,
               market,
               backtest: backtestParameters(args as unknown as BacktestArgs, true),
             })
-            await ensureMarket(
-              client,
-              'strategy',
-              createdStrategy.id,
-              createdStrategy.market,
-              market,
-            )
-            return {
-              success: true,
-              strategy_id: createdStrategy.id,
-              strategy: createdStrategy,
-              warnings: [],
-            }
+            return { success: true, strategy_id: strategy.id, strategy }
           }),
       }),
-      save: defineCommand({
-        meta: {
-          name: 'save',
-          description:
-            'Save a strategy code version. Check strategy info or versions first, then use --baseVersionId=<latest_version_id> as the optimistic concurrency base. Use --confirmRebase to save on the latest HEAD after a conflict.',
-        },
+      info: defineCommand({
+        meta: { name: 'info', description: 'Get a strategy' },
+        args: { strategyId: resourceIdArg('Strategy ID') },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            strategy: await client.research.getStrategy(resourceId(args.strategyId, 'strategy ID')),
+          })),
+      }),
+      source: defineCommand({
+        meta: { name: 'source', description: 'Get strategy source' },
+        args: { strategyId: resourceIdArg('Strategy ID') },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            strategy: await client.research.getStrategySource(
+              resourceId(args.strategyId, 'strategy ID'),
+            ),
+          })),
+      }),
+      update: defineCommand({
+        meta: { name: 'update', description: 'Update strategy configuration' },
         args: {
           strategyId: resourceIdArg('Strategy ID'),
-          code: { type: 'string', description: 'Python strategy source' },
-          file: { type: 'string', description: 'Load strategy source from a file' },
-          name: { type: 'string', description: 'Strategy name' },
-          description: { type: 'string', description: 'Strategy description' },
-          baseVersionId: {
-            type: 'string',
-            description: 'Latest version ID to use as the optimistic concurrency base',
-          },
-          confirmRebase: {
-            type: 'boolean',
-            description: 'Rebase onto the latest HEAD before saving',
-          },
+          baseConfigRevision: { type: 'string', required: true },
+          title: { type: 'string' },
+          description: { type: 'string' },
           ...backtestArgs,
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
-            const content = selectContent(args as unknown as ContentArgs, false)
-            const strategyId = resourceId(args.strategyId, 'strategy ID')
-            const currentStrategy = await client.research.getStrategy(strategyId)
-            await client.research.validateStrategyCode(
-              content.value,
-              currentStrategy.market ?? 'stock',
-            )
-            const saved = await client.research.saveStrategy(strategyId, {
-              code: content.value,
-              name: args.name,
+            const id = resourceId(args.strategyId, 'strategy ID')
+            const result = await client.research.updateStrategy(id, {
+              requestId: randomUUID(),
+              baseConfigRevision: revision(args.baseConfigRevision, 'baseConfigRevision'),
+              title: args.title,
               description: args.description,
-              baseVersionId:
-                args.baseVersionId === undefined
-                  ? undefined
-                  : resourceId(args.baseVersionId, 'base version ID'),
-              confirmRebase: Boolean(args.confirmRebase),
               backtest: hasBacktestInput(args as unknown as BacktestArgs)
                 ? backtestParameters(args as unknown as BacktestArgs, false)
                 : undefined,
             })
-            return {
-              success: true,
-              strategy_id: saved.strategy.id,
-              version_id: saved.version.id,
-              version_created: saved.version_created,
-              strategy: saved.strategy,
-              version: saved.version,
-            }
+            return { success: true, strategy_id: id, strategy: result }
           }),
       }),
-      info: defineCommand({
-        meta: { name: 'info', description: 'Get a strategy definition' },
-        args: { strategyId: resourceIdArg('Strategy ID') },
+      save: defineCommand({
+        meta: { name: 'save', description: 'Save strategy source against a source revision' },
+        args: {
+          strategyId: resourceIdArg('Strategy ID'),
+          code: { type: 'string' },
+          file: { type: 'string' },
+          baseSourceRevision: { type: 'string', required: true },
+        },
         run: ({ args }) =>
           runtime.research(async (client) => {
-            const fetchedStrategy = await client.research.getStrategy(
-              resourceId(args.strategyId, 'strategy ID'),
-            )
-            return { success: true, strategy: fetchedStrategy }
+            const content = selectContent(args as unknown as ContentArgs, false)
+            const id = resourceId(args.strategyId, 'strategy ID')
+            const result = await client.research.updateStrategySource(id, {
+              requestId: randomUUID(),
+              baseSourceRevision: revision(args.baseSourceRevision, 'baseSourceRevision'),
+              code: content.value,
+            })
+            return { success: true, strategy_id: id, strategy: result }
           }),
       }),
       versions: defineCommand({
-        meta: { name: 'versions', description: 'List strategy code versions' },
+        meta: { name: 'versions', description: 'List strategy versions' },
         args: { strategyId: resourceIdArg('Strategy ID') },
         run: ({ args }) =>
           runtime.research(async (client) => ({
@@ -153,113 +135,242 @@ export function createStrategyCommand(runtime: CommandRuntime) {
             ),
           })),
       }),
-      revert: defineCommand({
-        meta: { name: 'revert', description: 'Revert a strategy version as a new version' },
-        args: {
-          strategyId: resourceIdArg('Strategy ID'),
-          versionNumber: resourceIdArg('Version number'),
-        },
+      version: defineCommand({
+        meta: { name: 'version', description: 'Get a strategy version' },
+        args: { versionId: resourceIdArg('Strategy version ID') },
         run: ({ args }) =>
-          runtime.research(async (client) => {
-            const strategyId = resourceId(args.strategyId, 'strategy ID')
-            const version = await client.research.revertStrategyVersion(
-              strategyId,
-              resourceId(args.versionNumber, 'version number'),
-            )
-            return { success: true, strategy_id: strategyId, version }
-          }),
+          runtime.research(async (client) => ({
+            success: true,
+            version: await client.research.getStrategyVersion(
+              resourceId(args.versionId, 'version ID'),
+            ),
+          })),
       }),
-      update: defineCommand({
-        meta: { name: 'update', description: 'Update a strategy definition' },
+      'version-create': defineCommand({
+        meta: {
+          name: 'version-create',
+          description: 'Create a named strategy version from a backtest',
+        },
         args: {
           strategyId: resourceIdArg('Strategy ID'),
-          market: {
-            type: 'enum',
-            options: ['stock', 'future', 'hk', 'us', 'STOCK', 'FUTURE', 'HK', 'US'],
-          },
-          code: { type: 'string', description: 'Python strategy source' },
-          file: { type: 'string', description: 'Load strategy source from a file' },
-          name: { type: 'string', description: 'Strategy name' },
-          description: { type: 'string', description: 'Strategy description' },
-          strictMarketApi: { type: 'boolean', description: 'Reject invalid market API usage' },
-          ...backtestArgs,
+          runId: resourceIdArg('Successful backtest ID'),
+          name: { type: 'string', required: true },
+          description: { type: 'string' },
         },
         run: ({ args }) =>
-          runtime.research(async (client) => {
-            const strategyId = resourceId(args.strategyId, 'strategy ID')
-            const content = selectOptionalContent(args as unknown as ContentArgs, false)
-            const hasBacktestUpdates = hasBacktestInput(args as unknown as BacktestArgs)
-            const current =
-              args.market === undefined ||
-              content !== undefined ||
-              hasBacktestUpdates ||
-              args.strictMarketApi
-                ? await client.research.getStrategy(strategyId)
-                : undefined
-            const market = args.market === undefined ? current?.market : toMarket(args.market)
-            if (content !== undefined) {
-              await client.research.validateStrategyCode(
-                content.value,
-                market ?? current?.market ?? 'stock',
-              )
-            }
-            const updated = await client.research.updateStrategy(strategyId, {
-              name: args.name,
-              description: args.description,
-              code: content?.value,
-              market,
-              backtest: hasBacktestUpdates
-                ? backtestParameters(args as unknown as BacktestArgs, false, current?.params)
-                : undefined,
-            })
-            if (market !== undefined)
-              await ensureMarket(client, 'strategy', updated.id, updated.market, market)
-            return { success: true, strategy_id: updated.id, strategy: updated }
+          runtime.research(async (client) => ({
+            success: true,
+            version: await client.research.createStrategyVersion(
+              resourceId(args.strategyId, 'strategy ID'),
+              {
+                requestId: randomUUID(),
+                runId: resourceId(args.runId, 'backtest ID'),
+                name: args.name!,
+                description: args.description,
+              },
+            ),
+          })),
+      }),
+      'version-restore': defineCommand({
+        meta: { name: 'version-restore', description: 'Restore a strategy version' },
+        args: {
+          strategyId: resourceIdArg('Strategy ID'),
+          versionId: resourceIdArg('Strategy version ID'),
+          expectedSourceRevision: { type: 'string', required: true },
+          expectedConfigRevision: { type: 'string', required: true },
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            strategy: await client.research.restoreStrategyVersion(
+              resourceId(args.strategyId, 'strategy ID'),
+              resourceId(args.versionId, 'version ID'),
+              {
+                requestId: randomUUID(),
+                expectedSourceRevision: revision(
+                  args.expectedSourceRevision,
+                  'expectedSourceRevision',
+                ),
+                expectedConfigRevision: revision(
+                  args.expectedConfigRevision,
+                  'expectedConfigRevision',
+                ),
+              },
+            ),
+          })),
+      }),
+      'backtest-restore': defineCommand({
+        meta: { name: 'backtest-restore', description: 'Restore a strategy backtest snapshot' },
+        args: {
+          strategyId: resourceIdArg('Strategy ID'),
+          runId: resourceIdArg('Backtest run ID'),
+          expectedSourceRevision: { type: 'string', required: true },
+          expectedConfigRevision: { type: 'string', required: true },
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            strategy: await client.research.restoreBacktest(
+              resourceId(args.strategyId, 'strategy ID'),
+              resourceId(args.runId, 'backtest ID'),
+              {
+                requestId: randomUUID(),
+                expectedSourceRevision: revision(
+                  args.expectedSourceRevision,
+                  'expectedSourceRevision',
+                ),
+                expectedConfigRevision: revision(
+                  args.expectedConfigRevision,
+                  'expectedConfigRevision',
+                ),
+              },
+            ),
+          })),
+      }),
+      tuning: defineCommand({
+        meta: { name: 'tuning', description: 'Manage strategy parameter tuning tasks' },
+        subCommands: {
+          list: defineCommand({
+            meta: { name: 'list', description: 'List strategy tunings' },
+            args: { strategyId: resourceIdArg('Strategy ID') },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tunings: await client.research.listStrategyTunings(
+                  resourceId(args.strategyId, 'strategy ID'),
+                ),
+              })),
           }),
+          get: defineCommand({
+            meta: { name: 'get', description: 'Get a strategy tuning' },
+            args: { tuningId: resourceIdArg('Strategy tuning ID') },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tuning: await client.research.getStrategyTuning(
+                  resourceId(args.tuningId, 'tuning ID'),
+                ),
+              })),
+          }),
+          create: defineCommand({
+            meta: {
+              name: 'create',
+              description: 'Create a strategy tuning from a JSON request file',
+            },
+            args: {
+              strategyId: resourceIdArg('Strategy ID'),
+              file: { type: 'string', required: true },
+            },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tuning: await client.research.createStrategyTuning(
+                  resourceId(args.strategyId, 'strategy ID'),
+                  readJsonInput(args.file!, 'strategy tuning JSON') as never,
+                ),
+              })),
+          }),
+          cancel: defineCommand({
+            meta: { name: 'cancel', description: 'Cancel a strategy tuning' },
+            args: { tuningId: resourceIdArg('Strategy tuning ID') },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tuning: await client.research.cancelStrategyTuning(
+                  resourceId(args.tuningId, 'tuning ID'),
+                ),
+              })),
+          }),
+          rerun: defineCommand({
+            meta: { name: 'rerun', description: 'Rerun a strategy tuning' },
+            args: { tuningId: resourceIdArg('Strategy tuning ID') },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tuning: await client.research.rerunStrategyTuning(
+                  resourceId(args.tuningId, 'tuning ID'),
+                  { requestId: randomUUID() },
+                ),
+              })),
+          }),
+          apply: defineCommand({
+            meta: { name: 'apply', description: 'Apply a successful strategy tuning candidate' },
+            args: {
+              tuningId: resourceIdArg('Strategy tuning ID'),
+              candidateId: resourceIdArg('Candidate ID'),
+              expectedSourceRevision: { type: 'string', required: true },
+              expectedConfigRevision: { type: 'string', required: true },
+            },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                ...(await client.research.applyStrategyTuning(
+                  resourceId(args.tuningId, 'tuning ID'),
+                  {
+                    requestId: randomUUID(),
+                    candidateId: resourceId(args.candidateId, 'candidate ID'),
+                    expectedSourceRevision: revision(
+                      args.expectedSourceRevision,
+                      'expectedSourceRevision',
+                    ),
+                    expectedConfigRevision: revision(
+                      args.expectedConfigRevision,
+                      'expectedConfigRevision',
+                    ),
+                  },
+                )),
+              })),
+          }),
+        },
       }),
       run: defineCommand({
         meta: { name: 'run', description: 'Run a strategy backtest' },
         args: {
           strategyId: resourceIdArg('Strategy ID'),
+          expectedSourceRevision: { type: 'string', required: true },
+          expectedConfigRevision: { type: 'string', required: true },
           ...backtestArgs,
           ...waitArgs,
-          download: {
-            type: 'string',
-            description: 'Save result JSON; omit the value for Downloads',
-          },
+          download: { type: 'string' },
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
-            const strategyId = resourceId(args.strategyId, 'strategy ID')
-            const storedStrategy = await client.research.getStrategy(strategyId)
-            const submitted = await client.research.runStrategyBacktest(
-              strategyId,
-              backtestParameters(args as unknown as BacktestArgs, false, storedStrategy.params),
-            )
+            const id = resourceId(args.strategyId, 'strategy ID')
+            const submitted = await client.research.runStrategyBacktest(id, {
+              requestId: randomUUID(),
+              expectedSourceRevision: revision(
+                args.expectedSourceRevision,
+                'expectedSourceRevision',
+              ),
+              expectedConfigRevision: revision(
+                args.expectedConfigRevision,
+                'expectedConfigRevision',
+              ),
+              backtest: backtestParameters(args as unknown as BacktestArgs, false),
+            })
             if (args.noWait) {
-              const output: Record<string, unknown> = {
+              const out = {
                 success: true,
                 status: 'SUBMITTED',
-                strategy_id: strategyId,
+                strategy_id: id,
                 run_id: submitted.id,
                 result: submitted,
               }
-              addDownload(output, submitted, args.download, `backtest-${submitted.id}.json`)
-              return output
+              addDownload(out, submitted as never, args.download, `backtest-${submitted.id}.json`)
+              return out
             }
             const result = await client.research.pollBacktest(
-              submitted.id,
+              String(submitted.id),
               pollOptions(args as unknown as WaitArgs),
             )
-            const displayResult = normalizeBacktestDisplay(result)
-            const output: Record<string, unknown> = {
-              ...resultResponse(displayResult, 'run_id'),
-              strategy_id: strategyId,
+            const out: Record<string, unknown> = {
+              ...resultResponse({ ...result, id: submitted.id } as never, 'run_id'),
+              strategy_id: id,
             }
-            if (resultStatus(displayResult) === 'TIMEOUT')
-              output.stop_command = `tqx research strategy stop ${submitted.id}`
-            addDownload(output, result, args.download, `backtest-${submitted.id}.json`)
-            return output
+            if (resultStatus(result as never) === 'TIMEOUT')
+              out.stop_command = `tqx research strategy stop ${submitted.id}`
+            addDownload(out, result as never, args.download, `backtest-${submitted.id}.json`)
+            return out
           }),
       }),
       stop: defineCommand({
@@ -267,54 +378,41 @@ export function createStrategyCommand(runtime: CommandRuntime) {
         args: { runId: resourceIdArg('Backtest run ID') },
         run: ({ args }) =>
           runtime.research(async (client) => {
-            const runId = resourceId(args.runId, 'backtest run ID')
-            const result = await client.research.cancelBacktest(runId)
-            return {
-              success: result.cancelled === true,
-              run_id: runId,
-              status: result.cancelled === true ? 'CANCELLED' : resultStatus(result),
-              ...(result.reason !== undefined ? { cancel_reason: result.reason } : {}),
-              result,
-            }
+            const id = resourceId(args.runId, 'backtest run ID')
+            const result = await client.research.cancelBacktest(id)
+            return { success: true, run_id: id, status: resultStatus(result as never), result }
           }),
       }),
       result: defineCommand({
         meta: { name: 'result', description: 'Get a strategy backtest result' },
-        args: {
-          runId: resourceIdArg('Backtest run ID'),
-          download: {
-            type: 'string',
-            description: 'Save result JSON; omit the value for Downloads',
-          },
-        },
+        args: { runId: resourceIdArg('Backtest run ID'), download: { type: 'string' } },
         run: ({ args }) =>
           runtime.research(async (client) => {
-            const runId = resourceId(args.runId, 'backtest run ID')
-            const result = await client.research.getBacktest(runId)
-            const displayResult = normalizeBacktestDisplay(result)
-            const output: Record<string, unknown> = resultResponse(displayResult, 'run_id')
-            addDownload(output, result, args.download, `backtest-${runId}.json`)
-            return output
+            const id = resourceId(args.runId, 'Backtest run ID')
+            const result = await client.research.getBacktest(id)
+            const out = { success: true, run_id: id, result }
+            addDownload(out, result as never, args.download, `backtest-${id}.json`)
+            return out
           }),
       }),
       list: defineCommand({
         meta: { name: 'list', description: 'List strategy definitions' },
         args: { ...listArgs },
         run: ({ args }) =>
-          runtime.research(async (client) =>
-            pageResponse(
-              await listStrategiesForDisplay(client, args as unknown as ListArgs),
-              'strategies',
-              Boolean(args.includeContent),
-            ),
-          ),
+          runtime.research(async (client) => {
+            const page = await client.research.listStrategies(
+              listInput(args as unknown as ListArgs),
+            )
+            if (args.includeContent)
+              page.items = await Promise.all(
+                page.items.map((item) => client.research.getStrategySource(item.id)),
+              )
+            return pageResponse(page as never, 'strategies', args.includeContent === true)
+          }),
       }),
       delete: defineCommand({
         meta: { name: 'delete', description: 'Delete strategy definitions' },
-        args: {
-          strategyId: resourceIdArg('Strategy ID'),
-          yes: { type: 'boolean', description: 'Confirm deletion' },
-        },
+        args: { strategyId: resourceIdArg('Strategy ID'), yes: { type: 'boolean' } },
         run: ({ args }) =>
           runtime.research(async (client) => {
             if (!args.yes) throw new CliUsageError('deletion confirmation requires --yes')
@@ -325,12 +423,4 @@ export function createStrategyCommand(runtime: CommandRuntime) {
       }),
     },
   })
-}
-
-async function listStrategiesForDisplay(
-  client: TqxClient,
-  args: ListArgs,
-): Promise<QubePage<Record<string, unknown>>> {
-  const input = listInput(args)
-  return client.research.listStrategies(input) as Promise<QubePage<Record<string, unknown>>>
 }

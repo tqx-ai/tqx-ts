@@ -129,49 +129,48 @@ const signal = {
   created_at: '2026-09-27T01:02:03Z',
   updated_at: '2026-09-27T01:02:04Z',
 }
+const STRATEGY_ID = '507f1f77bcf86cd799439011'
+const FACTOR_ID = '507f1f77bcf86cd799439012'
+const RUN_ID = '507f1f77bcf86cd799439013'
+const VERSION_ID = '507f1f77bcf86cd799439014'
+const SECOND_ID = '507f1f77bcf86cd799439015'
 const strategy = {
-  id: 101,
-  name: 'E2E Strategy',
+  id: STRATEGY_ID,
+  title: 'E2E Strategy',
   description: 'differential test',
   code: 'def initialize(context):\n    pass\n',
+  code_type: 'python',
   market: 'hk',
-  params: { period_start: '2026-01-01', period_end: '2026-06-30', init_balance: 1000000 },
+  source_revision: 2,
+  config_revision: 3,
+  parameters: {
+    backtest: { period_start: '2026-01-01', period_end: '2026-06-30', init_balance: 1000000 },
+  },
 }
 const strategyVersion = {
-  id: 7,
-  strategy_id: 101,
-  version_number: 2,
-  code: strategy.code,
-  label: null,
-  starred: false,
-  origin: 'cli',
-  params: null,
+  id: VERSION_ID,
+  strategy_id: STRATEGY_ID,
+  version: 2,
+  name: 'Baseline',
+  run_id: RUN_ID,
 }
 const factor = {
-  id: 55,
-  name: 'E2E Factor',
-  description: null,
+  id: FACTOR_ID,
+  title: 'E2E Factor',
+  description: '',
   code: 'close / delay(close, 5) - 1',
   code_type: 'formula',
   market: 'hk',
-  latest_version: {
-    id: 9,
-    factor_id: 55,
-    version_number: 1,
-    code: 'close / delay(close, 5) - 1',
-    code_type: 'formula',
-    label: 'v1',
-    starred: true,
-    params: { period_start: '2026-01-01', group_number: 5 },
-  },
+  source_revision: 2,
+  config_revision: 3,
+  parameters: { period_start: '2026-01-01', group_number: 5 },
 }
 const backtest = {
-  id: 301,
-  status: 'completed',
+  id: RUN_ID,
+  strategy_id: STRATEGY_ID,
+  status: 'succeeded',
   progress: { percent: 100 },
-  cancelled: false,
-  strategy_id: 101,
-  summary: { total_return: 0.1234, sharpe: 1.5, max_drawdown: -0.08 },
+  metrics: { total_return: 0.1234, sharpe: 1.5, max_drawdown: -0.08 },
 }
 
 function openApi(data: unknown, status = 200, code = '0', message = 'success'): MockReply {
@@ -259,38 +258,48 @@ function route(method: string, path: string, apiKey: string | undefined, body: s
 
   if (!authed) return { status: 401, body: { code: '401', message: 'Unauthorized', data: null } }
   if (path === '/userWallet/myWallet') return gateway({ computingPower: 8888.5 })
-  const research = path.replace(/^\/agent_quant\/api\//, '')
+  const research = path.replace(/^\/qube\/api\//, '')
   if (research === 'strategies' && method === 'GET')
     return gateway({
-      items: [strategy, { ...strategy, id: 102, name: '第二个策略' }],
+      strategies: [strategy, { ...strategy, id: SECOND_ID, title: '第二个策略' }],
       has_more: true,
-      next_offset: 2,
+      next_cursor: 'next',
+      counts: { all: 2, hk: 2, us: 0 },
     })
   if (research === 'strategies' && method === 'POST') return gateway(strategy)
-  if (/^strategies\/101$/.test(research) && method === 'GET') return gateway(strategy)
-  if (/^strategies\/101$/.test(research) && method === 'PATCH') return gateway(strategy)
-  if (/^strategies\/\d+$/.test(research) && method === 'DELETE') return gateway(null)
-  if (/^strategies\/101\/versions$/.test(research))
-    return gateway({
-      items: [strategyVersion, { ...strategyVersion, id: 6, version_number: 1, starred: true }],
-      has_more: false,
-      next_offset: null,
-    })
-  if (/^strategies\/101\/backtest-params$/.test(research))
-    return gateway({ source: 'saved', params: strategy.params })
-  if (/^strategies\/101\/save$/.test(research))
-    return gateway({ strategy, version: strategyVersion, version_created: true })
-  if (research === 'factors' && method === 'GET') return gateway([factor])
+  if (research === `strategies/${STRATEGY_ID}` && method === 'DELETE')
+    return gateway({ id: STRATEGY_ID, deleted: true })
+  if (research === `strategies/${SECOND_ID}` && method === 'DELETE')
+    return gateway({ id: SECOND_ID, deleted: true })
+  if (research === `strategies/${STRATEGY_ID}` || research === `strategies/${STRATEGY_ID}/source`)
+    return gateway(strategy)
+  if (research === `strategies/${STRATEGY_ID}/versions`)
+    return gateway(method === 'POST' ? strategyVersion : { versions: [strategyVersion] })
+  if (research === `strategy-versions/${VERSION_ID}`) return gateway(strategyVersion)
+  if (research === `strategies/${STRATEGY_ID}/versions/${VERSION_ID}/restore`)
+    return gateway({ strategy })
+  if (research === `strategies/${STRATEGY_ID}/backtests` && method === 'POST')
+    return gateway(backtest)
+  if (research === 'factors' && method === 'GET')
+    return gateway({ factors: [factor], next_cursor: null, counts: { all: 1, hk: 1, us: 0 } })
   if (research === 'factors' && method === 'POST') return gateway(factor)
-  if (/^factors\/55$/.test(research)) return gateway(factor)
-  if (research === 'backtests' && method === 'GET')
-    return gateway({ items: [backtest], has_more: false, next_offset: null, total: 1 })
-  if (/^backtests\/301$/.test(research)) return gateway(backtest)
-  if (research.startsWith('backtests/') || research.startsWith('strategies/'))
-    return {
-      status: 404,
-      body: { code: 404, detail: { message: `No mock for ${method} ${path}` } },
-    }
+  if (research === `factors/${FACTOR_ID}` || research === `factors/${FACTOR_ID}/source`)
+    return gateway(factor)
+  if (research === 'strategy-backtests' && method === 'GET')
+    return gateway({ runs: [backtest], has_more: false, next_cursor: null })
+  if (research === `strategy-backtests/${RUN_ID}`) return gateway(backtest)
+  if (research === `strategy-backtests/${RUN_ID}/result`)
+    return gateway({
+      run_id: RUN_ID,
+      field: 'trades',
+      rows: [],
+      data: [],
+      offset: 0,
+      limit: 100,
+      total: 0,
+      has_more: false,
+    })
+
   return { status: 404, body: { detail: `No mock for ${method} ${path}` } }
 }
 
@@ -498,12 +507,12 @@ const cases: Case[] = [
     ['research', 'strategy', 'list', '--json', '--limit', '2'],
     authed,
   ),
-  one('research strategy info', ['research', 'strategy', 'info', '101', '--json'], authed),
-  one('research strategy versions', ['research', 'strategy', 'versions', '101'], authed),
-  one('research strategy delete no yes', ['research', 'strategy', 'delete', '101'], authed),
+  one('research strategy info', ['research', 'strategy', 'info', STRATEGY_ID, '--json'], authed),
+  one('research strategy versions', ['research', 'strategy', 'versions', STRATEGY_ID], authed),
+  one('research strategy delete no yes', ['research', 'strategy', 'delete', STRATEGY_ID], authed),
   one(
     'research strategy delete',
-    ['research', 'strategy', 'delete', '101', '102', '--yes', '--json'],
+    ['research', 'strategy', 'delete', STRATEGY_ID, SECOND_ID, '--yes', '--json'],
     authed,
   ),
   one(
@@ -516,14 +525,14 @@ const cases: Case[] = [
       'us',
       '--file',
       'us_ma.py',
-      '--name',
+      '--title',
       'E2E',
       '--json',
     ],
     authed,
   ),
   one(
-    'research strategy create invalid code',
+    'research strategy create backend validation',
     ['research', 'strategy', 'create', '--market', 'hk', '--file', 'bad.py'],
     authed,
   ),
@@ -542,11 +551,61 @@ const cases: Case[] = [
     ['research', 'strategy', 'create', '--market', 'hk', '--file', 'nope.py'],
     authed,
   ),
+  one(
+    'research strategy save source',
+    [
+      'research',
+      'strategy',
+      'save',
+      STRATEGY_ID,
+      '--baseSourceRevision=2',
+      '--file=us_ma.py',
+      '--json',
+    ],
+    authed,
+  ),
+  one(
+    'research strategy run',
+    [
+      'research',
+      'strategy',
+      'run',
+      STRATEGY_ID,
+      '--expectedSourceRevision=2',
+      '--expectedConfigRevision=3',
+      '--noWait',
+      '--json',
+    ],
+    authed,
+  ),
+  one(
+    'research strategy version create',
+    ['research', 'strategy', 'version-create', STRATEGY_ID, RUN_ID, '--name=Baseline', '--json'],
+    authed,
+  ),
+  one(
+    'research strategy version restore',
+    [
+      'research',
+      'strategy',
+      'version-restore',
+      STRATEGY_ID,
+      VERSION_ID,
+      '--expectedSourceRevision=2',
+      '--expectedConfigRevision=3',
+      '--json',
+    ],
+    authed,
+  ),
   one('research factor list', ['research', 'factor', 'list', '--plain'], authed),
-  one('research factor info', ['research', 'factor', 'info', '55', '--json'], authed),
+  one('research factor info', ['research', 'factor', 'info', FACTOR_ID, '--json'], authed),
   one('research backtest list', ['research', 'backtest', 'list'], authed),
-  one('research backtest result', ['research', 'backtest', 'result', '301', '--json'], authed),
-  one('research unmocked route', ['research', 'strategy', 'result', '999', '--json'], authed),
+  one(
+    'research backtest result',
+    ['research', 'backtest', 'result', RUN_ID, '--field=trades', '--json'],
+    authed,
+  ),
+  one('research unmocked route', ['research', 'strategy', 'result', SECOND_ID, '--json'], authed),
   one('research bad id', ['research', 'strategy', 'info', 'abc'], authed),
   one(
     'bug report',

@@ -1,97 +1,63 @@
 # TQX Research TypeScript SDK
 
-Source of truth: `packages/sdk/src/research/api.ts` and `packages/sdk/src/research/schemas.ts`. Install `@tqx-ai/sdk` in a Node.js `>=22.18` project. The public entry point exports `TqxClient`, Research API types, and Valibot schemas.
-
-## Configure the client
-
-Pass an API key and a Qube base URL ending in `/pandaApi`. The client sends authenticated research requests with `X-API-Key`.
+The Qube Next research API is exposed by `@tqx-ai/sdk` through `client.research`. Use a base URL ending in `/tqxApi`; resource paths are relative to that gateway and use `qube/api/...`. Authenticated requests send `X-API-Key`.
 
 ```ts
 import { TqxClient } from '@tqx-ai/sdk'
 
 const client = new TqxClient({
   apiKey: process.env.TQX_API_KEY!,
-  baseUrl: process.env.TQX_BASE_URL!, // e.g. https://gateway.example.com/pandaApi
+  baseUrl: process.env.TQX_BASE_URL!, // https://gateway.example/tqxApi
 })
 ```
 
-The SDK rejects missing API keys or invalid base URLs before calling the gateway. It maps gateway failures to `TqxApiError`, malformed responses to `TqxProtocolError`, network failures to `TqxNetworkError`, and invalid public inputs to `TqxValidationError`.
+Resource IDs are lowercase 24-character Mongo ObjectIds. Create, source updates, analyses, backtests, versions, and tunings use `requestId`; configuration updates use `baseConfigRevision`, while run and restore requests use expected revision fields for idempotency and optimistic concurrency. The SDK maps camelCase inputs to the server's snake_case payloads and validates inputs and responses with Valibot.
 
-## API surface
+The main methods are shown below; `?` marks optional fields (signature notation):
 
-```ts
-// Factors
-client.research.createFactor({ name, description?, code, codeType: 'python' | 'formula', market: 'hk' | 'us' })
-client.research.getFactor(factorId)
-client.research.updateFactor(factorId, { name?, description?, code?, codeType?, market? })
-client.research.listFactors({ offset?, limit?, market?, keyword? })
-client.research.deleteFactor(factorId)
-
-// Factor analyses
-client.research.createFactorAnalysis(factorId, {
-  name?, periodStart?, periodEnd?, adjustmentCycle?, groupNumber?, factorDirection?
+```text
+client.research.createFactor({ requestId, title, description?, code, codeType, market })
+client.research.getFactor(id)
+client.research.getFactorSource(id)
+client.research.updateFactorSource(id, { requestId, baseSourceRevision, code })
+client.research.updateFactor(id, { baseConfigRevision, title?, description?, parameters? })
+client.research.listFactors({ limit?, cursor?, market?, keyword?, bindableOnly? })
+client.research.createFactorAnalysis(id, {
+  requestId, expectedSourceRevision, expectedConfigRevision, parameters?, origin?
 })
-client.research.getFactorAnalysis(analysisId)
-client.research.cancelFactorAnalysis(analysisId)
-client.research.pollFactorAnalysis(analysisId, { interval?, timeout?, progressCallback? })
+client.research.getFactorAnalysis(runId)
+client.research.cancelFactorAnalysis(runId)
 
-// Strategies
-client.research.createStrategy({ name, description?, code, market, backtest? })
-client.research.getStrategy(strategyId)
-client.research.updateStrategy(strategyId, {
-  name?, description?, code?, market?, versionSummary?, backtest?
+client.research.createStrategy({ requestId, title, description?, code, market, backtest?, factorBinding? })
+client.research.getStrategy(id)
+client.research.getStrategySource(id)
+client.research.updateStrategySource(id, { requestId, baseSourceRevision, code })
+client.research.updateStrategy(id, { requestId?, baseConfigRevision, title?, description?, backtest?, factorBinding? })
+client.research.runStrategyBacktest(id, {
+  requestId, expectedSourceRevision, expectedConfigRevision, backtest?, origin?
 })
-client.research.listStrategies({ offset?, limit?, market?, keyword? })
-client.research.deleteStrategy(strategyId)
-
-// Backtests
-client.research.runStrategyBacktest(strategyId, backtest?)
 client.research.getBacktest(runId)
 client.research.cancelBacktest(runId)
-client.research.listBacktests({ offset?, limit?, market?, keyword? })
-client.research.pollBacktest(runId, { interval?, timeout?, progressCallback? })
+client.research.getBacktestResultPage(runId, { field, offset?, limit?, keyword?, symbol? })
+client.research.getBacktestChart(runId, { from?, to?, maxPoints? })
+client.research.getBacktestSymbolKlines(runId, symbol)
 ```
 
-`list*` returns `{ items, hasMore, nextOffset }`. Its input has `offset >= 0`, `limit` in `1..100`, optional lower-cased market, and a keyword up to 256 characters. IDs must be positive integers.
+Lists return `{ items, hasMore, nextCursor, counts? }`. Qube research summaries use a limit of at most 10; library lists use at most 100. The server's raw fields remain available on loose response types so new service fields can be adopted without an SDK release.
 
-## Request types
+Versions, snapshots, and tuning tasks are also available through the corresponding list/create/get/restore, `createFactorSnapshot`, `createFactorTuning`, and `createStrategyTuning` methods. Tuning requests must include the server-defined candidates, research period or trading dates, objective, and expected revisions.
 
-`periodStart` and `periodEnd` use `YYYY-MM-DD`. `factorDirection` is `0` (negative) or `1` (positive). `groupNumber` is an integer from 2 to 20. `adjustmentCycle` is a positive integer.
+`pollFactorAnalysis` and `pollBacktest` stop on `succeeded`, `failed`, or `cancelled`; a timeout returns the latest response with `cli_status: 'TIMEOUT'` and does not cancel the remote task. Transport, gateway, protocol, and validation failures use `TqxNetworkError`, `TqxApiError`, `TqxProtocolError`, and `TqxValidationError` respectively.
+
+`streamFactorAnalysis`, `streamBacktest`, `streamFactorTuning`, and `streamStrategyTuning` return async
+iterables of `{event, id, seq, value}` using server SSE protocol 1 full snapshots. Events are
+`snapshot`, `done`, `error`, or `cancelled`; the terminal event closes the iterator. Pass an
+`AbortSignal` to stop reading, or pass the last `seq` as `after` when reopening a stream. Streams
+do not reconnect automatically. Protocol 2 patch reduction is not exposed by this SDK.
 
 ```ts
-type BacktestParameters = {
-  periodStart?: string
-  periodEnd?: string
-  initBalance?: number // positive integer
-  commissionRate?: number // >= 0
-  slippage?: number // >= 0
-  frequency?: '1d' | '1M'
-  symbols?: string[]
+const controller = new AbortController()
+for await (const event of client.research.streamBacktest(runId, { signal: controller.signal })) {
+  console.log(event.seq, event.value.status)
 }
 ```
-
-`createFactor` and `createStrategy` require non-empty `name`, `code`, and `market`; factor creation also requires a code type. Update methods require at least one defined field. SDK date validation checks the format only; validate calendar validity and date ordering in the application when calling the SDK directly.
-
-## Polling
-
-Polling defaults to a 2-second interval and 600-second timeout. It calls `progressCallback` for every response and stops only when service status lower-cases to `done`, `failed`, or `cancelled`. With a timeout it returns the most recent result plus `{ cli_status: 'TIMEOUT', timeout_seconds }`; it does not issue cancellation.
-
-```ts
-const submitted = await client.research.runStrategyBacktest(123, {
-  periodStart: '2026-01-01',
-  periodEnd: '2026-03-31',
-  initBalance: 1_000_000,
-  commissionRate: 1,
-  slippage: 0,
-  frequency: '1d',
-  symbols: ['AAPL.US'],
-})
-
-const result = await client.research.pollBacktest(submitted.id, {
-  interval: 2,
-  timeout: 600,
-  progressCallback: (current) => console.error(current.status),
-})
-```
-
-Do not treat a returned `done` status as an investment conclusion. Preserve the full result, parameters, resource IDs, and request identifiers exposed by errors for reproducibility.

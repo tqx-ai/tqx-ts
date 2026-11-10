@@ -126,9 +126,12 @@ tqx research backtest result <backtest-id>
 ```
 
 `tqx login --api-key=<key>` is the canonical login entry. Configure the Qube gateway with the
-build-time `TQX_BUILD_BASE_URL` or the runtime `TQX_BASE_URL`; both must include the `/pandaApi`
+build-time `TQX_BUILD_BASE_URL` or the runtime `TQX_BASE_URL`; both must include the `/tqxApi`
 gateway prefix for research commands.
 `tqx balance` also uses this gateway, rather than `TQX_BUILD_TRADING_BASE_URL`.
+
+Qube Next uses ObjectId resource IDs, cursor pagination, and separate source/config revisions.
+See the [migration guide](QUBE_NEXT_MIGRATION.md) for breaking changes and the new commands.
 
 Backtest cost parameters are passed through as backend inputs: `commissionRate` is the raw
 commission parameter value used by the backend, and `slippage` is applied proportionally to the

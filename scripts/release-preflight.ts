@@ -62,8 +62,8 @@ for (const key of [
     throw new Error(`${key} must be an absolute URL`)
   }
   if (url.protocol !== 'https:') throw new Error(`${key} must use HTTPS`)
-  if (key === 'TQX_BUILD_BASE_URL' && !url.pathname.replace(/\/+$/, '').endsWith('/pandaApi')) {
-    throw new Error(`${key} must end with /pandaApi for Qube research requests`)
+  if (key === 'TQX_BUILD_BASE_URL' && !url.pathname.replace(/\/+$/, '').endsWith('/tqxApi')) {
+    throw new Error(`${key} must end with /tqxApi for Qube research requests`)
   }
 }
 process.stdout.write('ok - Production URLs are configured with HTTPS\n')

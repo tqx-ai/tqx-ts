@@ -2,41 +2,65 @@ import * as v from 'valibot'
 
 import APIs from '../config/APIs'
 import {
+  CreateVersionInputSchema,
   CreateFactorInputSchema,
   FactorAnalysisInputSchema,
   FactorAnalysisSchema,
-  FactorSaveInputSchema,
-  FactorSaveSchema,
+  FactorAnalysisSubmissionSchema,
   FactorSchema,
-  FactorStrategyBacktestResponseSchema,
-  FactorStrategyInputSchema,
-  FactorStrategyResponseSchema,
+  FactorSourceSchema,
   FactorVersionSchema,
+  FactorTuningInputSchema,
+  FactorTuningApplyInputSchema,
+  TuningRerunInputSchema,
+  FactorSnapshotInputSchema,
+  FactorSnapshotSchema,
+  FactorTuningSchema,
+  type FactorSnapshot,
+  type FactorTuning,
+  ListFactorsInputSchema,
+  ResearchSummarySchema,
+  RestoreInputSchema,
+  ValidationResultSchema,
+  SourceUpdateInputSchema,
+  UpdateFactorInputSchema,
+  ValidateFactorInputSchema,
   parseResearchInput,
   type CreateFactorInput,
   type Factor,
   type FactorAnalysis,
   type FactorAnalysisInput,
-  type FactorSave,
-  type FactorSaveInput,
+  type FactorAnalysisSubmission,
   type FactorVersion,
-  type FactorStrategyBacktestResponse,
-  type FactorStrategyInput,
-  type FactorStrategyResponse,
-  type ListQubeResourcesInput,
+  type ListFactorsInput,
+  type ListResearchInput,
   type PollOptions,
   type PollResult,
   type QubePage,
+  type RestoreInput,
+  type SourceUpdateInput,
   type UpdateFactorInput,
-  UpdateFactorInputSchema,
-  type VersionPatchInput,
-  VersionPatchInputSchema,
+  type ValidateFactorInput,
+  type FactorTuningInput,
+  type FactorTuningApplyInput,
+  type TuningRerunInput,
+  type FactorSnapshotInput,
 } from './schemas'
-import { listResources, pollResource, resourceId, type ResearchRequest } from './shared'
+import {
+  analysisBody,
+  listResources,
+  listResearch,
+  originBody,
+  pollResource,
+  resourceId,
+  sourceBody,
+  type ResearchRequest,
+  revisionBody,
+  factorTuningBody,
+} from './shared'
 
 export class FactorApi {
   readonly #request: ResearchRequest
-
   constructor(request: ResearchRequest) {
     this.#request = request
   }
@@ -47,220 +71,257 @@ export class FactorApi {
       schema: FactorSchema,
       method: 'POST',
       body: {
-        name: parsed.name,
-        description: parsed.description,
+        request_id: parsed.requestId,
+        title: parsed.title,
+        description: parsed.description ?? '',
         code: parsed.code,
         code_type: parsed.codeType,
         market: parsed.market,
-        analysis_params:
-          parsed.analysisParams === undefined
-            ? undefined
-            : toAnalysisParamsBody(parsed.analysisParams),
-        source_session_id: parsed.sourceSessionId,
+        origin: originBody(parsed.origin),
       },
     })
   }
-
-  getFactor(factorId: number): Promise<Factor> {
+  getFactor(factorId: string): Promise<Factor> {
     return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}`, {
       schema: FactorSchema,
     })
   }
-
-  async updateFactor(factorId: number, input: UpdateFactorInput): Promise<Factor> {
+  getFactorSource(factorId: string): Promise<Factor> {
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/source`, {
+      schema: FactorSourceSchema,
+    })
+  }
+  async updateFactor(factorId: string, input: UpdateFactorInput): Promise<Factor> {
     const parsed = parseResearchInput(UpdateFactorInputSchema, input)
     return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}`, {
       schema: FactorSchema,
       method: 'PATCH',
       body: {
-        name: parsed.name,
+        base_config_revision: parsed.baseConfigRevision,
+        title: parsed.title,
         description: parsed.description,
-        code: parsed.code,
-        code_type: parsed.codeType,
-        market: parsed.market,
+        parameters: analysisBody(parsed.parameters),
       },
     })
   }
-
-  listFactors(input: ListQubeResourcesInput = {}): Promise<QubePage<Factor>> {
-    return listResources(this.#request, APIs.RESEARCH_FACTORS, input, FactorSchema)
+  async updateFactorSource(factorId: string, input: SourceUpdateInput): Promise<Factor> {
+    const parsed = parseResearchInput(SourceUpdateInputSchema, input)
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/source`, {
+      schema: FactorSourceSchema,
+      method: 'PUT',
+      body: sourceBody(parsed),
+    })
   }
-
-  async deleteFactor(factorId: number): Promise<void> {
-    await this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}`, {
-      schema: v.unknown(),
+  listFactors(input: ListFactorsInput = {}): Promise<QubePage<Factor>> {
+    const parsed = parseResearchInput(ListFactorsInputSchema, input)
+    return listResources(
+      this.#request,
+      APIs.RESEARCH_FACTORS,
+      {
+        limit: parsed.limit,
+        cursor: parsed.cursor,
+        market: parsed.market,
+        keyword: parsed.keyword,
+      },
+      FactorSchema,
+      'factors',
+      { bindable_only: parsed.bindableOnly === true ? 'true' : undefined },
+    )
+  }
+  async deleteFactor(factorId: string): Promise<Factor> {
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}`, {
+      schema: FactorSchema,
       method: 'DELETE',
     })
   }
-
+  async validateFactor(input: ValidateFactorInput): Promise<Record<string, unknown>> {
+    const parsed = parseResearchInput(ValidateFactorInputSchema, input)
+    const body =
+      'factorId' in parsed
+        ? { factor_id: parsed.factorId, expected_source_revision: parsed.expectedSourceRevision }
+        : { code: parsed.code, market: parsed.market, code_type: parsed.codeType }
+    return this.#request(`${APIs.RESEARCH_FACTORS}/validate`, {
+      schema: ValidationResultSchema,
+      method: 'POST',
+      body,
+    })
+  }
   async createFactorAnalysis(
-    factorId: number,
-    input: FactorAnalysisInput = {},
-  ): Promise<FactorAnalysis> {
+    factorId: string,
+    input: FactorAnalysisInput,
+  ): Promise<FactorAnalysisSubmission> {
     const parsed = parseResearchInput(FactorAnalysisInputSchema, input)
-    const id = resourceId(factorId)
-    return this.#request(`${APIs.RESEARCH_FACTORS}/${id}/analyses`, {
-      schema: FactorAnalysisSchema,
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/analyses`, {
+      schema: FactorAnalysisSubmissionSchema,
       method: 'POST',
       body: {
-        factor_id: Number(id),
-        factor_version_id: parsed.factorVersionId,
-        name: parsed.name,
-        period_start: parsed.periodStart,
-        period_end: parsed.periodEnd,
-        adjustment_cycle: parsed.adjustmentCycle,
-        group_number: parsed.groupNumber,
-        factor_direction: parsed.factorDirection,
-        stock_pool: parsed.stockPool,
-        market_type: parsed.marketType,
+        ...revisionBody(parsed),
+        parameters: analysisBody(parsed.parameters),
+        origin: originBody(parsed.origin),
       },
     })
   }
-
-  getFactorAnalysis(analysisId: number): Promise<FactorAnalysis> {
+  getFactorAnalysis(analysisId: string): Promise<FactorAnalysis> {
     return this.#request(`${APIs.RESEARCH_FACTOR_ANALYSES}/${resourceId(analysisId)}`, {
       schema: FactorAnalysisSchema,
     })
   }
-
-  cancelFactorAnalysis(analysisId: number): Promise<FactorAnalysis> {
+  cancelFactorAnalysis(analysisId: string): Promise<FactorAnalysis> {
     return this.#request(`${APIs.RESEARCH_FACTOR_ANALYSES}/${resourceId(analysisId)}/cancel`, {
       schema: FactorAnalysisSchema,
       method: 'POST',
     })
   }
-
+  listFactorAnalyses(
+    factorId: string,
+    input: Omit<ListResearchInput, 'strategyId' | 'factorId'> = {},
+  ): Promise<QubePage<Record<string, unknown>>> {
+    return listResearch(
+      this.#request,
+      APIs.RESEARCH_FACTOR_ANALYSES,
+      { ...input, factorId },
+      ResearchSummarySchema,
+      'runs',
+      'factor',
+    )
+  }
+  listAnalyses(input: ListResearchInput = {}): Promise<QubePage<Record<string, unknown>>> {
+    return listResearch(
+      this.#request,
+      APIs.RESEARCH_FACTOR_ANALYSES,
+      input,
+      ResearchSummarySchema,
+      'runs',
+      'factor',
+    )
+  }
+  listFactorSnapshots(factorId: string): Promise<FactorSnapshot[]> {
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/analysis-snapshots`, {
+      schema: v.looseObject({ snapshots: v.array(FactorSnapshotSchema) }),
+    }).then((value) => value.snapshots)
+  }
+  async createFactorSnapshot(
+    factorId: string,
+    input: FactorSnapshotInput,
+  ): Promise<FactorSnapshot> {
+    const parsed = parseResearchInput(FactorSnapshotInputSchema, input)
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/analysis-snapshots`, {
+      schema: FactorSnapshotSchema,
+      method: 'POST',
+      body: { run_id: parsed.runId, name: parsed.name },
+    })
+  }
+  listFactorTunings(factorId: string): Promise<FactorTuning[]> {
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/tunings`, {
+      schema: v.looseObject({ tunings: v.array(FactorTuningSchema) }),
+    }).then((value) => value.tunings)
+  }
+  async createFactorTuning(factorId: string, input: FactorTuningInput): Promise<FactorTuning> {
+    const parsed = parseResearchInput(FactorTuningInputSchema, input)
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/tunings`, {
+      schema: FactorTuningSchema,
+      method: 'POST',
+      body: factorTuningBody(parsed),
+    })
+  }
+  getFactorTuning(tuningId: string): Promise<FactorTuning> {
+    return this.#request(`${APIs.RESEARCH_FACTOR_TUNINGS}/${resourceId(tuningId)}`, {
+      schema: FactorTuningSchema,
+    })
+  }
+  cancelFactorTuning(tuningId: string): Promise<FactorTuning> {
+    return this.#request(`${APIs.RESEARCH_FACTOR_TUNINGS}/${resourceId(tuningId)}/cancel`, {
+      schema: FactorTuningSchema,
+      method: 'POST',
+    })
+  }
+  async rerunFactorTuning(tuningId: string, input: TuningRerunInput): Promise<FactorTuning> {
+    const parsed = parseResearchInput(TuningRerunInputSchema, input)
+    return this.#request(`${APIs.RESEARCH_FACTOR_TUNINGS}/${resourceId(tuningId)}/rerun`, {
+      schema: FactorTuningSchema,
+      method: 'POST',
+      body: { request_id: parsed.requestId },
+    })
+  }
+  async applyFactorTuning(tuningId: string, input: FactorTuningApplyInput) {
+    const parsed = parseResearchInput(FactorTuningApplyInputSchema, input)
+    return this.#request(`${APIs.RESEARCH_FACTOR_TUNINGS}/${resourceId(tuningId)}/apply`, {
+      schema: v.looseObject({ tuning: FactorTuningSchema, factor: FactorSchema }),
+      method: 'POST',
+      body: {
+        request_id: parsed.requestId,
+        trial_id: parsed.trialId,
+        expected_source_revision: parsed.expectedSourceRevision,
+        expected_config_revision: parsed.expectedConfigRevision,
+      },
+    })
+  }
+  listFactorTuningSummaries(
+    input: ListResearchInput = {},
+  ): Promise<QubePage<Record<string, unknown>>> {
+    return listResearch(
+      this.#request,
+      APIs.RESEARCH_FACTOR_TUNINGS,
+      input,
+      ResearchSummarySchema,
+      'tunings',
+      'factor',
+    )
+  }
+  listFactorVersions(factorId: string): Promise<FactorVersion[]> {
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/versions`, {
+      schema: v.looseObject({ versions: v.array(FactorVersionSchema) }),
+    }).then((value) => value.versions)
+  }
+  getFactorVersion(versionId: string): Promise<FactorVersion> {
+    return this.#request(`${APIs.RESEARCH_FACTOR_VERSIONS}/${resourceId(versionId)}`, {
+      schema: FactorVersionSchema,
+    })
+  }
+  async createFactorVersion(
+    factorId: string,
+    input: { requestId: string; runId: string; name: string; description?: string },
+  ): Promise<FactorVersion> {
+    const body = parseResearchInput(CreateVersionInputSchema, input)
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/versions`, {
+      schema: FactorVersionSchema,
+      method: 'POST',
+      body: {
+        request_id: body.requestId,
+        run_id: body.runId,
+        name: body.name,
+        description: body.description ?? '',
+      },
+    })
+  }
+  restoreFactorVersion(factorId: string, versionId: string, input: RestoreInput): Promise<Factor> {
+    return this.#request(
+      `${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/versions/${resourceId(versionId)}/restore`,
+      {
+        schema: v.looseObject({ factor: FactorSchema }),
+        method: 'POST',
+        body: revisionBody(parseResearchInput(RestoreInputSchema, input)),
+      },
+    ).then((value) => value.factor)
+  }
+  restoreFactorAnalysis(factorId: string, runId: string, input: RestoreInput): Promise<Factor> {
+    return this.#request(
+      `${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/analyses/${resourceId(runId)}/restore`,
+      {
+        schema: v.looseObject({ factor: FactorSchema }),
+        method: 'POST',
+        body: revisionBody(parseResearchInput(RestoreInputSchema, input)),
+      },
+    ).then((value) => value.factor)
+  }
   pollFactorAnalysis(
-    analysisId: number,
+    analysisId: string,
     options: PollOptions<FactorAnalysis> = {},
   ): Promise<PollResult<FactorAnalysis>> {
     return pollResource(
       () => this.getFactorAnalysis(analysisId),
-      new Set(['done', 'failed', 'cancelled']),
+      new Set(['succeeded', 'failed', 'cancelled']),
       options,
     )
-  }
-
-  listFactorAnalyses(factorId: number, limit = 50): Promise<FactorAnalysis[]> {
-    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/analyses`, {
-      schema: v.array(FactorAnalysisSchema),
-      query: { limit },
-    })
-  }
-
-  listAnalyses(limit = 50): Promise<FactorAnalysis[]> {
-    return this.#request(APIs.RESEARCH_FACTOR_ANALYSES, {
-      schema: v.array(FactorAnalysisSchema),
-      query: { limit },
-    })
-  }
-
-  async createStrategyFromFactor(
-    factorId: number,
-    input: FactorStrategyInput = {},
-  ): Promise<FactorStrategyResponse> {
-    const parsed = parseResearchInput(FactorStrategyInputSchema, input)
-    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/strategy`, {
-      schema: FactorStrategyResponseSchema,
-      method: 'POST',
-      body: toFactorStrategyBody(parsed),
-    })
-  }
-
-  async createStrategyAndBacktestFromFactor(
-    factorId: number,
-    input: FactorStrategyInput = {},
-  ): Promise<FactorStrategyBacktestResponse> {
-    const parsed = parseResearchInput(FactorStrategyInputSchema, input)
-    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/strategy-backtest`, {
-      schema: FactorStrategyBacktestResponseSchema,
-      method: 'POST',
-      body: toFactorStrategyBody(parsed),
-    })
-  }
-
-  async saveFactor(factorId: number, input: FactorSaveInput): Promise<FactorSave> {
-    const parsed = parseResearchInput(FactorSaveInputSchema, input)
-    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/save`, {
-      schema: FactorSaveSchema,
-      method: 'PUT',
-      body: {
-        name: parsed.name,
-        description: parsed.description,
-        code: parsed.code,
-        code_type: parsed.codeType,
-        market: parsed.market,
-        analysis_params: toAnalysisParamsBody(parsed.analysisParams),
-        base_version_id: parsed.baseVersionId,
-        source_session_id: parsed.sourceSessionId,
-        confirm_rebase: parsed.confirmRebase,
-      },
-    })
-  }
-
-  listFactorVersions(factorId: number): Promise<FactorVersion[]> {
-    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/versions`, {
-      schema: v.array(FactorVersionSchema),
-    })
-  }
-
-  async updateFactorVersion(
-    factorId: number,
-    versionNumber: number,
-    input: VersionPatchInput,
-  ): Promise<FactorVersion> {
-    const parsed = parseResearchInput(VersionPatchInputSchema, input)
-    return this.#request(
-      `${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/versions/${resourceId(versionNumber)}`,
-      { schema: FactorVersionSchema, method: 'PATCH', body: parsed },
-    )
-  }
-
-  revertFactorVersion(factorId: number, versionNumber: number): Promise<FactorVersion> {
-    return this.#request(
-      `${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/versions/${resourceId(versionNumber)}/revert`,
-      { schema: FactorVersionSchema, method: 'POST' },
-    )
-  }
-}
-
-function toAnalysisParamsBody(input: {
-  periodStart?: string
-  periodEnd?: string
-  adjustmentCycle?: number
-  groupNumber?: number
-  factorDirection?: 0 | 1
-  stockPool?: string
-  marketType?: string
-}): Record<string, unknown> {
-  return {
-    period_start: input.periodStart,
-    period_end: input.periodEnd,
-    adjustment_cycle: input.adjustmentCycle,
-    group_number: input.groupNumber,
-    factor_direction: input.factorDirection,
-    stock_pool: input.stockPool,
-    market_type: input.marketType,
-  }
-}
-
-function toFactorStrategyBody(input: Record<string, unknown>): Record<string, unknown> {
-  return {
-    period_start: input.periodStart,
-    period_end: input.periodEnd,
-    init_balance: input.initBalance,
-    rebalance_period: input.rebalancePeriod,
-    top_n: input.topN,
-    stock_pool: input.stockPool,
-    factor_direction: input.factorDirection,
-    weighting: input.weighting,
-    max_position_per_stock: input.maxPositionPerStock,
-    take_profit_pct: input.takeProfitPct,
-    stop_loss_pct: input.stopLossPct,
-    min_holding_days: input.minHoldingDays,
-    exclude_st: input.excludeSt,
-    rebalance_threshold_buffer: input.rebalanceThresholdBuffer,
-    lots_per_symbol: input.lotsPerSymbol,
-    strategy_name: input.strategyName,
   }
 }

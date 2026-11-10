@@ -16,10 +16,10 @@
 
 - `TQX_BUILD_BASE_URL` configures non-trading APIs at build time and `TQX_BASE_URL` is the runtime
   override for every request group. Both are public values embedded by `tsdown`.
-- Qube research requests use a gateway base ending in `/pandaApi` and relative paths under
-  `agent_quant/api`. Keep those paths relative so URL resolution preserves `/pandaApi`.
+- Qube research requests use a gateway base ending in `/tqxApi` and relative paths under
+  `qube/api`. Keep those paths relative so URL resolution preserves `/tqxApi`.
 - Authentication, trading, and `health()` use `tradingBaseUrl` / `TQX_BUILD_TRADING_BASE_URL`.
-  Their root-relative OpenAPI paths deliberately resolve outside `/pandaApi`.
+  Their root-relative OpenAPI paths deliberately resolve outside `/tqxApi`.
 - Store every backend path in `packages/sdk/src/config/APIs.ts`. If a build-time variable changes,
   update both `tsdown.config.ts` files, `.env.example`, docs, release preflight, and tests.
 

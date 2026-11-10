@@ -1,33 +1,31 @@
+import { randomUUID } from 'node:crypto'
 import { defineCommand } from 'citty'
-import { getFactorAnalysisParams } from '@tqx-ai/sdk'
-
 import type { CommandRuntime } from '../runtime/command-runtime'
 import { CliUsageError } from '../utils/errors'
 import {
   type ContentArgs,
-  ensureMarket,
-  factorDirection,
   listArgs,
   listInput,
-  numberArg,
-  pageResponse,
+  normalizeDate,
   pollOptions,
+  pageResponse,
   positiveInteger,
   boundedInteger,
   type ListArgs,
   type WaitArgs,
-  normalizeDate,
   resourceId,
   resourceIdArg,
   resourceIds,
+  readJsonInput,
   resultResponse,
   resultStatus,
   selectContent,
-  selectOptionalContent,
   toMarket,
+  factorDirection,
   waitArgs,
 } from './shared'
 
+const revision = (value: string | undefined, name: string) => positiveInteger(value, name)
 export function createFactorCommand(runtime: CommandRuntime) {
   return defineCommand({
     meta: { name: 'factor', description: 'Manage Qube factor definitions and analyses' },
@@ -35,163 +33,117 @@ export function createFactorCommand(runtime: CommandRuntime) {
       create: defineCommand({
         meta: { name: 'create', description: 'Create a factor definition' },
         args: {
-          market: {
-            type: 'enum',
-            options: ['stock', 'future', 'hk', 'us', 'STOCK', 'FUTURE', 'HK', 'US'],
-            required: true,
-          },
-          code: { type: 'string', description: 'Python factor source' },
-          formula: { type: 'string', description: 'Factor formula' },
-          file: { type: 'string', description: 'Load factor source from a file' },
-          name: { type: 'string', default: 'TQX Factor', description: 'Factor name' },
-          description: { type: 'string', description: 'Factor description' },
+          market: { type: 'enum', options: ['hk', 'us'], required: true },
+          code: { type: 'string' },
+          formula: { type: 'string' },
+          file: { type: 'string' },
+          title: { type: 'string', default: 'TQX Factor' },
+          description: { type: 'string' },
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
             const content = selectContent(args as unknown as ContentArgs, true)
-            const createdFactor = await client.research.createFactor({
-              name: args.name!,
+            const factor = await client.research.createFactor({
+              requestId: randomUUID(),
+              title: args.title!,
               description: args.description,
               code: content.value,
               codeType: content.type,
               market: toMarket(args.market!),
             })
-            await ensureMarket(
-              client,
-              'factor',
-              createdFactor.id,
-              createdFactor.market,
-              toMarket(args.market!),
-            )
-            return { success: true, factor_id: createdFactor.id, factor: createdFactor }
+            return { success: true, factor_id: factor.id, factor }
           }),
       }),
       info: defineCommand({
         meta: { name: 'info', description: 'Get a factor definition' },
         args: { factorId: resourceIdArg('Factor ID') },
         run: ({ args }) =>
-          runtime.research(async (client) => {
-            const fetchedFactor = await client.research.getFactor(
-              resourceId(args.factorId, 'factor ID'),
-            )
-            return { success: true, factor: fetchedFactor }
-          }),
+          runtime.research(async (client) => ({
+            success: true,
+            factor: await client.research.getFactor(resourceId(args.factorId, 'factor ID')),
+          })),
+      }),
+      source: defineCommand({
+        meta: { name: 'source', description: 'Get factor source' },
+        args: { factorId: resourceIdArg('Factor ID') },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            factor: await client.research.getFactorSource(resourceId(args.factorId, 'factor ID')),
+          })),
       }),
       update: defineCommand({
-        meta: { name: 'update', description: 'Update a factor definition' },
+        meta: { name: 'update', description: 'Update factor metadata and parameters' },
         args: {
           factorId: resourceIdArg('Factor ID'),
-          market: {
-            type: 'enum',
-            options: ['stock', 'future', 'hk', 'us', 'STOCK', 'FUTURE', 'HK', 'US'],
-          },
-          code: { type: 'string', description: 'Python factor source' },
-          formula: { type: 'string', description: 'Factor formula' },
-          file: { type: 'string', description: 'Load factor source from a file' },
-          name: { type: 'string', description: 'Factor name' },
-          description: { type: 'string', description: 'Factor description' },
-        },
-        run: ({ args }) =>
-          runtime.research(async (client) => {
-            const content = selectOptionalContent(args as unknown as ContentArgs, true)
-            const market = args.market === undefined ? undefined : toMarket(args.market)
-            const updatedFactor = await client.research.updateFactor(
-              resourceId(args.factorId, 'factor ID'),
-              {
-                name: args.name,
-                description: args.description,
-                code: content?.value,
-                codeType: content?.type,
-                market,
-              },
-            )
-            if (market !== undefined) {
-              await ensureMarket(client, 'factor', updatedFactor.id, updatedFactor.market, market)
-            }
-            return { success: true, factor_id: updatedFactor.id, factor: updatedFactor }
-          }),
-      }),
-      save: defineCommand({
-        meta: {
-          name: 'save',
-          description:
-            'Save a factor code version. Check factor info or versions first, then use --baseVersionId=<latest_version_id> as the optimistic concurrency base. Use --confirmRebase to save on the latest HEAD after a conflict.',
-        },
-        args: {
-          factorId: resourceIdArg('Factor ID'),
-          market: {
-            type: 'enum',
-            options: ['stock', 'future', 'hk', 'us', 'STOCK', 'FUTURE', 'HK', 'US'],
-          },
-          code: { type: 'string', description: 'Python factor source' },
-          formula: { type: 'string', description: 'Factor formula' },
-          file: { type: 'string', description: 'Load factor source from a file' },
-          name: { type: 'string', description: 'Factor name' },
-          description: { type: 'string', description: 'Factor description' },
-          baseVersionId: {
-            type: 'string',
-            description: 'Latest version ID to use as the optimistic concurrency base',
-          },
-          confirmRebase: {
-            type: 'boolean',
-            description: 'Rebase onto the latest HEAD before saving',
-          },
-          startDate: { type: 'string', description: 'Analysis start date' },
-          endDate: { type: 'string', description: 'Analysis end date' },
+          baseConfigRevision: { type: 'string', required: true },
+          title: { type: 'string' },
+          description: { type: 'string' },
+          startDate: { type: 'string' },
+          endDate: { type: 'string' },
           adjustmentCycle: { type: 'string' },
           groupNumber: { type: 'string' },
           factorDirection: { type: 'string' },
-          stockPool: { type: 'string' },
-          marketType: { type: 'string' },
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => {
+            const id = resourceId(args.factorId, 'factor ID')
+            const result = await client.research.updateFactor(id, {
+              baseConfigRevision: revision(args.baseConfigRevision, 'baseConfigRevision'),
+              title: args.title,
+              description: args.description,
+              parameters: [
+                args.startDate,
+                args.endDate,
+                args.adjustmentCycle,
+                args.groupNumber,
+                args.factorDirection,
+              ].some(Boolean)
+                ? {
+                    periodStart: normalizeDate(args.startDate),
+                    periodEnd: normalizeDate(args.endDate),
+                    adjustmentCycle: args.adjustmentCycle
+                      ? (boundedInteger(args.adjustmentCycle, 'adjustmentCycle', 1, 30) as
+                          | 1
+                          | 3
+                          | 5
+                          | 10
+                          | 20
+                          | 30)
+                      : undefined,
+                    groupNumber: args.groupNumber
+                      ? (boundedInteger(args.groupNumber, 'groupNumber', 3, 20) as 3 | 5 | 10 | 20)
+                      : undefined,
+                    factorDirection: factorDirection(args.factorDirection),
+                  }
+                : undefined,
+            })
+            return { success: true, factor_id: id, factor: result }
+          }),
+      }),
+      save: defineCommand({
+        meta: { name: 'save', description: 'Save factor source against a source revision' },
+        args: {
+          factorId: resourceIdArg('Factor ID'),
+          code: { type: 'string' },
+          formula: { type: 'string' },
+          file: { type: 'string' },
+          baseSourceRevision: { type: 'string', required: true },
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
             const content = selectContent(args as unknown as ContentArgs, true)
-            const factorId = resourceId(args.factorId, 'factor ID')
-            const current = await client.research.getFactor(factorId)
-            const previous = getFactorAnalysisParams(current.latest_version?.params)
-            const analysisParams = {
-              ...previous,
-              ...(args.startDate === undefined
-                ? {}
-                : { periodStart: normalizeDate(args.startDate) }),
-              ...(args.endDate === undefined ? {} : { periodEnd: normalizeDate(args.endDate) }),
-              ...(args.adjustmentCycle === undefined
-                ? {}
-                : { adjustmentCycle: positiveInteger(args.adjustmentCycle, 'adjustmentCycle') }),
-              ...(args.groupNumber === undefined
-                ? {}
-                : { groupNumber: boundedInteger(args.groupNumber, 'groupNumber', 2, 20) }),
-              ...(args.factorDirection === undefined
-                ? {}
-                : { factorDirection: factorDirection(args.factorDirection) }),
-              ...(args.stockPool === undefined ? {} : { stockPool: args.stockPool }),
-              ...(args.marketType === undefined ? {} : { marketType: args.marketType }),
-            }
-            const saved = await client.research.saveFactor(factorId, {
+            const id = resourceId(args.factorId, 'factor ID')
+            const factor = await client.research.updateFactorSource(id, {
+              requestId: randomUUID(),
+              baseSourceRevision: revision(args.baseSourceRevision, 'baseSourceRevision'),
               code: content.value,
-              codeType: content.type,
-              market: args.market === undefined ? current.market : toMarket(args.market),
-              name: args.name,
-              description: args.description,
-              baseVersionId:
-                args.baseVersionId === undefined
-                  ? undefined
-                  : resourceId(args.baseVersionId, 'base version ID'),
-              confirmRebase: Boolean(args.confirmRebase),
-              analysisParams,
             })
-            return {
-              success: true,
-              factor_id: factorId,
-              version_id: saved.version.id,
-              version_created: saved.version_created,
-              factor: saved,
-            }
+            return { success: true, factor_id: id, factor }
           }),
       }),
       versions: defineCommand({
-        meta: { name: 'versions', description: 'List factor code versions' },
+        meta: { name: 'versions', description: 'List factor versions' },
         args: { factorId: resourceIdArg('Factor ID') },
         run: ({ args }) =>
           runtime.research(async (client) => ({
@@ -202,138 +154,297 @@ export function createFactorCommand(runtime: CommandRuntime) {
             ),
           })),
       }),
-      revert: defineCommand({
-        meta: { name: 'revert', description: 'Revert a factor version as a new version' },
+      version: defineCommand({
+        meta: { name: 'version', description: 'Get a factor version' },
+        args: { versionId: resourceIdArg('Factor version ID') },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            version: await client.research.getFactorVersion(
+              resourceId(args.versionId, 'version ID'),
+            ),
+          })),
+      }),
+      'version-create': defineCommand({
+        meta: {
+          name: 'version-create',
+          description: 'Create a named factor version from an analysis',
+        },
         args: {
           factorId: resourceIdArg('Factor ID'),
-          versionNumber: resourceIdArg('Version number'),
+          runId: resourceIdArg('Successful analysis ID'),
+          name: { type: 'string', required: true },
+          description: { type: 'string' },
         },
         run: ({ args }) =>
-          runtime.research(async (client) => {
-            const factorId = resourceId(args.factorId, 'factor ID')
-            const version = await client.research.revertFactorVersion(
-              factorId,
-              resourceId(args.versionNumber, 'version number'),
-            )
-            return { success: true, factor_id: factorId, version }
+          runtime.research(async (client) => ({
+            success: true,
+            version: await client.research.createFactorVersion(
+              resourceId(args.factorId, 'factor ID'),
+              {
+                requestId: randomUUID(),
+                runId: resourceId(args.runId, 'analysis ID'),
+                name: args.name!,
+                description: args.description,
+              },
+            ),
+          })),
+      }),
+      'version-restore': defineCommand({
+        meta: { name: 'version-restore', description: 'Restore a factor version' },
+        args: {
+          factorId: resourceIdArg('Factor ID'),
+          versionId: resourceIdArg('Factor version ID'),
+          expectedSourceRevision: { type: 'string', required: true },
+          expectedConfigRevision: { type: 'string', required: true },
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            factor: await client.research.restoreFactorVersion(
+              resourceId(args.factorId, 'factor ID'),
+              resourceId(args.versionId, 'version ID'),
+              {
+                requestId: randomUUID(),
+                expectedSourceRevision: revision(
+                  args.expectedSourceRevision,
+                  'expectedSourceRevision',
+                ),
+                expectedConfigRevision: revision(
+                  args.expectedConfigRevision,
+                  'expectedConfigRevision',
+                ),
+              },
+            ),
+          })),
+      }),
+      'analysis-restore': defineCommand({
+        meta: { name: 'analysis-restore', description: 'Restore a factor analysis snapshot' },
+        args: {
+          factorId: resourceIdArg('Factor ID'),
+          runId: resourceIdArg('Analysis ID'),
+          expectedSourceRevision: { type: 'string', required: true },
+          expectedConfigRevision: { type: 'string', required: true },
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => ({
+            success: true,
+            factor: await client.research.restoreFactorAnalysis(
+              resourceId(args.factorId, 'factor ID'),
+              resourceId(args.runId, 'analysis ID'),
+              {
+                requestId: randomUUID(),
+                expectedSourceRevision: revision(
+                  args.expectedSourceRevision,
+                  'expectedSourceRevision',
+                ),
+                expectedConfigRevision: revision(
+                  args.expectedConfigRevision,
+                  'expectedConfigRevision',
+                ),
+              },
+            ),
+          })),
+      }),
+      tuning: defineCommand({
+        meta: { name: 'tuning', description: 'Manage factor parameter tuning tasks' },
+        subCommands: {
+          list: defineCommand({
+            meta: { name: 'list', description: 'List factor tunings' },
+            args: { factorId: resourceIdArg('Factor ID') },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tunings: await client.research.listFactorTunings(
+                  resourceId(args.factorId, 'factor ID'),
+                ),
+              })),
           }),
+          get: defineCommand({
+            meta: { name: 'get', description: 'Get a factor tuning' },
+            args: { tuningId: resourceIdArg('Factor tuning ID') },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tuning: await client.research.getFactorTuning(
+                  resourceId(args.tuningId, 'tuning ID'),
+                ),
+              })),
+          }),
+          create: defineCommand({
+            meta: {
+              name: 'create',
+              description: 'Create a factor tuning from a JSON request file',
+            },
+            args: {
+              factorId: resourceIdArg('Factor ID'),
+              file: { type: 'string', required: true },
+            },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tuning: await client.research.createFactorTuning(
+                  resourceId(args.factorId, 'factor ID'),
+                  readJsonInput(args.file!, 'factor tuning JSON') as never,
+                ),
+              })),
+          }),
+          cancel: defineCommand({
+            meta: { name: 'cancel', description: 'Cancel a factor tuning' },
+            args: { tuningId: resourceIdArg('Factor tuning ID') },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tuning: await client.research.cancelFactorTuning(
+                  resourceId(args.tuningId, 'tuning ID'),
+                ),
+              })),
+          }),
+          rerun: defineCommand({
+            meta: { name: 'rerun', description: 'Rerun a factor tuning' },
+            args: { tuningId: resourceIdArg('Factor tuning ID') },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                tuning: await client.research.rerunFactorTuning(
+                  resourceId(args.tuningId, 'tuning ID'),
+                  { requestId: randomUUID() },
+                ),
+              })),
+          }),
+          apply: defineCommand({
+            meta: { name: 'apply', description: 'Apply a successful factor tuning trial' },
+            args: {
+              tuningId: resourceIdArg('Factor tuning ID'),
+              trialId: { type: 'string', required: true },
+              expectedSourceRevision: { type: 'string', required: true },
+              expectedConfigRevision: { type: 'string', required: true },
+            },
+            run: ({ args }) =>
+              runtime.research(async (client) => ({
+                success: true,
+                ...(await client.research.applyFactorTuning(
+                  resourceId(args.tuningId, 'tuning ID'),
+                  {
+                    requestId: randomUUID(),
+                    trialId: args.trialId!,
+                    expectedSourceRevision: revision(
+                      args.expectedSourceRevision,
+                      'expectedSourceRevision',
+                    ),
+                    expectedConfigRevision: revision(
+                      args.expectedConfigRevision,
+                      'expectedConfigRevision',
+                    ),
+                  },
+                )),
+              })),
+          }),
+        },
       }),
       run: defineCommand({
         meta: { name: 'run', description: 'Run a factor analysis' },
         args: {
           factorId: resourceIdArg('Factor ID'),
-          name: { type: 'string', description: 'Analysis name' },
-          factorVersionId: { type: 'string', description: 'Factor version ID' },
-          startDate: { type: 'string', description: 'Start date (YYYYMMDD or YYYY-MM-DD)' },
-          endDate: { type: 'string', description: 'End date (YYYYMMDD or YYYY-MM-DD)' },
-          adjustmentCycle: { type: 'string', default: '5', description: 'Rebalance cycle' },
-          groupNumber: { type: 'string', default: '5', description: 'Group count (2-20)' },
-          factorDirection: {
-            type: 'string',
-            default: 'Positive',
-            description: 'Positive or Negative',
-          },
-          stockPool: { type: 'string', description: 'Stock pool' },
-          marketType: { type: 'string', description: 'Futures market type' },
+          expectedSourceRevision: { type: 'string', required: true },
+          expectedConfigRevision: { type: 'string', required: true },
+          startDate: { type: 'string', required: true },
+          endDate: { type: 'string', required: true },
+          adjustmentCycle: { type: 'string', default: '5' },
+          groupNumber: { type: 'string', default: '5' },
+          factorDirection: { type: 'string', default: 'Positive' },
           ...waitArgs,
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
-            const factorId = resourceId(args.factorId, 'factor ID')
-            const analysis = await client.research.createFactorAnalysis(factorId, {
-              name: args.name,
-              factorVersionId:
-                args.factorVersionId === undefined
-                  ? undefined
-                  : resourceId(args.factorVersionId, 'factor version ID'),
-              periodStart: normalizeDate(args.startDate),
-              periodEnd: normalizeDate(args.endDate),
-              adjustmentCycle: positiveInteger(args.adjustmentCycle, 'adjustmentCycle'),
-              groupNumber: boundedInteger(args.groupNumber, 'groupNumber', 2, 20),
-              factorDirection: factorDirection(args.factorDirection),
-              stockPool: args.stockPool,
-              marketType: args.marketType,
+            const id = resourceId(args.factorId, 'factor ID')
+            const submitted = await client.research.createFactorAnalysis(id, {
+              requestId: randomUUID(),
+              expectedSourceRevision: revision(
+                args.expectedSourceRevision,
+                'expectedSourceRevision',
+              ),
+              expectedConfigRevision: revision(
+                args.expectedConfigRevision,
+                'expectedConfigRevision',
+              ),
+              parameters: {
+                periodStart: normalizeDate(args.startDate),
+                periodEnd: normalizeDate(args.endDate),
+                adjustmentCycle: boundedInteger(args.adjustmentCycle, 'adjustmentCycle', 1, 30) as
+                  | 1
+                  | 3
+                  | 5
+                  | 10
+                  | 20
+                  | 30,
+                groupNumber: boundedInteger(args.groupNumber, 'groupNumber', 3, 20) as
+                  | 3
+                  | 5
+                  | 10
+                  | 20,
+                factorDirection: factorDirection(args.factorDirection)!,
+              },
             })
-            if (args.noWait) {
+            if (args.noWait)
               return {
                 success: true,
                 status: 'SUBMITTED',
-                factor_id: factorId,
-                analysis_id: analysis.id,
-                analysis,
+                factor_id: id,
+                analysis_id: submitted.run_id,
+                analysis: submitted,
               }
-            }
             const result = await client.research.pollFactorAnalysis(
-              analysis.id,
+              String(submitted.run_id),
               pollOptions(args as unknown as WaitArgs),
             )
-            return { ...resultResponse(result, 'analysis_id'), factor_id: factorId }
+            return {
+              ...resultResponse({ ...result, id: submitted.run_id } as never, 'analysis_id'),
+              factor_id: id,
+            }
           }),
       }),
       stop: defineCommand({
         meta: { name: 'stop', description: 'Cancel a factor analysis' },
-        args: {
-          analysisId: resourceIdArg('Analysis ID'),
-          pollInterval: { type: 'string', default: '1', description: 'Poll interval in seconds' },
-          timeout: {
-            type: 'string',
-            default: '10',
-            description: 'Maximum confirmation wait in seconds',
-          },
-        },
+        args: { analysisId: resourceIdArg('Analysis ID') },
         run: ({ args }) =>
           runtime.research(async (client) => {
-            const analysisId = resourceId(args.analysisId, 'analysis ID')
-            let result = await client.research.cancelFactorAnalysis(analysisId)
-            let status = resultStatus(result)
-            if (
-              (status === 'PENDING' || status === 'RUNNING') &&
-              numberArg(args.timeout, 'timeout') > 0
-            ) {
-              result = await client.research.pollFactorAnalysis(
-                analysisId,
-                pollOptions(args as unknown as WaitArgs),
-              )
-              status = resultStatus(result)
-            }
+            const id = resourceId(args.analysisId, 'analysis ID')
+            const result = await client.research.cancelFactorAnalysis(id)
             return {
-              success: status === 'CANCELLED',
-              analysis_id: analysisId,
-              request_accepted: true,
-              status: status === 'TIMEOUT' ? 'STOP_REQUESTED' : status,
-              analysis: result,
+              success: resultStatus(result as never) === 'CANCELLED',
+              analysis_id: id,
+              result,
             }
           }),
       }),
       result: defineCommand({
-        meta: { name: 'result', description: 'Get a factor analysis result' },
+        meta: { name: 'result', description: 'Get factor analysis result' },
         args: { analysisId: resourceIdArg('Analysis ID') },
         run: ({ args }) =>
-          runtime.research(async (client) =>
-            resultResponse(
-              await client.research.getFactorAnalysis(resourceId(args.analysisId, 'analysis ID')),
-              'analysis_id',
+          runtime.research(async (client) => ({
+            success: true,
+            analysis: await client.research.getFactorAnalysis(
+              resourceId(args.analysisId, 'analysis ID'),
             ),
-          ),
+          })),
       }),
       list: defineCommand({
         meta: { name: 'list', description: 'List factor definitions' },
         args: { ...listArgs },
         run: ({ args }) =>
-          runtime.research(async (client) =>
-            pageResponse(
-              await client.research.listFactors(listInput(args as unknown as ListArgs)),
-              'factors',
-              Boolean(args.includeContent),
-            ),
-          ),
+          runtime.research(async (client) => {
+            const page = await client.research.listFactors(listInput(args as unknown as ListArgs))
+            if (args.includeContent)
+              page.items = await Promise.all(
+                page.items.map((item) => client.research.getFactorSource(item.id)),
+              )
+            return pageResponse(page as never, 'factors', args.includeContent === true)
+          }),
       }),
       delete: defineCommand({
         meta: { name: 'delete', description: 'Delete factor definitions' },
-        args: {
-          factorId: resourceIdArg('Factor ID'),
-          yes: { type: 'boolean', description: 'Confirm deletion' },
-        },
+        args: { factorId: resourceIdArg('Factor ID'), yes: { type: 'boolean' } },
         run: ({ args }) =>
           runtime.research(async (client) => {
             if (!args.yes) throw new CliUsageError('deletion confirmation requires --yes')

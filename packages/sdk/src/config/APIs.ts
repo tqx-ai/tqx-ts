@@ -14,11 +14,14 @@ const APIs = {
   SIGNALS: '/openapi/v1/trading/signals',
 
   // Research API
-  RESEARCH_FACTORS: 'agent_quant/api/factors',
-  RESEARCH_FACTOR_ANALYSES: 'agent_quant/api/factor-analyses',
-  RESEARCH_STRATEGIES: 'agent_quant/api/strategies',
-  RESEARCH_BACKTESTS: 'agent_quant/api/backtests',
-  RESEARCH_STRATEGY_VERSIONS: 'agent_quant/api/strategy-versions',
+  RESEARCH_FACTORS: 'qube/api/factors',
+  RESEARCH_FACTOR_ANALYSES: 'qube/api/factor-analyses',
+  RESEARCH_STRATEGIES: 'qube/api/strategies',
+  RESEARCH_BACKTESTS: 'qube/api/strategy-backtests',
+  RESEARCH_STRATEGY_VERSIONS: 'qube/api/strategy-versions',
+  RESEARCH_FACTOR_VERSIONS: 'qube/api/factor-versions',
+  RESEARCH_FACTOR_TUNINGS: 'qube/api/factor-tunings',
+  RESEARCH_STRATEGY_TUNINGS: 'qube/api/strategy-tunings',
 
   // Bug Report API
   BUG_REPORTS: '/openapi/v1/bug-reports', // its base url is the same as the Trading API's one

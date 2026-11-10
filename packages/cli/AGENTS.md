@@ -13,7 +13,7 @@
 - Resolve credentials through `resolveApiKey`; `TQX_API_KEY` has priority over the persisted key.
   Never echo a key, token, credential-file content, or secret in output, errors, tests, or docs.
 - Runtime `TQX_BASE_URL` is passed to `TqxClient`. For Qube, users must supply or build with the
-  `/pandaApi` gateway base; commands must not try to derive paths or authenticate with legacy
+  `/tqxApi` gateway base; commands must not try to derive paths or authenticate with legacy
   Research sessions.
 - Only expose a global flag when it changes runtime behavior. Parse, document, test, and pass every
   supported option to its consumer; remove obsolete configuration flags instead of silently

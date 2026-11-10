@@ -19,20 +19,20 @@ The initial stock universe can come from:
 
 The CLI only requires `--market` and one of `--code` or `--file`, but a cross-sectional strategy needs more than a market. The initial universe and ranking factors determine what is compared and how instruments are selected, so there is no safe random default; ask when the research specification is incomplete. For a demonstration requested by the user, you may use a verified sample universe and factor, clearly stating that it is not general investment advice.
 
-| Parameters | Rules |
-|---|---|
-| `market` | Must be explicitly specified by the user as `hk` or `us` |
-| Initial stock universe | Actual research must clearly define index constituents, the full market, a user-provided list, or deterministic screening rules; random stock lists are prohibited |
-| Universe type | A fixed list whose eligibility does not change over time may be static; fundamentals, index membership, or time-varying eligibility require a dynamic panel |
-| Hard filter conditions | No additional hard filtering by default if not specified by the user; random addition of fundamentals or liquidity thresholds is prohibited |
-| Ranking factors | Actual research must be clear; random selection of momentum, ROE or valuation factors is prohibited |
-| `top_n` | Default `5`, indicating the maximum number of positions; hold all qualified stocks when there are insufficient qualified stocks |
-| Position adjustment period | Default is once every 5 trading days |
-| Weight method | Default is equal weight, the total target position does not exceed 90% |
-| `frequency` | Default daily line `1d`; `1M` means 1 minute, not monthly line |
-| Backtest interval | The most recent complete natural quarter before the default task execution date, and the date is explicitly passed in |
-| Exit rules | By default, sell all sellable positions outside the new target set; an empty universe means liquidate by default, while positions that cannot be sold are retained and the reasons recorded |
-| Backtest node parameters | `start_capital=10,000,000`, `commission_rate=1`, `slippage=0` |
+| Parameters                 | Rules                                                                                                                                                                                       |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `market`                   | Must be explicitly specified by the user as `hk` or `us`                                                                                                                                    |
+| Initial stock universe     | Actual research must clearly define index constituents, the full market, a user-provided list, or deterministic screening rules; random stock lists are prohibited                          |
+| Universe type              | A fixed list whose eligibility does not change over time may be static; fundamentals, index membership, or time-varying eligibility require a dynamic panel                                 |
+| Hard filter conditions     | No additional hard filtering by default if not specified by the user; random addition of fundamentals or liquidity thresholds is prohibited                                                 |
+| Ranking factors            | Actual research must be clear; random selection of momentum, ROE or valuation factors is prohibited                                                                                         |
+| `top_n`                    | Default `5`, indicating the maximum number of positions; hold all qualified stocks when there are insufficient qualified stocks                                                             |
+| Position adjustment period | Default is once every 5 trading days                                                                                                                                                        |
+| Weight method              | Default is equal weight, the total target position does not exceed 90%                                                                                                                      |
+| `frequency`                | Default daily line `1d`; `1M` means 1 minute, not monthly line                                                                                                                              |
+| Backtest interval          | The most recent complete natural quarter before the default task execution date, and the date is explicitly passed in                                                                       |
+| Exit rules                 | By default, sell all sellable positions outside the new target set; an empty universe means liquidate by default, while positions that cannot be sold are retained and the reasons recorded |
+| Backtest node parameters   | `start_capital=10,000,000`, `commission_rate=1`, `slippage=0`                                                                                                                               |
 
 The dynamic universe must contain at least `date` and `symbol`. If it also performs fundamental screening, retain `source_date`, `fy_period`, the factor values, and `eligible` so that the absence of look-ahead bias can be verified.
 
@@ -47,10 +47,10 @@ Use a static universe only when the user explicitly requests a frozen universe, 
 
 Example that has been run in production environment:
 
-| Market | Sample File | Financial-report cutoff | Hard-condition filter results |
-|---|---|---|---|
-| US stocks | `tqx_cli/tests/nasdq100_cs_st.py` | `2025-01-01` | `NVDA.NB`, `AVGO.NB` |
-| Hong Kong stocks | `tqx_cli/tests/hsi_cs_st.py` | `2025-01-01` | `1810.HK`, `3690.HK` |
+| Market           | Sample File                       | Financial-report cutoff | Hard-condition filter results |
+| ---------------- | --------------------------------- | ----------------------- | ----------------------------- |
+| US stocks        | `tqx_cli/tests/nasdq100_cs_st.py` | `2025-01-01`            | `NVDA.NB`, `AVGO.NB`          |
+| Hong Kong stocks | `tqx_cli/tests/hsi_cs_st.py`      | `2025-01-01`            | `1810.HK`, `3690.HK`          |
 
 The hard conditions are that revenue growth is greater than 20% year-on-year, gross profit margin is greater than 20%, and operating cash flow is greater than 0. The above list is only for the candidate scope and financial reporting caliber.
 The results are valid only for that candidate universe, reporting basis, and cross-section date. Re-screen whenever the date or candidate universe changes; do not treat the sample list as a permanent conclusion.
@@ -156,7 +156,7 @@ For example, if the task execution date is `2026-07-25`, the default latest comp
 1. Identify `hk/us`, time-series or cross-sectional structure, the initial universe, and the signal rules.
 2. Read `tqx_data_usage.md` when you need to access data directly, then generate a static universe or `(date, symbol)` panel.
 3. Read the corresponding market API and `strategy_templates.md`, and reuse the verified life cycle and order structure.
-4. Write the multi-line strategy to a UTF-8 `.py` file; use `--file` and `--strictMarketApi` of `tqx research strategy create` when creating it.
+4. Write the multi-line strategy to a UTF-8 `.py` file; use `--file` of `tqx research strategy create` when creating it.
 5. Perform remote QUBE operations only if the user explicitly asks to create or run them.
 6. A successful backtest must meet the following requirements: the final state is `SUCCESS`, and the logs, transactions, positions and income results must be checked. The log output is at least
    Adjustment date, `eligible_count`, actual target quantity and `target_symbols`; when there is zero transaction, the specific reason must be stated.

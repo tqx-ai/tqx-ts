@@ -1,4 +1,5 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+/* eslint-disable no-await-in-loop */
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
@@ -6,14 +7,20 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { runCli } from '../src/command'
 import type { CredentialStore } from '../src/credentials'
-import { strategyWarnings } from '../src/research/shared'
-import {
-  US_DAILY_MOVING_AVERAGE_FIXTURE,
-  US_DAILY_MOVING_AVERAGE_FIXTURE_PATH,
-} from '../../sdk/test/strategy-fixtures'
+import { US_DAILY_MOVING_AVERAGE_FIXTURE } from '../../sdk/test/strategy-fixtures'
+
+const FACTOR_ID = '507f1f77bcf86cd799439011'
+const STRATEGY_ID = '507f1f77bcf86cd799439012'
+const RUN_ID = '507f1f77bcf86cd799439013'
+const SECOND_ID = '507f1f77bcf86cd799439014'
+const VERSION_ID = '507f1f77bcf86cd799439015'
+const BASE_URL = 'https://research-api.example.test/tqxApi'
+const API_URL = `${BASE_URL}/qube/api`
+const SHA256 = 'a'.repeat(64)
+const temporaryDirectories: string[] = []
 
 class MemoryStore implements CredentialStore {
-  value: string | null = null
+  value: string | null = 'stored-research-key'
 
   async get(): Promise<string | null> {
     return this.value
@@ -42,921 +49,1259 @@ function gatewayResponse(data: unknown, init: ResponseInit = {}): Response {
   return Response.json({ code: 0, message: 'success', data, request_id: 'qube-cli' }, init)
 }
 
-const STOCK_STRATEGY = `
-import panda_data as pd
-from panda_backtest.api.api import *
-
-def init_market_data(context):
-    context.history = pd.get_market_data(
-        start_date='2026-01-01',
-        end_date='2026-02-01',
-    )
-
-def initialize(context):
-    init_market_data(context)
-
-def handle_data(context, data):
-    pass
-`
-
-const US_STRATEGY = `
-from tqx_data import get_us_daily as daily
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
-
-def init_market_data(context):
-    context.history = daily(
-        symbol='AAPL.US',
-        start_date='2026-01-01',
-        end_date='2026-02-01',
-        market='nb',
-    )
-
-def initialize(context):
-    init_market_data(context)
-
-def handle_data(context, data):
-    context.us_symbol = 'AAPL.NY'
-`
-
-function cancelledBacktest(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+function factor(overrides: Record<string, unknown> = {}) {
   return {
-    id: 2977,
-    strategy_id: 573,
-    status: 'failed',
-    progress: { terminal: 'cancelled', percent: 22 },
-    cancelled: false,
-    error: null,
-    equity: [{ value: 1 }, { value: 2 }, { value: 3 }],
-    trades: Array.from({ length: 7 }, (_, index) => ({ trade_id: index + 1 })),
-    log: ['partial result'],
-    metric_views: [{ name: 'sharpe' }],
+    id: FACTOR_ID,
+    factor_id: FACTOR_ID,
+    title: 'Closing price',
+    description: 'Daily closing price factor',
+    market: 'hk',
+    code_type: 'formula',
+    factor_kind: 'code',
+    code_sha256: SHA256,
+    source_revision: 2,
+    config_revision: 3,
+    validation: { status: 'valid', source_revision: 2, code_sha256: SHA256, diagnostics: [] },
+    parameter_validation: { status: 'valid', config_revision: 3, diagnostics: [] },
+    parameters: {
+      period_start: '2026-01-01',
+      period_end: '2026-06-30',
+      adjustment_cycle: 5,
+      group_number: 5,
+      factor_direction: 1,
+    },
+    current_version: null,
+    deleted_at: null,
+    created_at: '2026-07-01T00:00:00+00:00',
+    updated_at: '2026-07-02T00:00:00+00:00',
     ...overrides,
   }
+}
+
+function strategy(overrides: Record<string, unknown> = {}) {
+  return {
+    id: STRATEGY_ID,
+    strategy_id: STRATEGY_ID,
+    title: 'US moving average',
+    description: 'Daily moving average strategy',
+    market: 'us',
+    code_type: 'python',
+    code_sha256: SHA256,
+    source_revision: 2,
+    config_revision: 3,
+    validation: { status: 'valid', source_revision: 2, code_sha256: SHA256, diagnostics: [] },
+    parameter_validation: { status: 'valid', config_revision: 3, diagnostics: [] },
+    parameters: {
+      backtest: {
+        period_start: '2026-01-01',
+        period_end: '2026-06-30',
+        frequency: '1d',
+        init_balance: 1_000_000,
+        commission_rate: 1,
+        slippage: 0,
+      },
+    },
+    factor_binding: null,
+    current_version: null,
+    created_at: '2026-07-01T00:00:00+00:00',
+    updated_at: '2026-07-02T00:00:00+00:00',
+    ...overrides,
+  }
+}
+
+function analysis(overrides: Record<string, unknown> = {}) {
+  return {
+    id: RUN_ID,
+    factor_id: FACTOR_ID,
+    title: 'Closing price',
+    market: 'hk',
+    code_type: 'formula',
+    status: 'succeeded',
+    source_revision: 2,
+    config_revision: 3,
+    code_sha256: SHA256,
+    progress: { stage: 'complete', percent: 100 },
+    metrics: { rank_ic_mean: 0.15 },
+    cancel_requested: false,
+    created_at: '2026-07-03T00:00:00+00:00',
+    ...overrides,
+  }
+}
+
+function backtest(overrides: Record<string, unknown> = {}) {
+  return {
+    id: RUN_ID,
+    run_id: RUN_ID,
+    strategy_id: STRATEGY_ID,
+    title: 'US moving average',
+    market: 'us',
+    code_type: 'python',
+    status: 'succeeded',
+    source_revision: 2,
+    config_revision: 3,
+    parameters: strategy().parameters,
+    factor_binding: null,
+    progress: { stage: 'complete', percent: 100 },
+    metrics: { total_return: 0.1 },
+    cancel_requested: false,
+    equity: [{ ts: '2026-06-30', equity: 1_100_000 }],
+    trades: [{ symbol: 'AAPL.US', quantity: 100 }],
+    logs: ['Backtest complete'],
+    created_at: '2026-07-03T00:00:00+00:00',
+    ...overrides,
+  }
+}
+
+function analysisReceipt() {
+  return {
+    run_id: RUN_ID,
+    factor_id: FACTOR_ID,
+    status: 'queued',
+    idempotent: false,
+    code_sha256: SHA256,
+    params: factor().parameters,
+  }
+}
+
+function setup(fetch = vi.fn<typeof globalThis.fetch>(), environment: NodeJS.ProcessEnv = {}) {
+  const credentialStore = new MemoryStore()
+  const stdout = new BufferOutput()
+  const stderr = new BufferOutput()
+  const dependencies = {
+    environment: { TQX_BASE_URL: BASE_URL, ...environment },
+    credentialStore,
+    fetch,
+    stdout,
+    stderr,
+    autoUpdateCheck: false,
+  }
+  return { fetch, stdout, stderr, credentialStore, dependencies }
+}
+
+function bodyOf(fetch: ReturnType<typeof vi.fn<typeof globalThis.fetch>>, index = 0) {
+  return JSON.parse(String(fetch.mock.calls[index]?.[1]?.body)) as Record<string, unknown>
+}
+
+function temporaryDirectory() {
+  const directory = mkdtempSync(join(tmpdir(), 'tqx-cli-research-'))
+  temporaryDirectories.push(directory)
+  return directory
 }
 
 afterEach(() => {
   process.exitCode = undefined
   vi.restoreAllMocks()
-  vi.unstubAllEnvs?.()
+  vi.unstubAllEnvs()
+  for (const directory of temporaryDirectories.splice(0))
+    rmSync(directory, { recursive: true, force: true })
 })
 
-describe('research CLI', () => {
-  it('shows only Qube resource branches', async () => {
+describe('Qube Next research CLI', () => {
+  it('shows the resource branches and revision flags in help', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
-
     await runCli(['research', '--help'])
-
-    const help = log.mock.calls.flat().join('\n')
-    expect(help).toContain('tqx research')
-    expect(help).toContain('factor')
-    expect(help).toContain('strategy')
-    expect(help).toContain('backtest')
-    expect(help).not.toContain('workflow')
-    expect(help).not.toContain('balance')
+    const researchHelp = log.mock.calls.flat().join('\n')
+    expect(researchHelp).toContain('factor')
+    expect(researchHelp).toContain('strategy')
+    expect(researchHelp).toContain('backtest')
+    expect(researchHelp).not.toContain('workflow')
+    log.mockClear()
+    await runCli(['research', 'factor', 'save', '--help'])
+    expect(log.mock.calls.flat().join('\n')).toContain('baseSourceRevision')
+    log.mockClear()
+    await runCli(['research', 'strategy', 'run', '--help'])
+    expect(log.mock.calls.flat().join('\n')).toContain('expectedSourceRevision')
+    expect(log.mock.calls.flat().join('\n')).toContain('expectedConfigRevision')
     expect(exit).toHaveBeenCalledWith(0)
   })
 
-  it('explains optimistic concurrency in factor save help', async () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
-    const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
-
-    await runCli(['--plain', 'research', 'factor', 'save', '--help'])
-
-    const help = log.mock.calls.flat().join('\n')
-    expect(help).toContain('Save a factor code version')
-    expect(help).toContain('Check factor info or versions first')
-    expect(help).toContain('--baseVersionId=<latest_version_id>')
-    expect(help).toContain('--confirmRebase')
-    expect(exit).toHaveBeenCalledWith(0)
-  })
-
-  it('explains optimistic concurrency in strategy save help', async () => {
-    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
-    const exit = vi.spyOn(process, 'exit').mockImplementation((() => undefined) as never)
-
-    await runCli(['--plain', 'research', 'strategy', 'save', '--help'])
-
-    const help = log.mock.calls.flat().join('\n')
-    expect(help).toContain('Save a strategy code version')
-    expect(help).toContain('Check strategy info or versions first')
-    expect(help).toContain('--baseVersionId=<latest_version_id>')
-    expect(help).toContain('--confirmRebase')
-    expect(exit).toHaveBeenCalledWith(0)
-  })
-
-  it('uses the stored API key and creates Qube factors instead of workflows', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValue(gatewayResponse({ id: 42, name: 'close', market: 'hk', code: 'close' }))
-
-    await runCli(['research', 'factor', 'create', '--market=HK', '--formula=close', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stdout,
-    })
-
-    expect(JSON.parse(stdout.value)).toMatchObject({
-      success: true,
-      factor_id: 42,
-      factor: { market: 'hk' },
-    })
-    expect(String(fetch.mock.calls[0]?.[0])).toBe(
-      'https://research-api.example.test/pandaApi/agent_quant/api/factors',
+  it('uses the environment API key ahead of persisted credentials and preserves the gateway prefix', async () => {
+    const ctx = setup(undefined, { TQX_API_KEY: 'environment-research-key' })
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse({
+        strategies: [],
+        has_more: false,
+        next_cursor: null,
+        counts: { all: 0, hk: 0, us: 0 },
+      }),
     )
-    const init = fetch.mock.calls[0]?.[1]
-    expect(new Headers(init?.headers).get('X-API-Key')).toBe('stored-key')
-    expect(JSON.parse(String(init?.body))).toMatchObject({
-      code: 'close',
-      code_type: 'formula',
+    await runCli(['research', 'strategy', 'list', '--json'], ctx.dependencies)
+    expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(`${API_URL}/strategies?limit=24`)
+    const headers = new Headers(ctx.fetch.mock.calls[0]?.[1]?.headers)
+    expect(headers.get('X-API-Key')).toBe('environment-research-key')
+    expect(headers.get('Accept')).toBe('application/json')
+    expect(ctx.stdout.value).not.toContain('environment-research-key')
+    expect(ctx.stdout.value).not.toContain('stored-research-key')
+    expect(ctx.stderr.value).toBe('')
+  })
+
+  it('creates a formula factor using the new title and request_id body', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse({ ...factor(), saved: true }, { status: 201 }))
+    await runCli(
+      [
+        'research',
+        'factor',
+        'create',
+        '--market=hk',
+        '--formula=close',
+        '--title=Closing price',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: true,
+      factor_id: FACTOR_ID,
+      factor: { title: 'Closing price' },
+    })
+    expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(`${API_URL}/factors`)
+    expect(ctx.fetch.mock.calls[0]?.[1]?.method).toBe('POST')
+    expect(new Headers(ctx.fetch.mock.calls[0]?.[1]?.headers).get('X-API-Key')).toBe(
+      'stored-research-key',
+    )
+    expect(bodyOf(ctx.fetch)).toEqual({
+      request_id: expect.any(String),
+      title: 'Closing price',
+      description: '',
       market: 'hk',
+      code_type: 'formula',
+      code: 'close',
     })
+    expect(String(bodyOf(ctx.fetch).request_id)).toMatch(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/)
   })
 
-  it('deletes each positional factor ID exactly once', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockImplementation(async () => gatewayResponse(null))
-
-    await runCli(['research', 'factor', 'delete', '1', '2', '--yes', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stdout,
+  it('reads a Python strategy file and maps the backtest configuration on create', async () => {
+    const directory = temporaryDirectory()
+    const file = join(directory, 'moving_average.py')
+    writeFileSync(file, US_DAILY_MOVING_AVERAGE_FIXTURE)
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse({ ...strategy(), saved: true }, { status: 201 }),
+    )
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'create',
+        '--market=us',
+        `--file=${file}`,
+        '--title=US moving average',
+        '--startDate=20260101',
+        '--endDate=20260630',
+        '--startCapital=1000000',
+        '--commissionRate=1',
+        '--slippage=0',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({ success: true, strategy_id: STRATEGY_ID })
+    expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(`${API_URL}/strategies`)
+    expect(bodyOf(ctx.fetch)).toMatchObject({
+      request_id: expect.any(String),
+      code: US_DAILY_MOVING_AVERAGE_FIXTURE,
+      code_type: 'python',
+      title: 'US moving average',
+      market: 'us',
+      parameters: {
+        backtest: {
+          period_start: '2026-01-01',
+          period_end: '2026-06-30',
+          init_balance: 1_000_000,
+          commission_rate: 1,
+          slippage: 0,
+          frequency: '1d',
+        },
+      },
     })
-
-    expect(JSON.parse(stdout.value)).toMatchObject({ success: true, deleted: [1, 2] })
-    expect(fetch.mock.calls.map(([input]) => String(input))).toEqual([
-      'https://research-api.example.test/pandaApi/agent_quant/api/factors/1',
-      'https://research-api.example.test/pandaApi/agent_quant/api/factors/2',
-    ])
+    expect(ctx.stderr.value).toBe('')
   })
 
-  it('runs strategies with stored backtest parameters and returns the submitted run ID', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(
-        gatewayResponse({
-          id: 8,
-          market: 'us',
-          params: {
-            backtest: {
-              init_balance: 1000,
-              frequency: '1d',
-              symbols: null,
-              margin_rate: null,
-              standard_symbol: null,
-            },
-          },
-        }),
+  it.each(['factor', 'strategy'] as const)(
+    'saves %s source with base_source_revision',
+    async (kind) => {
+      const ctx = setup()
+      const id = kind === 'factor' ? FACTOR_ID : STRATEGY_ID
+      const code = kind === 'factor' ? 'close * 2' : US_DAILY_MOVING_AVERAGE_FIXTURE
+      const response =
+        kind === 'factor'
+          ? factor({ code, source_revision: 3 })
+          : strategy({ code, source_revision: 3 })
+      ctx.fetch.mockResolvedValueOnce(gatewayResponse({ ...response, saved: true }))
+      await runCli(
+        ['research', kind, 'save', id, '--baseSourceRevision=2', `--code=${code}`, '--json'],
+        ctx.dependencies,
       )
-      .mockResolvedValueOnce(gatewayResponse({ id: 91, status: 'pending' }))
+      expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(
+        `${API_URL}/${kind === 'factor' ? 'factors' : 'strategies'}/${id}/source`,
+      )
+      expect(ctx.fetch.mock.calls[0]?.[1]?.method).toBe('PUT')
+      expect(bodyOf(ctx.fetch)).toEqual({
+        request_id: expect.any(String),
+        base_source_revision: 2,
+        code,
+      })
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+        success: true,
+        [kind]: { source_revision: 3, code },
+      })
+    },
+  )
 
+  it('updates factor configuration with config revision and the new direction enum', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(factor({ config_revision: 4 })))
+    await runCli(
+      [
+        'research',
+        'factor',
+        'update',
+        FACTOR_ID,
+        '--baseConfigRevision=3',
+        '--title=Revised factor',
+        '--startDate=20260101',
+        '--endDate=20260630',
+        '--adjustmentCycle=10',
+        '--groupNumber=3',
+        '--factorDirection=Negative',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(ctx.fetch.mock.calls[0]?.[1]?.method).toBe('PATCH')
+    expect(bodyOf(ctx.fetch)).toEqual({
+      base_config_revision: 3,
+      title: 'Revised factor',
+      parameters: {
+        period_start: '2026-01-01',
+        period_end: '2026-06-30',
+        adjustment_cycle: 10,
+        group_number: 3,
+        factor_direction: -1,
+      },
+    })
+    expect(JSON.parse(ctx.stdout.value).factor.config_revision).toBe(4)
+  })
+
+  it('updates strategy metadata without rewriting source or backtest configuration', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse(strategy({ title: 'Renamed strategy', config_revision: 4 })),
+    )
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'update',
+        STRATEGY_ID,
+        '--baseConfigRevision=3',
+        '--title=Renamed strategy',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(ctx.fetch).toHaveBeenCalledTimes(1)
+    expect(bodyOf(ctx.fetch)).toEqual({
+      request_id: expect.any(String),
+      base_config_revision: 3,
+      title: 'Renamed strategy',
+    })
+    expect(JSON.parse(ctx.stdout.value).strategy.title).toBe('Renamed strategy')
+  })
+
+  it('updates strategy backtest overrides through the parameters object', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(strategy({ config_revision: 4 })))
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'update',
+        STRATEGY_ID,
+        '--baseConfigRevision=3',
+        '--startDate=20260101',
+        '--endDate=20260630',
+        '--frequency=1M',
+        '--commissionRate=0.25',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(bodyOf(ctx.fetch)).toEqual({
+      request_id: expect.any(String),
+      base_config_revision: 3,
+      parameters: {
+        backtest: {
+          period_start: '2026-01-01',
+          period_end: '2026-06-30',
+          frequency: '1M',
+          commission_rate: 0.25,
+        },
+      },
+    })
+  })
+
+  it('submits factor analysis with request identity and source/config revisions', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(analysisReceipt(), { status: 202 }))
+    await runCli(
+      [
+        'research',
+        'factor',
+        'run',
+        FACTOR_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--startDate=20260101',
+        '--endDate=20260630',
+        '--factorDirection=-1',
+        '--noWait',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(`${API_URL}/factors/${FACTOR_ID}/analyses`)
+    expect(bodyOf(ctx.fetch)).toEqual({
+      request_id: expect.any(String),
+      expected_source_revision: 2,
+      expected_config_revision: 3,
+      parameters: {
+        period_start: '2026-01-01',
+        period_end: '2026-06-30',
+        adjustment_cycle: 5,
+        group_number: 5,
+        factor_direction: -1,
+      },
+    })
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: true,
+      status: 'SUBMITTED',
+      factor_id: FACTOR_ID,
+      analysis_id: RUN_ID,
+    })
+  })
+
+  it('polls factor analyses until succeeded and keeps JSON stdout parseable', async () => {
+    const ctx = setup()
+    ctx.fetch
+      .mockResolvedValueOnce(gatewayResponse(analysisReceipt(), { status: 202 }))
+      .mockResolvedValueOnce(gatewayResponse(analysis()))
+    await runCli(
+      [
+        'research',
+        'factor',
+        'run',
+        FACTOR_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--startDate=2026-01-01',
+        '--endDate=2026-06-30',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(ctx.fetch.mock.calls.map(([url]) => String(url))).toEqual([
+      `${API_URL}/factors/${FACTOR_ID}/analyses`,
+      `${API_URL}/factor-analyses/${RUN_ID}`,
+    ])
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: true,
+      status: 'SUCCESS',
+      analysis_id: RUN_ID,
+      result: { status: 'succeeded' },
+    })
+    expect(ctx.stderr.value).toBe('')
+  })
+
+  it('submits strategy backtests to the new endpoint without fetching or altering HEAD', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse(
+        backtest({
+          status: 'queued',
+          progress: { stage: 'queued', percent: 0 },
+          idempotent: false,
+        }),
+        { status: 202 },
+      ),
+    )
     await runCli(
       [
         'research',
         'strategy',
         'run',
-        '8',
+        STRATEGY_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
         '--startDate=20260101',
-        '--symbols=AAPL.US,MSFT.US',
+        '--endDate=20260630',
         '--noWait',
         '--json',
       ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stdout,
-      },
+      ctx.dependencies,
     )
-
-    expect(JSON.parse(stdout.value)).toMatchObject({
+    expect(ctx.fetch).toHaveBeenCalledTimes(1)
+    expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(
+      `${API_URL}/strategies/${STRATEGY_ID}/backtests`,
+    )
+    expect(bodyOf(ctx.fetch)).toEqual({
+      request_id: expect.any(String),
+      expected_source_revision: 2,
+      expected_config_revision: 3,
+      parameters: { backtest: { period_start: '2026-01-01', period_end: '2026-06-30' } },
+    })
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
       success: true,
       status: 'SUBMITTED',
-      strategy_id: 8,
-      run_id: 91,
-    })
-    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
-      period_start: '2026-01-01',
-      init_balance: 1000,
-      frequency: '1d',
-      symbols: ['AAPL.US', 'MSFT.US'],
+      run_id: RUN_ID,
+      strategy_id: STRATEGY_ID,
     })
   })
 
-  it('does not replay server-only backtest fields when updating a strategy', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(
-        gatewayResponse({
-          id: 8,
-          market: 'us',
-          params: {
-            backtest: {
-              period_start: '2026-01-01',
-              period_end: '2026-03-31',
-              init_balance: 1000,
-              commission_rate: 1,
-              slippage: 0,
-              frequency: '1d',
-              symbols: null,
-              margin_rate: null,
-              standard_symbol: null,
-            },
-          },
-        }),
+  it.each(['succeeded', 'failed', 'cancelled'] as const)(
+    'finishes strategy polling for the %s terminal status',
+    async (status) => {
+      const ctx = setup()
+      ctx.fetch
+        .mockResolvedValueOnce(gatewayResponse(backtest({ status: 'queued' }), { status: 202 }))
+        .mockResolvedValueOnce(gatewayResponse(backtest({ status })))
+      await runCli(
+        [
+          'research',
+          'strategy',
+          'run',
+          STRATEGY_ID,
+          '--expectedSourceRevision=2',
+          '--expectedConfigRevision=3',
+          '--json',
+        ],
+        ctx.dependencies,
       )
-      .mockResolvedValueOnce(gatewayResponse({ id: 8, market: 'us' }))
+      expect(ctx.fetch).toHaveBeenCalledTimes(2)
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+        success: status === 'succeeded',
+        status: { succeeded: 'SUCCESS', failed: 'FAILED', cancelled: 'CANCELLED' }[status],
+        run_id: RUN_ID,
+        result: { status },
+      })
+    },
+  )
 
+  it('returns a timeout with a usable stop command', async () => {
+    const ctx = setup()
+    ctx.fetch
+      .mockResolvedValueOnce(gatewayResponse(backtest({ status: 'queued' }), { status: 202 }))
+      .mockResolvedValueOnce(gatewayResponse(backtest({ status: 'running' })))
     await runCli(
       [
         'research',
         'strategy',
-        'update',
-        '8',
-        '--startDate=20260401',
-        '--endDate=20260630',
+        'run',
+        STRATEGY_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--timeout=0',
         '--json',
       ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stdout,
-      },
+      ctx.dependencies,
     )
-
-    expect(JSON.parse(stdout.value)).toMatchObject({ success: true, strategy_id: 8 })
-    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
-      market: 'us',
-      params: {
-        backtest: {
-          period_start: '2026-04-01',
-          period_end: '2026-06-30',
-          init_balance: 1000,
-          commission_rate: 1,
-          slippage: 0,
-          frequency: '1d',
-        },
-      },
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: false,
+      status: 'TIMEOUT',
+      stop_command: `tqx research strategy stop ${RUN_ID}`,
+      result: { cli_status: 'TIMEOUT', timeout_seconds: 0 },
     })
   })
 
-  it('updates strategy metadata without rewriting backtest parameters', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(gatewayResponse({ id: 8, market: 'us' }))
-      .mockResolvedValueOnce(gatewayResponse({ id: 8, name: 'renamed', market: 'us' }))
-
-    await runCli(['research', 'strategy', 'update', '8', '--name=renamed', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stdout,
-    })
-
-    expect(JSON.parse(stdout.value)).toMatchObject({ success: true, strategy_id: 8 })
-    expect(fetch).toHaveBeenCalledTimes(2)
-    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toEqual({
-      name: 'renamed',
-      market: 'us',
+  it.each(['factor', 'strategy'] as const)('cancels a %s run using POST', async (kind) => {
+    const ctx = setup()
+    const result =
+      kind === 'factor'
+        ? analysis({ status: 'cancelled', cancel_requested: true })
+        : backtest({ status: 'cancelled', cancel_requested: true })
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(result))
+    await runCli(['research', kind, 'stop', RUN_ID, '--json'], ctx.dependencies)
+    expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(
+      `${API_URL}/${kind === 'factor' ? 'factor-analyses' : 'strategy-backtests'}/${RUN_ID}/cancel`,
+    )
+    expect(ctx.fetch.mock.calls[0]?.[1]?.method).toBe('POST')
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: true,
+      result: { status: 'cancelled', cancel_requested: true },
     })
   })
 
-  it('loads the current strategy market before validating save', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stderr = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(gatewayResponse({ id: 8, market: 'us' }))
+  it('downloads the complete backtest detail while keeping its raw fields', async () => {
+    const directory = temporaryDirectory()
+    const file = join(directory, 'nested', 'backtest.json')
+    const result = backtest()
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(result))
+    await runCli(
+      ['research', 'strategy', 'result', RUN_ID, `--download=${file}`, '--json'],
+      ctx.dependencies,
+    )
+    expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(`${API_URL}/strategy-backtests/${RUN_ID}`)
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: true,
+      run_id: RUN_ID,
+      downloaded_file: file,
+      result: { logs: ['Backtest complete'], trades: [{ symbol: 'AAPL.US' }] },
+    })
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(result)
+  })
 
+  it('reports a failed download without discarding a successful API result', async () => {
+    const directory = temporaryDirectory()
+    const blocker = join(directory, 'file')
+    writeFileSync(blocker, 'occupied')
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(backtest()))
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'result',
+        RUN_ID,
+        `--download=${join(blocker, 'result.json')}`,
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: true,
+      download_error: expect.any(String),
+      result: { id: RUN_ID },
+    })
+    expect(ctx.stderr.value).toBe('')
+  })
+
+  it('gets frozen factor analysis details', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(analysis({ code: 'close' })))
+    await runCli(['research', 'factor', 'result', RUN_ID, '--json'], ctx.dependencies)
+    expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(`${API_URL}/factor-analyses/${RUN_ID}`)
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: true,
+      analysis: { id: RUN_ID, status: 'succeeded', code: 'close' },
+    })
+  })
+
+  it('gets paginated backtest results with field, offset, limit and symbol filters', async () => {
+    const ctx = setup()
+    const page = {
+      run_id: RUN_ID,
+      field: 'trades',
+      offset: 10,
+      limit: 5,
+      total: 16,
+      rows: [{ symbol: 'AAPL.US' }],
+      has_more: true,
+    }
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(page))
+    await runCli(
+      [
+        'research',
+        'backtest',
+        'result',
+        RUN_ID,
+        '--field=trades',
+        '--offset=10',
+        '--limit=5',
+        '--symbol=AAPL.US',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    const url = new URL(String(ctx.fetch.mock.calls[0]?.[0]))
+    expect(url.pathname).toBe(`/tqxApi/qube/api/strategy-backtests/${RUN_ID}/result`)
+    expect(Object.fromEntries(url.searchParams)).toEqual({
+      field: 'trades',
+      offset: '10',
+      limit: '5',
+      symbol: 'AAPL.US',
+    })
+    expect(JSON.parse(ctx.stdout.value)).toEqual({ success: true, run_id: RUN_ID, result: page })
+  })
+
+  it.each(['factor', 'strategy'] as const)(
+    'preserves %s cursor and market counts in list output',
+    async (kind) => {
+      const ctx = setup()
+      const key = kind === 'factor' ? 'factors' : 'strategies'
+      const item = kind === 'factor' ? factor() : strategy()
+      ctx.fetch.mockResolvedValueOnce(
+        gatewayResponse({
+          [key]: [item],
+          has_more: true,
+          next_cursor: 'opaque_next_cursor',
+          counts: { all: 12, hk: 5, us: 7 },
+        }),
+      )
+      await runCli(
+        [
+          'research',
+          kind,
+          'list',
+          '--market=us',
+          '--limit=24',
+          '--cursor=opaque_previous_cursor',
+          '--keyword=quality & value',
+          '--json',
+        ],
+        ctx.dependencies,
+      )
+      const url = new URL(String(ctx.fetch.mock.calls[0]?.[0]))
+      expect(url.pathname).toBe(`/tqxApi/qube/api/${key}`)
+      expect(Object.fromEntries(url.searchParams)).toEqual({
+        limit: '24',
+        market: 'us',
+        cursor: 'opaque_previous_cursor',
+        q: 'quality & value',
+      })
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+        success: true,
+        count: 1,
+        [key]: [item],
+        has_more: true,
+        next_cursor: 'opaque_next_cursor',
+        counts: { all: 12, hk: 5, us: 7 },
+      })
+    },
+  )
+
+  it('uses summary pagination for the account-wide backtest list', async () => {
+    const ctx = setup()
+    const run = {
+      id: RUN_ID,
+      run_id: RUN_ID,
+      strategy_id: STRATEGY_ID,
+      title: 'US moving average',
+      market: 'us',
+      status: 'succeeded',
+      purpose: 'backtest',
+      source_revision: 2,
+      config_revision: 3,
+      created_at: '2026-07-03T00:00:00+00:00',
+    }
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse({ runs: [run], has_more: false, next_cursor: null }),
+    )
+    await runCli(['research', 'backtest', 'list', '--limit=10', '--json'], ctx.dependencies)
+    const url = new URL(String(ctx.fetch.mock.calls[0]?.[0]))
+    expect(url.pathname).toBe('/tqxApi/qube/api/strategy-backtests')
+    expect(Object.fromEntries(url.searchParams)).toEqual({ limit: '10', view: 'summary' })
+    expect(JSON.parse(ctx.stdout.value)).toEqual({
+      success: true,
+      count: 1,
+      backtests: [run],
+      has_more: false,
+      next_cursor: null,
+    })
+  })
+
+  it.each(['factor', 'strategy'] as const)(
+    'deletes each positional %s ObjectId only once',
+    async (kind) => {
+      const ctx = setup()
+      const id = kind === 'factor' ? FACTOR_ID : STRATEGY_ID
+      ctx.fetch.mockImplementation(async () =>
+        gatewayResponse(
+          kind === 'factor'
+            ? factor({ deleted_at: '2026-07-04T00:00:00+00:00' })
+            : { id, deleted: true },
+        ),
+      )
+      await runCli(
+        ['research', kind, 'delete', id, SECOND_ID, id, '--yes', '--json'],
+        ctx.dependencies,
+      )
+      expect(ctx.fetch.mock.calls.map(([url]) => String(url))).toEqual([
+        `${API_URL}/${kind === 'factor' ? 'factors' : 'strategies'}/${id}`,
+        `${API_URL}/${kind === 'factor' ? 'factors' : 'strategies'}/${SECOND_ID}`,
+      ])
+      expect(ctx.fetch.mock.calls.every(([, init]) => init?.method === 'DELETE')).toBe(true)
+      expect(JSON.parse(ctx.stdout.value)).toEqual({ success: true, deleted: [id, SECOND_ID] })
+    },
+  )
+
+  it('deletes a single positional ID exactly once', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse(factor({ deleted_at: '2026-07-04T00:00:00+00:00' })),
+    )
+    await runCli(['research', 'factor', 'delete', FACTOR_ID, '--yes', '--json'], ctx.dependencies)
+    expect(ctx.fetch).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(ctx.stdout.value).deleted).toEqual([FACTOR_ID])
+  })
+
+  it.each(['factor', 'strategy'] as const)(
+    'requires --yes before deleting %s resources',
+    async (kind) => {
+      const ctx = setup()
+      await runCli(
+        ['research', kind, 'delete', kind === 'factor' ? FACTOR_ID : STRATEGY_ID, '--json'],
+        ctx.dependencies,
+      )
+      expect(ctx.fetch).not.toHaveBeenCalled()
+      expect(JSON.parse(ctx.stderr.value).error.message).toContain('--yes')
+      expect(process.exitCode).toBe(2)
+    },
+  )
+
+  it.each(['factor', 'strategy'] as const)(
+    'reads %s named versions using the versions response container',
+    async (kind) => {
+      const ctx = setup()
+      const parent = kind === 'factor' ? FACTOR_ID : STRATEGY_ID
+      const version = {
+        id: VERSION_ID,
+        [`${kind}_id`]: parent,
+        version: 1,
+        name: 'Baseline',
+        description: '',
+        run_id: RUN_ID,
+        created_at: '2026-07-04T00:00:00+00:00',
+      }
+      ctx.fetch.mockResolvedValueOnce(gatewayResponse({ versions: [version] }))
+      await runCli(['research', kind, 'versions', parent, '--json'], ctx.dependencies)
+      expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(
+        `${API_URL}/${kind === 'factor' ? 'factors' : 'strategies'}/${parent}/versions`,
+      )
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({ success: true, versions: [version] })
+    },
+  )
+
+  it.each(['factor', 'strategy'] as const)(
+    'gets %s source through its dedicated route',
+    async (kind) => {
+      const ctx = setup()
+      const parent = kind === 'factor' ? FACTOR_ID : STRATEGY_ID
+      const response =
+        kind === 'factor'
+          ? factor({ code: 'close' })
+          : strategy({ code: US_DAILY_MOVING_AVERAGE_FIXTURE })
+      ctx.fetch.mockResolvedValueOnce(gatewayResponse(response))
+      await runCli(['research', kind, 'source', parent, '--json'], ctx.dependencies)
+      expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(
+        `${API_URL}/${kind === 'factor' ? 'factors' : 'strategies'}/${parent}/source`,
+      )
+      expect(JSON.parse(ctx.stdout.value)[kind].code).toBe(
+        (response as Record<string, unknown>).code,
+      )
+    },
+  )
+
+  it.each(['factor', 'strategy'] as const)(
+    'preserves revision conflicts for %s source updates with exit 1',
+    async (kind) => {
+      const ctx = setup()
+      const conflict = {
+        code: 'SOURCE_CONFLICT',
+        message: 'Source revision has changed',
+        current_source_revision: 3,
+      }
+      ctx.fetch.mockResolvedValueOnce(
+        Response.json(
+          { detail: conflict },
+          { status: 409, headers: { 'X-Request-ID': 'revision-conflict' } },
+        ),
+      )
+      await runCli(
+        [
+          'research',
+          kind,
+          'save',
+          kind === 'factor' ? FACTOR_ID : STRATEGY_ID,
+          '--baseSourceRevision=2',
+          '--code=close',
+          '--json',
+        ],
+        ctx.dependencies,
+      )
+      expect(ctx.stdout.value).toBe('')
+      expect(JSON.parse(ctx.stderr.value).error).toMatchObject({
+        message: conflict.message,
+        status: 409,
+        code: 'SOURCE_CONFLICT',
+        request_id: 'revision-conflict',
+        data: conflict,
+      })
+      expect(process.exitCode).toBe(1)
+    },
+  )
+
+  it('rejects malformed ObjectIds and invalid numeric revisions before fetching', async () => {
+    const ctx = setup()
+    await runCli(['research', 'factor', 'info', '42', '--json'], ctx.dependencies)
+    expect(JSON.parse(ctx.stderr.value).error.message).toContain('24-character lowercase ObjectId')
+    expect(process.exitCode).toBe(2)
+    expect(ctx.fetch).not.toHaveBeenCalled()
+  })
+
+  it('rejects a zero revision before fetching', async () => {
+    const ctx = setup()
     await runCli(
       [
         'research',
         'strategy',
         'save',
-        '8',
-        `--code=${US_STRATEGY.replace("market='nb'", "market='sg'")}`,
+        STRATEGY_ID,
+        '--baseSourceRevision=0',
+        '--code=close',
         '--json',
       ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stderr,
-      },
+      ctx.dependencies,
     )
-
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('market')
-    expect(fetch).toHaveBeenCalledTimes(1)
-    expect(String(fetch.mock.calls[0]?.[0])).toContain('/agent_quant/api/strategies/8')
+    expect(JSON.parse(ctx.stderr.value).error.message).toContain('positive integer')
+    expect(process.exitCode).toBe(2)
+    expect(ctx.fetch).not.toHaveBeenCalled()
   })
 
-  it('loads the current strategy market before validating update', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stderr = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(gatewayResponse({ id: 8, market: 'us' }))
+  it('rejects unsupported factor analysis enums before submitting', async () => {
+    const ctx = setup()
+    await runCli(
+      [
+        'research',
+        'factor',
+        'run',
+        FACTOR_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--startDate=20260101',
+        '--endDate=20260630',
+        '--adjustmentCycle=2',
+        '--noWait',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(JSON.parse(ctx.stderr.value).error.issues.length).toBeGreaterThan(0)
+    expect(ctx.fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
+  })
 
+  it('rejects invalid calendar dates before submitting', async () => {
+    const ctx = setup()
     await runCli(
       [
         'research',
         'strategy',
-        'update',
-        '8',
-        `--code=${US_STRATEGY.replace("market='nb'", "market='sg'")}`,
+        'run',
+        STRATEGY_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--startDate=20260230',
+        '--noWait',
         '--json',
       ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stderr,
-      },
+      ctx.dependencies,
     )
-
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('market')
-    expect(fetch).toHaveBeenCalledTimes(1)
-    expect(String(fetch.mock.calls[0]?.[0])).toContain('/agent_quant/api/strategies/8')
+    expect(JSON.parse(ctx.stderr.value).error.message).toContain('Invalid date')
+    expect(ctx.fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
   })
 
-  it('lists strategies across all markets by default', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(
-      gatewayResponse({
-        items: [
-          { id: 1, name: 'stock strategy', market: 'stock', code: 'stock source' },
-          { id: 2, name: 'future strategy', market: 'future', code: 'future source' },
-          { id: 3, name: 'hk strategy', market: 'hk', code: 'hk source' },
-          { id: 4, name: 'us strategy', market: 'us', code: 'us source' },
-        ],
-        has_more: true,
-        next_offset: 100,
-      }),
+  it('rejects empty configuration updates before fetching', async () => {
+    const ctx = setup()
+    await runCli(
+      ['research', 'factor', 'update', FACTOR_ID, '--baseConfigRevision=3', '--json'],
+      ctx.dependencies,
     )
-
-    await runCli(['research', 'strategy', 'list', '--keyword=demo', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stdout,
-    })
-
-    const requests = fetch.mock.calls.map(([input]) => {
-      const url = new URL(String(input))
-      return {
-        path: url.pathname,
-        query: Object.fromEntries(url.searchParams),
-      }
-    })
-    expect(requests).toEqual([
-      {
-        path: '/pandaApi/agent_quant/api/strategies/page',
-        query: { offset: '0', limit: '100', keyword: 'demo' },
-      },
-    ])
-    const output = JSON.parse(stdout.value)
-    expect(output).toMatchObject({ success: true, count: 4, has_more: true, next_offset: 100 })
-    expect(output.strategies.map((strategy: { id: number }) => strategy.id)).toEqual([1, 2, 3, 4])
-    expect(
-      output.strategies.every((strategy: { code?: string }) => strategy.code === undefined),
-    ).toBe(true)
+    expect(JSON.parse(ctx.stderr.value).error.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ message: 'Expected at least one field to update' }),
+      ]),
+    )
+    expect(ctx.fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
   })
 
-  it('inherits factor analysis parameters when saving code only', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(
-        gatewayResponse({
-          id: 42,
-          market: 'stock',
-          latest_version: {
-            id: 7,
-            factor_id: 42,
-            version_number: 3,
-            code: 'old',
-            code_type: 'python',
-            market: 'stock',
-            params: {
-              period_start: '2026-01-01',
-              period_end: '2026-03-31',
-              adjustment_cycle: 10,
-              group_number: 10,
-              factor_direction: 0,
-              stock_pool: 'large-cap',
-              market_type: 'main',
-            },
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        gatewayResponse({
-          id: 42,
-          version: {
-            id: 8,
-            factor_id: 42,
-            version_number: 4,
-            code: 'factors["close"]',
-            code_type: 'python',
-            market: 'stock',
-          },
-          version_created: true,
-        }),
-      )
-
-    await runCli(['research', 'factor', 'save', '42', '--code=factors["close"]', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stdout,
-    })
-
-    expect(fetch).toHaveBeenCalledTimes(2)
-    expect(JSON.parse(String(fetch.mock.calls[1]?.[1]?.body))).toMatchObject({
-      market: 'stock',
-      analysis_params: {
-        period_start: '2026-01-01',
-        period_end: '2026-03-31',
-        adjustment_cycle: 10,
-        group_number: 10,
-        factor_direction: 0,
-        stock_pool: 'large-cap',
-        market_type: 'main',
-      },
-    })
+  it('rejects ambiguous source selectors and unreadable files before fetching', async () => {
+    const ctx = setup()
+    await runCli(
+      ['research', 'factor', 'create', '--market=hk', '--formula=close', '--code=close', '--json'],
+      ctx.dependencies,
+    )
+    expect(JSON.parse(ctx.stderr.value).error.message).toContain('only one')
+    expect(ctx.fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
   })
 
-  it('shows version conflict retry guidance when factor save returns 409', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stderr = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(
-        gatewayResponse({
-          id: 221,
-          market: 'hk',
-          latest_version: {
-            id: 244,
-            factor_id: 221,
-            version_number: 1,
-            code: 'close',
-            code_type: 'formula',
-            market: 'hk',
-          },
-        }),
-      )
-      .mockResolvedValueOnce(
-        Response.json(
-          {
-            detail: {
-              code: 'version_conflict',
-              latest_version_id: 244,
-              base_version_id: null,
-            },
-          },
-          { status: 409 },
-        ),
-      )
+  it('reports missing source files as usage errors', async () => {
+    const ctx = setup()
+    const file = join(temporaryDirectory(), 'missing.py')
+    await runCli(
+      ['research', 'strategy', 'create', '--market=us', `--file=${file}`, '--json'],
+      ctx.dependencies,
+    )
+    expect(JSON.parse(ctx.stderr.value).error.message).toContain('unable to read source file')
+    expect(ctx.fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
+  })
 
-    await runCli(['--plain', 'research', 'factor', 'save', '221', '--formula=close*1'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stderr,
-    })
+  it('reports missing authentication before issuing any research request', async () => {
+    const ctx = setup()
+    ctx.credentialStore.value = null
+    await runCli(['research', 'strategy', 'list', '--json'], ctx.dependencies)
+    expect(JSON.parse(ctx.stderr.value).error.message).toContain('Not logged in')
+    expect(ctx.fetch).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
+  })
 
-    expect(stderr.value).toContain('latest_version_id: 244')
-    expect(stderr.value).toContain('--baseVersionId=244')
-    expect(stderr.value).toContain('--confirmRebase')
+  it('surfaces malformed responses as protocol errors with exit 1', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(Response.json({ strategies: [], has_more: false }))
+    await runCli(['research', 'strategy', 'list', '--json'], ctx.dependencies)
+    expect(JSON.parse(ctx.stderr.value).error.code).toBe('protocol_error')
     expect(process.exitCode).toBe(1)
+    expect(ctx.stdout.value).toBe('')
   })
 
-  it('keeps explicit strategy list market queries focused and preserves code with includeContent', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
-      gatewayResponse({
-        items: [{ id: 7, name: 'hk strategy', market: 'hk', code: 'hk source' }],
-        has_more: false,
-        next_offset: null,
-      }),
-    )
-
+  it.each(['--plain', 'human'] as const)('renders readable output for %s mode', async (mode) => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(strategy()))
     await runCli(
-      [
-        'research',
-        'strategy',
-        'list',
-        '--market=HK',
-        '--offset=5',
-        '--limit=10',
-        '--keyword=demo',
-        '--includeContent',
-        '--json',
-      ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stdout,
-      },
+      ['research', 'strategy', 'info', STRATEGY_ID, ...(mode === 'human' ? [] : [mode])],
+      ctx.dependencies,
     )
-
-    expect(fetch).toHaveBeenCalledTimes(1)
-    const url = new URL(String(fetch.mock.calls[0]?.[0]))
-    expect(url.pathname).toBe('/pandaApi/agent_quant/api/strategies/page')
-    expect(Object.fromEntries(url.searchParams)).toEqual({
-      offset: '5',
-      limit: '10',
-      market: 'hk',
-      keyword: 'demo',
-    })
-    expect(JSON.parse(stdout.value).strategies).toEqual([
-      { id: 7, name: 'hk strategy', market: 'hk', code: 'hk source' },
-    ])
+    expect(ctx.stdout.value).toContain('success')
+    expect(ctx.stdout.value).toContain('US moving average')
+    expect(ctx.stdout.value).toContain(STRATEGY_ID)
+    expect(ctx.stderr.value).toBe('')
+    if (mode === '--plain') expect(ctx.stdout.value).not.toContain('\u001b[')
   })
+})
 
-  it('normalizes mixed cancelled strategy results for display', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValueOnce(gatewayResponse(cancelledBacktest()))
-
-    await runCli(['research', 'strategy', 'result', '2977', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stdout,
-    })
-
-    const output = JSON.parse(stdout.value)
-    expect(output).toMatchObject({
-      success: false,
-      status: 'CANCELLED',
-      run_id: 2977,
-      result: {
-        status: 'cancelled',
-        cancelled: true,
-        partial_result: true,
-        error: null,
-      },
-    })
-    expect(output.result.trades).toHaveLength(7)
-    expect(output.result.equity).toHaveLength(3)
-  })
-
-  it('normalizes cancelled backtests in list output', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(
-      gatewayResponse({
-        items: [
-          cancelledBacktest(),
-          {
-            id: 3001,
-            status: 'done',
-            cancelled: false,
-            progress: { terminal: 'done' },
-            equity: [{ value: 1 }],
-            trades: [],
-            log: [],
-            metric_views: [],
-          },
+describe('Qube Next version and tuning CLI', () => {
+  it.each(['factor', 'strategy'] as const)(
+    'creates and restores a %s named version',
+    async (kind) => {
+      const ctx = setup()
+      const parent = kind === 'factor' ? FACTOR_ID : STRATEGY_ID
+      const version = {
+        id: VERSION_ID,
+        [`${kind}_id`]: parent,
+        version: 1,
+        name: 'Baseline',
+        run_id: RUN_ID,
+      }
+      ctx.fetch.mockResolvedValueOnce(Response.json(version))
+      await runCli(
+        [
+          'research',
+          kind,
+          'version-create',
+          parent,
+          RUN_ID,
+          '--name=Baseline',
+          '--description=note',
+          '--json',
         ],
-        has_more: true,
-        next_offset: 2,
-      }),
-    )
-
-    await runCli(['research', 'backtest', 'list', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stdout,
-    })
-
-    const output = JSON.parse(stdout.value)
-    expect(output).toMatchObject({ success: true, count: 2, has_more: true, next_offset: 2 })
-    expect(output.backtests[0]).toMatchObject({
-      id: 2977,
-      status: 'cancelled',
-      cancelled: true,
-      partial_result: true,
-      error: null,
-      equity_count: 3,
-      trade_count: 7,
-    })
-    expect(output.backtests[0].equity).toBeUndefined()
-    expect(output.backtests[0].trades).toBeUndefined()
-    expect(output.backtests[1]).toMatchObject({
-      id: 3001,
-      status: 'done',
-      cancelled: false,
-      equity_count: 1,
-      trade_count: 0,
-    })
-    expect(output.backtests[1].partial_result).toBeUndefined()
-  })
-
-  it('keeps downloaded backtest JSON raw while stdout is normalized', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const rawResult = cancelledBacktest()
-    const downloadDirectory = mkdtempSync(join(tmpdir(), 'tqx-backtest-download-'))
-    const downloadFile = join(downloadDirectory, 'backtest-2977.json')
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(gatewayResponse(rawResult))
-
-    await runCli(
-      ['research', 'backtest', 'result', '2977', `--download=${downloadDirectory}`, '--json'],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stdout,
-      },
-    )
-
-    const output = JSON.parse(stdout.value)
-    expect(output).toMatchObject({
-      status: 'CANCELLED',
-      downloaded_file: downloadFile,
-      result: { status: 'cancelled', partial_result: true },
-    })
-    expect(JSON.parse(readFileSync(downloadFile, 'utf8'))).toEqual(rawResult)
-  })
-
-  it('surfaces strategy stop reasons at the top level', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValueOnce(
-      gatewayResponse({
-        cancelled: false,
-        run_id: 2977,
-        status: 'done',
-        reason: 'not_running',
-      }),
-    )
-
-    await runCli(['research', 'strategy', 'stop', '2977', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stdout,
-    })
-
-    expect(JSON.parse(stdout.value)).toMatchObject({
-      success: false,
-      run_id: 2977,
-      status: 'SUCCESS',
-      cancel_reason: 'not_running',
-      result: {
-        cancelled: false,
-        status: 'done',
-        reason: 'not_running',
-      },
-    })
-  })
-
-  it('creates the canonical US template from the shared fixture file', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stdout = new BufferOutput()
-    const fetch = vi
-      .fn<typeof globalThis.fetch>()
-      .mockResolvedValue(
-        gatewayResponse({ id: 8, name: 'TQX Strategy', market: 'us', code: 'saved' }),
+        ctx.dependencies,
       )
+      expect(JSON.parse(ctx.stdout.value)).toEqual({ success: true, version })
+      const body = JSON.parse(String(ctx.fetch.mock.calls[0]?.[1]?.body))
+      expect(body).toMatchObject({
+        run_id: RUN_ID,
+        name: 'Baseline',
+        description: 'note',
+        request_id: expect.any(String),
+      })
+      expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(
+        `${API_URL}/${kind === 'factor' ? 'factors' : 'strategies'}/${parent}/versions`,
+      )
+      ctx.stdout.value = ''
+      ctx.fetch.mockResolvedValueOnce(
+        Response.json({ [kind]: kind === 'factor' ? factor() : strategy() }),
+      )
+      await runCli(
+        [
+          'research',
+          kind,
+          'version-restore',
+          parent,
+          VERSION_ID,
+          '--expectedSourceRevision=2',
+          '--expectedConfigRevision=3',
+          '--json',
+        ],
+        ctx.dependencies,
+      )
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({ success: true, [kind]: { id: parent } })
+      expect(JSON.parse(String(ctx.fetch.mock.calls[1]?.[1]?.body))).toEqual({
+        request_id: expect.any(String),
+        expected_source_revision: 2,
+        expected_config_revision: 3,
+      })
+    },
+  )
 
+  it.each(['factor', 'strategy'] as const)(
+    'reads a %s version and restores an execution snapshot',
+    async (kind) => {
+      const ctx = setup()
+      const parent = kind === 'factor' ? FACTOR_ID : STRATEGY_ID
+      const version = {
+        id: VERSION_ID,
+        [`${kind}_id`]: parent,
+        version: 1,
+        name: 'Baseline',
+        run_id: RUN_ID,
+      }
+      ctx.fetch.mockResolvedValueOnce(Response.json(version))
+      await runCli(['research', kind, 'version', VERSION_ID, '--json'], ctx.dependencies)
+      expect(JSON.parse(ctx.stdout.value)).toEqual({ success: true, version })
+      expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(`${API_URL}/${kind}-versions/${VERSION_ID}`)
+      ctx.stdout.value = ''
+      ctx.fetch.mockResolvedValueOnce(
+        Response.json({ [kind]: kind === 'factor' ? factor() : strategy() }),
+      )
+      const command = kind === 'factor' ? 'analysis-restore' : 'backtest-restore'
+      await runCli(
+        [
+          'research',
+          kind,
+          command,
+          parent,
+          RUN_ID,
+          '--expectedSourceRevision=2',
+          '--expectedConfigRevision=3',
+          '--json',
+        ],
+        ctx.dependencies,
+      )
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({ success: true, [kind]: { id: parent } })
+    },
+  )
+
+  it.each(['factor', 'strategy'] as const)(
+    'manages %s tuning tasks and applies a selected candidate',
+    async (kind) => {
+      const ctx = setup()
+      const parent = kind === 'factor' ? FACTOR_ID : STRATEGY_ID
+      const task = { id: SECOND_ID, [`${kind}_id`]: parent, status: 'succeeded' }
+      ctx.fetch.mockResolvedValueOnce(Response.json({ tunings: [task] }))
+      await runCli(['research', kind, 'tuning', 'list', parent, '--json'], ctx.dependencies)
+      expect(JSON.parse(ctx.stdout.value)).toEqual({ success: true, tunings: [task] })
+      for (const command of ['get', 'cancel', 'rerun']) {
+        ctx.stdout.value = ''
+        ctx.fetch.mockResolvedValueOnce(Response.json(task))
+        await runCli(['research', kind, 'tuning', command, SECOND_ID, '--json'], ctx.dependencies)
+        expect(JSON.parse(ctx.stdout.value)).toEqual({ success: true, tuning: task })
+      }
+      expect(JSON.parse(String(ctx.fetch.mock.calls[3]?.[1]?.body))).toEqual({
+        request_id: expect.any(String),
+      })
+      ctx.stdout.value = ''
+      ctx.fetch.mockResolvedValueOnce(
+        Response.json({ tuning: task, [kind]: kind === 'factor' ? factor() : strategy() }),
+      )
+      await runCli(
+        [
+          'research',
+          kind,
+          'tuning',
+          'apply',
+          SECOND_ID,
+          ...(kind === 'factor' ? ['--trialId=trial-1'] : [RUN_ID]),
+          '--expectedSourceRevision=2',
+          '--expectedConfigRevision=3',
+          '--json',
+        ],
+        ctx.dependencies,
+      )
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+        success: true,
+        tuning: task,
+        [kind]: { id: parent },
+      })
+      expect(JSON.parse(String(ctx.fetch.mock.calls[4]?.[1]?.body))).toEqual({
+        request_id: expect.any(String),
+        [kind === 'factor' ? 'trial_id' : 'candidate_id']: kind === 'factor' ? 'trial-1' : RUN_ID,
+        expected_source_revision: 2,
+        expected_config_revision: 3,
+      })
+    },
+  )
+
+  it.each(['factor', 'strategy'] as const)(
+    'submits a %s tuning JSON file through SDK validation',
+    async (kind) => {
+      const ctx = setup()
+      const directory = mkdtempSync(join(tmpdir(), 'tqx-tuning-'))
+      temporaryDirectories.push(directory)
+      const file = join(directory, 'tuning.json')
+      const body = {
+        requestId: 'tuning-create',
+        expectedSourceRevision: 2,
+        expectedConfigRevision: 3,
+        ...(kind === 'factor'
+          ? {
+              candidates: [{ baseline: true }],
+              researchPeriod: { periodStart: '2026-01-01', periodEnd: '2026-06-30' },
+              warmupTradingDays: 20,
+            }
+          : {
+              candidates: [{ strategyParameters: { window: 10 } }],
+              tradingDates: ['2026-01-02', '2026-01-05'],
+            }),
+      }
+      writeFileSync(file, JSON.stringify(body))
+      const parent = kind === 'factor' ? FACTOR_ID : STRATEGY_ID
+      ctx.fetch.mockResolvedValueOnce(
+        Response.json({ id: SECOND_ID, [`${kind}_id`]: parent, status: 'queued' }),
+      )
+      await runCli(
+        ['research', kind, 'tuning', 'create', parent, `--file=${file}`, '--json'],
+        ctx.dependencies,
+      )
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+        success: true,
+        tuning: { id: SECOND_ID },
+      })
+      expect(JSON.parse(String(ctx.fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+        request_id: 'tuning-create',
+        expected_source_revision: 2,
+        expected_config_revision: 3,
+      })
+    },
+  )
+
+  it('rejects malformed tuning JSON before issuing a request', async () => {
+    const ctx = setup()
+    const directory = mkdtempSync(join(tmpdir(), 'tqx-tuning-'))
+    temporaryDirectories.push(directory)
+    const file = join(directory, 'invalid.json')
+    writeFileSync(file, '[]')
     await runCli(
-      [
-        'research',
-        'strategy',
-        'create',
-        '--market=US',
-        `--file=${US_DAILY_MOVING_AVERAGE_FIXTURE_PATH}`,
-        '--strictMarketApi',
-        '--json',
-      ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stdout,
-      },
+      ['research', 'factor', 'tuning', 'create', FACTOR_ID, `--file=${file}`, '--json'],
+      ctx.dependencies,
     )
-
-    expect(JSON.parse(stdout.value)).toMatchObject({
-      success: true,
-      strategy_id: 8,
-      warnings: [],
-    })
-    expect(fetch).toHaveBeenCalledTimes(1)
-    expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
-      name: 'TQX Strategy',
-      code: US_DAILY_MOVING_AVERAGE_FIXTURE.trim(),
-      market: 'us',
-      params: {
-        backtest: {
-          init_balance: 10000000,
-          commission_rate: 1,
-          slippage: 0,
-          frequency: '1d',
-        },
-      },
-    })
-  })
-
-  it('rejects US templates that omit init_market_data during create', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stderr = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>()
-    const templateDirectory = mkdtempSync(join(tmpdir(), 'tqx-us-template-'))
-    const brokenTemplatePath = join(templateDirectory, 'broken_us_ma.py')
-    writeFileSync(
-      brokenTemplatePath,
-      `
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
-
-def initialize(context):
-    context.account = "15032863"
-    context.stock_universe = ["TSLA.NB"]
-    context.fast_window = 4
-    context.slow_window = 12
-    context.max_position_ratio = 0.9
-    context.today_trades = []
-    context.close_history = {symbol: [] for symbol in context.stock_universe}
-
-def handle_data(context, data):
-    pass
-`,
-    )
-
-    await runCli(
-      [
-        'research',
-        'strategy',
-        'create',
-        '--market=us',
-        `--file=${brokenTemplatePath}`,
-        '--strictMarketApi',
-        '--json',
-      ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stderr,
-      },
-    )
-
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('init_market_data')
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('initialize')
-    expect(fetch).not.toHaveBeenCalled()
     expect(process.exitCode).toBe(2)
+    expect(ctx.fetch).not.toHaveBeenCalled()
+    expect(JSON.parse(ctx.stderr.value).error.message).toContain('expected a JSON object')
   })
 
-  it('rejects invalid strategy source before requesting Qube', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stderr = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>()
-
-    await runCli(
-      [
-        'research',
-        'strategy',
-        'create',
-        '--market=stock',
-        `--code=${STOCK_STRATEGY.replace('    pass', '    data.get("close")')}`,
-        '--json',
-      ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stderr,
-      },
-    )
-
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('data.get')
-    expect(fetch).not.toHaveBeenCalled()
-    expect(process.exitCode).toBe(2)
-  })
-
-  it('rejects BarMap membership strategy source before requesting Qube', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stderr = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>()
-    const strategyWithMembership = US_DAILY_MOVING_AVERAGE_FIXTURE.replace(
-      /        bar = data\[symbol\]\r?\n/,
-      `        if symbol not in data:
-            continue
-
-        bar = data[symbol]
-`,
-    )
-
-    await runCli(
-      [
-        'research',
-        'strategy',
-        'create',
-        '--market=us',
-        `--code=${strategyWithMembership}`,
-        '--json',
-      ],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stderr,
-      },
-    )
-
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('BarMap')
-    expect(JSON.parse(stderr.value).error.issues[0]?.message).toContain('data[symbol]')
-    expect(fetch).not.toHaveBeenCalled()
-    expect(process.exitCode).toBe(2)
-  })
-
-  it('returns an empty compatibility warning shell', () => {
-    expect(strategyWarnings(STOCK_STRATEGY, 'us', true)).toEqual([])
-  })
-
-  it('rejects invalid factor Python before requesting Qube', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stderr = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>()
-
-    await runCli(['research', 'factor', 'create', '--market=US', '--code=result', '--json'], {
-      environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-      credentialStore: store,
-      fetch,
-      stderr,
-    })
-
-    expect(JSON.parse(stderr.value).error.message).toContain('factors["field"]')
-    expect(fetch).not.toHaveBeenCalled()
-    expect(process.exitCode).toBe(2)
-  })
-
-  it('reports a missing source file as a CLI usage error', async () => {
-    const store = new MemoryStore()
-    store.value = 'stored-key'
-    const stderr = new BufferOutput()
-    const fetch = vi.fn<typeof globalThis.fetch>()
-
-    await runCli(
-      ['research', 'factor', 'create', '--market=US', '--file=missing-factor.py', '--json'],
-      {
-        environment: { TQX_BASE_URL: 'https://research-api.example.test/pandaApi' },
-        credentialStore: store,
-        fetch,
-        stderr,
-      },
-    )
-
-    expect(JSON.parse(stderr.value).error.message).toContain(
-      'unable to read source file "missing-factor.py"',
-    )
-    expect(fetch).not.toHaveBeenCalled()
-    expect(process.exitCode).toBe(2)
-  })
+  it.each(['factor', 'strategy'] as const)(
+    'fetches %s source only when includeContent is requested',
+    async (kind) => {
+      const ctx = setup()
+      const asset = kind === 'factor' ? factor() : strategy()
+      const collection = kind === 'factor' ? 'factors' : 'strategies'
+      ctx.fetch
+        .mockResolvedValueOnce(
+          Response.json({ [collection]: [asset], has_more: false, next_cursor: null }),
+        )
+        .mockResolvedValueOnce(Response.json({ ...asset, code: 'source content' }))
+      await runCli(['research', kind, 'list', '--includeContent', '--json'], ctx.dependencies)
+      expect(ctx.fetch).toHaveBeenCalledTimes(2)
+      expect(String(ctx.fetch.mock.calls[1]?.[0])).toBe(
+        `${API_URL}/${collection}/${asset.id}/source`,
+      )
+      expect(JSON.parse(ctx.stdout.value)[collection][0].code).toBe('source content')
+    },
+  )
 })

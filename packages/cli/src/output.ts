@@ -287,6 +287,13 @@ function formatErrorMessage(details: ErrorOutput): string {
 
 function formatVersionConflictHint(details: ErrorOutput): string | null {
   if (details.status !== 409) return null
+  if (
+    ['SOURCE_CONFLICT', 'CONFIG_CONFLICT', 'TUNING_APPLY_CONFLICT', 'RESTORE_CONFLICT'].includes(
+      details.code ?? '',
+    )
+  ) {
+    return '\n  Read the resource with info, reconcile changes, and retry with its current source/config revisions.'
+  }
   if (details.code !== 'version_conflict' && !containsVersionConflictMarker(details.data))
     return null
   const latestVersionId = findLatestVersionId(details.data)
@@ -296,8 +303,7 @@ function formatVersionConflictHint(details: ErrorOutput): string | null {
   return [
     '',
     `  latest_version_id: ${versionId}`,
-    `  Retry with --baseVersionId=${versionId}.`,
-    '  Use --confirmRebase to save against the latest HEAD instead.',
+    '  Read the resource with info and reconcile changes before retrying with its current revisions.',
   ].join('\n')
 }
 

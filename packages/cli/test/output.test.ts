@@ -206,8 +206,7 @@ describe('Output', () => {
       },
     })
     expect(plainBuffer.value).toContain('latest_version_id: 244')
-    expect(plainBuffer.value).toContain('--baseVersionId=244')
-    expect(plainBuffer.value).toContain('--confirmRebase')
+    expect(plainBuffer.value).toContain('current revisions')
   })
 
   it('omits null API error data for compact legacy errors', () => {

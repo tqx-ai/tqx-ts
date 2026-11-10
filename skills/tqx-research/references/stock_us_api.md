@@ -7,13 +7,13 @@ This document is used to write the strategy code of `tqx research strategy creat
 
 Don't confuse the following four layers:
 
-| Layer | Purpose | Entrance |
-|---|---|---|
-| Strategy life cycle | Backtesting engine calls user code | `initialize/before_trading/handle_data/after_trading` |
-| Current market price | Read current data for each bar | `data[symbol]` |
-| US stock market history | Low-frequency reading of daily or minute lines | `panda_backtest.api.stock_us_api` |
-| Placing orders and orders | Simulated trading | `panda_backtest.api.api` |
-| QUBE CLI | Create, run, query and stop | `tqx research strategy`, `tqx research backtest` |
+| Layer                     | Purpose                                        | Entrance                                              |
+| ------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
+| Strategy life cycle       | Backtesting engine calls user code             | `initialize/before_trading/handle_data/after_trading` |
+| Current market price      | Read current data for each bar                 | `data[symbol]`                                        |
+| US stock market history   | Low-frequency reading of daily or minute lines | `panda_backtest.api.stock_us_api`                     |
+| Placing orders and orders | Simulated trading                              | `panda_backtest.api.api`                              |
+| QUBE CLI                  | Create, run, query and stop                    | `tqx research strategy`, `tqx research backtest`      |
 
 Do not call internal `run_stock_backtest()` in the strategy code; QUBE backtest running is handed over to `tqx research`.
 
@@ -27,7 +27,7 @@ from panda_backtest.api.stock_us_api import *
 - CLI markets must be `--market us`.
 - The current US stock data codes use `.NB`, such as `AAPL.NB`, `TSLA.NB`, `NVDA.NB`.
 - Do not import A-share `panda_backtest.api.stock_api` or Hong Kong stock `stock_hk_api`.
-- It is recommended to use `--strictMarketApi` when creating or updating, so that incorrect or missing market imports will fail directly.
+- It is recommended to use server-side validation when creating or updating, so that incorrect or missing market imports will fail directly.
 
 ## 3. `stock_us_api` officially public function
 
@@ -46,13 +46,13 @@ def stock_api_quotation(
 ) -> pandas.DataFrame
 ```
 
-| Parameters | Rules |
-|---|---|
-| `symbol_list` | Must be a non-empty `list` or `tuple`; use `.NB` code |
-| `start_date` | The daily line uses date; the minute line can have time, and the boundary includes |
-| `end_date` | Same as above, must be no earlier than the start time |
-| `fields` | Sequence of field names; do not pass a single string |
-| `period` | Can only be lowercase `"1d"` or `"1m"` |
+| Parameters    | Rules                                                                              |
+| ------------- | ---------------------------------------------------------------------------------- |
+| `symbol_list` | Must be a non-empty `list` or `tuple`; use `.NB` code                              |
+| `start_date`  | The daily line uses date; the minute line can have time, and the boundary includes |
+| `end_date`    | Same as above, must be no earlier than the start time                              |
+| `fields`      | Sequence of field names; do not pass a single string                               |
+| `period`      | Can only be lowercase `"1d"` or `"1m"`                                             |
 
 Date support:
 
@@ -88,13 +88,13 @@ minute = stock_api_quotation(
 
 Daily field conversion:
 
-| Underlying fields | API return fields |
-|---|---|
-| `amount` | `turnover` |
-| `pre_close` | `preclose`, and add compatible alias `pre_close` |
-| `uplimit` | `limit_up` |
-| `lolimit` | `limit_down` |
-| `date` | Convert to string and add string `trade_date` |
+| Underlying fields | API return fields                                |
+| ----------------- | ------------------------------------------------ |
+| `amount`          | `turnover`                                       |
+| `pre_close`       | `preclose`, and add compatible alias `pre_close` |
+| `uplimit`         | `limit_up`                                       |
+| `lolimit`         | `limit_down`                                     |
+| `date`            | Convert to string and add string `trade_date`    |
 
 Commonly used daily fields are `symbol/date/trade_date/open/high/low/close/volume/turnover/vwap/preclose/`
 `pre_close/limit_up/limit_down/trade_status`. The complete column set and dtype depend on the current data file and should not be hard-coded.
@@ -117,7 +117,7 @@ def stock_api_pre_close(
 
 - `df_stock_code` must contain the `symbol` column.
 - `date` uses date line date format.
--On success, only the two columns `symbol` and `pre_close` are returned.
+  -On success, only the two columns `symbol` and `pre_close` are returned.
 - `ValueError`/`KeyError` may be thrown when empty input, missing `symbol`, no market price or missing leading field.
 
 ```python
@@ -127,12 +127,12 @@ previous = stock_api_pre_close(symbols, "20260105")
 
 ## 4. Strategy lifecycle
 
-| Callback | Required | Calling time |
-|---|---|---|
-| `initialize(context)` | Yes | The strategy starts once, initializing the account, stock pool, parameters and cache |
-| `before_trading(context)` | No | Before each trading day, reset the daily status |
-| `handle_data(context, data)` | Yes | Each bar; only memory reading, signal calculation and order placement |
-| `after_trading(context)` | No | At the end of each trading day, output a low-frequency summary |
+| Callback                     | Required | Calling time                                                                         |
+| ---------------------------- | -------- | ------------------------------------------------------------------------------------ |
+| `initialize(context)`        | Yes      | The strategy starts once, initializing the account, stock pool, parameters and cache |
+| `before_trading(context)`    | No       | Before each trading day, reset the daily status                                      |
+| `handle_data(context, data)` | Yes      | Each bar; only memory reading, signal calculation and order placement                |
+| `after_trading(context)`     | No       | At the end of each trading day, output a low-frequency summary                       |
 
 In minute backtest, `context.hms` is used according to the US stock market trading hours. Do not call stock details, trading calendar or
 `stock_api_quotation`; Historical data should be loaded and cached at low frequency during initialization or before trading.
@@ -193,11 +193,10 @@ It is preferred to start from the canonical fixture `packages/sdk/test/fixtures/
 
 ```powershell
 tqx research strategy create --market us --file ./packages/sdk/test/fixtures/us_ma.py `
-  --name "US stock moving average strategy" `
-  --startDate 20250101 --endDate 20250220 --frequency 1d `
-  --strictMarketApi
+  --title "US stock moving average strategy" `
+  --startDate 20250101 --endDate 20250220 --frequency 1d
 
-tqx research strategy run <strategy_id> --timeout 1200
+tqx research strategy run <strategy_id> --expectedSourceRevision=<source_revision> --expectedConfigRevision=<config_revision> --timeout 1200
 ```
 
 This example is a 4/12 bar moving average state strategy, not a strict cross event detection; `today_trades` records the order intention,
@@ -209,7 +208,7 @@ It is not a transaction confirmation. The window unit changes with frequency, th
 - OHLC, `volume`, and `preclose` may have outliers; protect the denominator before division, and do not directly fill in 0 for invalid market conditions.
 - Disable `eval/exec/open/compile/input/globals/locals/vars/dir/__import__`.
 - Use `--file` for multi-line code to avoid PowerShell parameters damaging source code quotes.
-- The market, imported modules, and code suffixes must be consistent and use `--strictMarketApi`.
+- The market, imported modules, and code suffixes must be consistent and use server-side validation.
 - Current-bar reads should use `data[symbol]` directly and then validate the returned bar fields; do not use `data.get(...)` or membership checks against `data`.
 - `TIMEOUT` only stops CLI waiting; retain the returned `run_id`, use `tqx research strategy result <run_id>` query or
   `tqx research strategy stop <run_id>` Cancel the background task.

@@ -18,10 +18,10 @@ Read `cross_sectional_strategies.md` for the time-point and panel rules for cros
 
 ## 2. Verified template
 
-| market | example file | target | window | QUBE market |
-|---|---|---|---|---|
-| Hong Kong stocks | `tqx_cli/tests/hk_ma.py` | `0700.HK` | 5/20 root bar | `hk` |
-| US stocks | `packages/sdk/test/fixtures/us_ma.py` | `TSLA.NB` | 4/12 root bar | `us` |
+| market           | example file                          | target    | window        | QUBE market |
+| ---------------- | ------------------------------------- | --------- | ------------- | ----------- |
+| Hong Kong stocks | `tqx_cli/tests/hk_ma.py`              | `0700.HK` | 5/20 root bar | `hk`        |
+| US stocks        | `packages/sdk/test/fixtures/us_ma.py` | `TSLA.NB` | 4/12 root bar | `us`        |
 
 Both templates have been verified by Qube backtesting, can be managed through `tqx research`, and can be used as a timing strategy code skeleton. The US row points to the canonical fixture used by SDK/CLI validation.
 The template implements the state rule: it buys when the fast moving average is above the slow moving average and the position is short, and clears the position when the fast moving average is below the slow moving average and there are sellable positions; it is not a strict upper/lower crossing strategy.
@@ -36,31 +36,31 @@ Trading day window, parameters and trigger time must be redefined. The current C
 What is really enforced when creating the CLI is the choice between `--market` and `--code/--file`. Agent first identifies the signal type from the demand, and then supplements the
 Deterministic default parameters for the type; missing parameters must not be randomly generated, and the adopted defaults are listed in the reply:
 
-| Parameters | Rules |
-|---|---|
-| `market` | Must be explicitly specified by the user as `hk` or `us`, which determines the code suffix, API and backtest node |
-| Target | Priority is given to user targets; if not specified, Hong Kong stocks default to `0700.HK`, US stocks default to `TSLA.NB`, and clearly stated |
-| Entry/Exit | Use signal type corresponding to demand; cannot replace breakout, momentum or reversal demand with moving average |
-| Signal parameters | User parameters are used first; if missing, the fixed default corresponding to the signal type below is used, and the unit is bar |
-| `frequency` | Default `1d`; `1M` means 1 minute bar, not monthly line |
-| Backtest interval | The default task execution date is the latest complete natural quarter, and `--startDate/--endDate` is passed explicitly |
-| Position | A maximum of 90% of the funds can be used for a single bid; the default budget for multiple bids is equal, and the total target position does not exceed 90% |
-| `start_capital` | CLI default `10,000,000` |
-| `commission_rate` | CLI default `1`; this is the raw backend commission parameter value and is not interpreted as percent or basis points by the CLI |
-| `slippage` | CLI default `0`; proportional backend slippage input applied to simulated fill prices |
-| Stop Loss/Take Profit/Maximum Retracement | Not enabled if not specified; random generation of thresholds is prohibited |
-| Historical warm-up | At least reach the maximum indicator window; additionally retain the previous valid signal when a strict crossover event is required |
-| Hong Kong stock trading unit | No fixed default value; read and cache `min_order_amount` by target |
+| Parameters                                | Rules                                                                                                                                                        |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `market`                                  | Must be explicitly specified by the user as `hk` or `us`, which determines the code suffix, API and backtest node                                            |
+| Target                                    | Priority is given to user targets; if not specified, Hong Kong stocks default to `0700.HK`, US stocks default to `TSLA.NB`, and clearly stated               |
+| Entry/Exit                                | Use signal type corresponding to demand; cannot replace breakout, momentum or reversal demand with moving average                                            |
+| Signal parameters                         | User parameters are used first; if missing, the fixed default corresponding to the signal type below is used, and the unit is bar                            |
+| `frequency`                               | Default `1d`; `1M` means 1 minute bar, not monthly line                                                                                                      |
+| Backtest interval                         | The default task execution date is the latest complete natural quarter, and `--startDate/--endDate` is passed explicitly                                     |
+| Position                                  | A maximum of 90% of the funds can be used for a single bid; the default budget for multiple bids is equal, and the total target position does not exceed 90% |
+| `start_capital`                           | CLI default `10,000,000`                                                                                                                                     |
+| `commission_rate`                         | CLI default `1`; this is the raw backend commission parameter value and is not interpreted as percent or basis points by the CLI                             |
+| `slippage`                                | CLI default `0`; proportional backend slippage input applied to simulated fill prices                                                                        |
+| Stop Loss/Take Profit/Maximum Retracement | Not enabled if not specified; random generation of thresholds is prohibited                                                                                  |
+| Historical warm-up                        | At least reach the maximum indicator window; additionally retain the previous valid signal when a strict crossover event is required                         |
+| Hong Kong stock trading unit              | No fixed default value; read and cache `min_order_amount` by target                                                                                          |
 
 Agent defaults for time-series signal types:
 
-| Requirement type | Default rule when no value is specified |
-|---|---|
-| Moving average | Hong Kong stock fast/slow window `5/20`, US stock `4/12`; buy above the fast line and clear positions below |
-| Breakout | Buy when the high of 20 bar breaks out, exit when the low of 20 bar falls below |
-| Momentum | 20 bar return is greater than 0 to buy, less than or equal to 0 to exit |
-| Mean reversion | 20 bar mean and standard deviation, z-score less than `-2` buy, return to 0 to exit |
-| RSI | 14 bar RSI, buy if less than 30, exit if more than 70 |
+| Requirement type | Default rule when no value is specified                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------- |
+| Moving average   | Hong Kong stock fast/slow window `5/20`, US stock `4/12`; buy above the fast line and clear positions below |
+| Breakout         | Buy when the high of 20 bar breaks out, exit when the low of 20 bar falls below                             |
+| Momentum         | 20 bar return is greater than 0 to buy, less than or equal to 0 to exit                                     |
+| Mean reversion   | 20 bar mean and standard deviation, z-score less than `-2` buy, return to 0 to exit                         |
+| RSI              | 14 bar RSI, buy if less than 30, exit if more than 70                                                       |
 
 These are deterministic defaults for the Skill, not the TQX backend defaults. Target, signal type, window, threshold and exit rules given by the user
 Always take priority. When the target is not specified, a template target can be used, but it cannot be written as randomly selecting "any stock" every time.
@@ -71,7 +71,7 @@ Always take priority. When the target is not specified, a template target can be
 2. Confirm the rules for entry, position addition, position reduction, exit, stop loss, take profit and maximum position.
 3. Copy the import, accounts, lifecycle, bar check, position read and `order_shares` structures from the corresponding market template.
 4. Replace stock codes, windows, signals and risk controls with user needs; all variable states are saved in `context`.
-5. Write multiple lines of code into a UTF-8 `.py` file and use `--file` and `--strictMarketApi` of `tqx research strategy create` to create the QUBE strategy.
+5. Write multiple lines of code into a UTF-8 `.py` file and use `--file` of `tqx research strategy create` to create the QUBE strategy.
 6. Only run when explicitly requested by the user; check the successful final status, error log, transaction, position and profit results.
 
 When the user does not specify a backtest date, the most recent complete natural quarter before the task execution date is used by default. For example, the task execution date is on
@@ -140,24 +140,22 @@ Hong Kong stocks:
 
 ```powershell
 tqx research strategy create --market hk --file ./tests/hk_ma.py `
-  --name "Hong Kong stock moving average timing strategy" `
-  --startDate 20250101 --endDate 20250220 --frequency 1d `
-  --strictMarketApi
+  --title "Hong Kong stock moving average timing strategy" `
+  --startDate 20250101 --endDate 20250220 --frequency 1d
 ```
 
 US stocks:
 
 ```powershell
 tqx research strategy create --market us --file ./packages/sdk/test/fixtures/us_ma.py `
-  --name "US stock moving average timing strategy" `
-  --startDate 20250101 --endDate 20250220 --frequency 1d `
-  --strictMarketApi
+  --title "US stock moving average timing strategy" `
+  --startDate 20250101 --endDate 20250220 --frequency 1d
 ```
 
 Save `strategy_id` after successful creation. Only executed when explicitly requested by the user:
 
 ```powershell
-tqx research strategy run <strategy_id> --timeout 1200
+tqx research strategy run <strategy_id> --expectedSourceRevision=<source_revision> --expectedConfigRevision=<config_revision> --timeout 1200
 ```
 
 A successful remote backtest must meet the status `SUCCESS` and progress 100%, and check the log corresponding to `run_id`.

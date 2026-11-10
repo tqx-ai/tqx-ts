@@ -85,7 +85,17 @@ describe('TqxClient', () => {
       .fn<typeof globalThis.fetch>()
       .mockResolvedValueOnce(response({ status: 'ok', service: 'panda_openapi', version: '1.0.0' }))
       .mockResolvedValueOnce(response({ valid: true }))
-      .mockResolvedValueOnce(Response.json({ code: 0, data: { items: [] } }))
+      .mockResolvedValueOnce(
+        Response.json({
+          code: 0,
+          data: {
+            factors: [],
+            has_more: false,
+            next_cursor: null,
+            counts: { all: 0, hk: 0, us: 0 },
+          },
+        }),
+      )
     const client = new TqxClient({ apiKey: 'key', fetch })
 
     await client.health()
@@ -95,7 +105,7 @@ describe('TqxClient', () => {
     expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
       'https://runtime-api.example.test/openapi/v1/health',
       'https://runtime-api.example.test/openapi/v1/auth/verify',
-      'https://runtime-api.example.test/agent_quant/api/factors/page?offset=0&limit=100',
+      'https://runtime-api.example.test/qube/api/factors?limit=24',
     ])
   })
 
@@ -103,7 +113,20 @@ describe('TqxClient', () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
       .mockResolvedValueOnce(response({ valid: true }))
-      .mockResolvedValueOnce(Response.json({ code: 0, data: { id: 1, market: 'hk' } }))
+      .mockResolvedValueOnce(
+        Response.json({
+          code: 0,
+          data: {
+            id: '507f1f77bcf86cd799439011',
+            title: 'close',
+            code_type: 'formula',
+            market: 'hk',
+            source_revision: 1,
+            config_revision: 1,
+            parameters: {},
+          },
+        }),
+      )
     const client = new TqxClient({
       baseUrl: 'https://research-api.example.test/',
       tradingBaseUrl: 'https://trading-api.example.test/',
@@ -114,16 +137,17 @@ describe('TqxClient', () => {
     await client.auth.verify()
     await expect(
       client.research.createFactor({
-        name: 'close',
+        requestId: 'client-create-1',
+        title: 'close',
         code: 'close',
         codeType: 'formula',
         market: 'hk',
       }),
-    ).resolves.toMatchObject({ id: 1, market: 'hk' })
+    ).resolves.toMatchObject({ id: '507f1f77bcf86cd799439011', market: 'hk' })
 
     expect(fetch.mock.calls.map(([url]) => String(url))).toEqual([
       'https://trading-api.example.test/openapi/v1/auth/verify',
-      'https://research-api.example.test/agent_quant/api/factors',
+      'https://research-api.example.test/qube/api/factors',
     ])
   })
 
@@ -813,7 +837,7 @@ describe('TqxClient', () => {
       status: 500,
       requestId: 'request-non-json',
       contentType: 'text/html',
-      url: 'https://api.example.test/pandaApi/agent_quant/api/factors/page?offset=0&limit=100',
+      url: 'https://api.example.test/pandaApi/qube/api/factors?limit=24',
     })
   })
 

@@ -9,12 +9,12 @@ The canonical US template seeds a bounded warm-up close cache in `init_market_da
 
 Quick selection:
 
-| User requirements | Start template | Simultaneous reading |
-|---|---|---|
-| Hong Kong stock time series strategy, `.HK` target | `tqx_cli/tests/hk_ma.py` | `stock_hk_api.md`, `time_series_strategies.md` |
-| US stock time series strategy, `.NB` target | `packages/sdk/test/fixtures/us_ma.py` | `stock_us_api.md`, `time_series_strategies.md` |
-| Hong Kong stock cross-sectional strategies | `tqx_cli/tests/hsi_cs_st.py` | `stock_hk_api.md`, `cross_sectional_strategies.md` |
-| U.S. stock cross-sectional strategies | `tqx_cli/tests/nasdq100_cs_st.py` | `stock_us_api.md`, `cross_sectional_strategies.md` |
+| User requirements                                  | Start template                        | Simultaneous reading                               |
+| -------------------------------------------------- | ------------------------------------- | -------------------------------------------------- |
+| Hong Kong stock time series strategy, `.HK` target | `tqx_cli/tests/hk_ma.py`              | `stock_hk_api.md`, `time_series_strategies.md`     |
+| US stock time series strategy, `.NB` target        | `packages/sdk/test/fixtures/us_ma.py` | `stock_us_api.md`, `time_series_strategies.md`     |
+| Hong Kong stock cross-sectional strategies         | `tqx_cli/tests/hsi_cs_st.py`          | `stock_hk_api.md`, `cross_sectional_strategies.md` |
+| U.S. stock cross-sectional strategies              | `tqx_cli/tests/nasdq100_cs_st.py`     | `stock_us_api.md`, `cross_sectional_strategies.md` |
 
 Moving average logic is just an example and can be replaced by momentum, breakout, reversal or other signals; the corresponding market introduction, strategy callback signature,
 Defensive data checking, account position reading and secure order placement.
@@ -39,16 +39,16 @@ The qualified list of the starting point cannot query the interface repeatedly i
 
 ## 1. QUBE Strategy Contract
 
-| Market | CLI | QUBE Strategy `market` | Example underlying |
-|---|---|---|---|
-| Hong Kong stocks | `--market hk` | `hk` | `0700.HK` |
-| US stocks | `--market us` | `us` | `AAPL.NB` |
+| Market           | CLI           | QUBE Strategy `market` | Example underlying |
+| ---------------- | ------------- | ---------------------- | ------------------ |
+| Hong Kong stocks | `--market hk` | `hk`                   | `0700.HK`          |
+| US stocks        | `--market us` | `us`                   | `AAPL.NB`          |
 
 `tqx research strategy create` saves the Python source code to Strategy `code` and saves the default backtest parameters to
 `params.backtest`：`period_start`、`period_end`、`init_balance`、`commission_rate`、
 `slippage`, `frequency` and optional `symbols`. `1M` means 1 minute bar, not monthly line.
 
-`tqx research strategy run` calls QUBE `POST /strategies/{strategy_id}/run-backtest` and returns the integer `run_id`;
+`tqx research strategy run` calls QUBE `POST /strategies/{strategy_id}/backtests` and returns the ObjectId `run_id`;
 Do not call `start()`, `get_backtest_id()` or `run_stock_backtest()` yourself in the strategy code.
 
 ## 2. Reliable structure shared by both templates
@@ -209,11 +209,10 @@ run:
 
 ```powershell
 tqx research strategy create --market hk --file .\tests\hk_ma.py `
-  --name "Hong Kong stock moving average strategy" `
-  --startDate 20250101 --endDate 20250220 --frequency 1d `
-  --strictMarketApi
+  --title "Hong Kong stock moving average strategy" `
+  --startDate 20250101 --endDate 20250220 --frequency 1d
 
-tqx research strategy run <strategy_id> --timeout 1200
+tqx research strategy run <strategy_id> --expectedSourceRevision=<source_revision> --expectedConfigRevision=<config_revision> --timeout 1200
 ```
 
 ## 4. US stock daily moving average template
@@ -414,11 +413,10 @@ run:
 
 ```powershell
 tqx research strategy create --market us --file ./packages/sdk/test/fixtures/us_ma.py `
-  --name "US stock moving average strategy" `
-  --startDate 20250101 --endDate 20250220 --frequency 1d `
-  --strictMarketApi
+  --title "US stock moving average strategy" `
+  --startDate 20250101 --endDate 20250220 --frequency 1d
 
-tqx research strategy run <strategy_id> --timeout 1200
+tqx research strategy run <strategy_id> --expectedSourceRevision=<source_revision> --expectedConfigRevision=<config_revision> --timeout 1200
 ```
 
 ## 5. Checklist when modifying templates
@@ -432,5 +430,5 @@ tqx research strategy run <strategy_id> --timeout 1200
 - Use `sellable` for selling; order submission does not equal transaction.
 - An empty cross-sectional universe is liquidated by default; sell non-target positions first, then skip buying when the target is empty, and do not `return` early.
 - Do not query historical market prices, details or trading calendar frequently in `handle_data`.
-- Disable dangerous built-in functions; use `--strictMarketApi`.
+- Disable dangerous built-in functions; use server-side validation.
 - After modification, create the QUBE strategy first, then run and check the final state, error log, transaction and income results.
