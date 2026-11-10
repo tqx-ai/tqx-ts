@@ -141,14 +141,14 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
     }
   })
 
-  it('advertises ping with a required string name', async () => {
+  it('advertises tqx_ping with a required string name', async () => {
     const response = await call('tools/list')
 
     expect(await readResponse(response, protocolVersion)).toMatchObject({
       result: {
         tools: [
           {
-            name: 'ping',
+            name: 'tqx_ping',
             inputSchema: {
               type: 'object',
               properties: { name: { type: 'string' } },
@@ -164,7 +164,7 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
     const names = ['world', 'Alice', 'Bob', '']
     const responses = await Promise.all(
       names.map(async (name) => {
-        const response = await call('tools/call', { name: 'ping', arguments: { name } })
+        const response = await call('tools/call', { name: 'tqx_ping', arguments: { name } })
         return readResponse(response, protocolVersion)
       }),
     )
@@ -177,9 +177,9 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
   })
 
   it.each([undefined, {}, { name: 42 }, { name: null }])(
-    'rejects invalid ping arguments: %j',
+    'rejects invalid tqx_ping arguments: %j',
     async (args) => {
-      const response = await call('tools/call', { name: 'ping', arguments: args })
+      const response = await call('tools/call', { name: 'tqx_ping', arguments: args })
 
       expect(await readResponse(response, protocolVersion)).toMatchObject({
         result: {
@@ -187,7 +187,7 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
           content: [
             {
               type: 'text',
-              text: expect.stringContaining('Invalid arguments for tool ping: name:'),
+              text: expect.stringContaining('Invalid arguments for tool tqx_ping: name:'),
             },
           ],
         },

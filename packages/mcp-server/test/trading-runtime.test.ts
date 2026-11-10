@@ -76,13 +76,13 @@ describe('Bun trading runtime', () => {
         if (response.status !== 200 || result?.isError) throw new Error('Trading runtime call failed')
         return result.structuredContent
       }
-      await call('trading_snapshot', { sections: ['account'] })
-      await call('trading_snapshot', { sections: ['account'] })
+      await call('tqx_trading_snapshot', { sections: ['account'] })
+      await call('tqx_trading_snapshot', { sections: ['account'] })
       if (exchanges !== 1) throw new Error('Read token was not cached')
       const order = { action: 'place', symbol: 'AAPL.US', side: 'BUY', orderType: 'MARKET',
         quantity: '1', idempotencyKey: 'runtime-intent-1' }
-      const first = await call('trading_order', order)
-      const second = await call('trading_order', order)
+      const first = await call('tqx_trading_order', order)
+      const second = await call('tqx_trading_order', order)
       if (first.data.state !== 'ACCEPTED' || second.data.order_status !== null || exchanges !== 3 || gatewayCalls !== 4)
         throw new Error('Incorrect write exchange/state behavior')
       app.dispose()

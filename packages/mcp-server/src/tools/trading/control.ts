@@ -10,7 +10,7 @@ export function registerControl(server: McpServer, context: TradingToolContext):
     server,
     context,
     {
-      name: 'trading_control',
+      name: 'tqx_trading_control',
       schema: controlSchema,
       write: true,
       scopeChallenge: requireScopes(operations.hold.scope),

@@ -8,12 +8,12 @@ export function registerOrder(server: McpServer, context: TradingToolContext): v
     server,
     context,
     {
-      name: 'trading_order',
+      name: 'tqx_trading_order',
       schema: orderSchema,
       write: true,
       destructive: true,
       description:
-        'Place, modify price, or cancel an HK/US stock order for the authorized account. Requires order:write and user authorization. Quantity is an integer string; LIMIT needs price, MARKET forbids it; validity DAY only. For place supply a stable idempotencyKey: identical intent retries reuse it and identical parameters, new intent uses a new key. Result is signal/request acceptance, not fill/cancellation. Use trading_lookup for status. Unknown write outcomes must not be blindly retried.',
+        'Place, modify price, or cancel an HK/US stock order for the authorized account. Requires order:write and user authorization. Quantity is an integer string; LIMIT needs price, MARKET forbids it; validity DAY only. For place supply a stable idempotencyKey: identical intent retries reuse it and identical parameters, new intent uses a new key. Result is signal/request acceptance, not fill/cancellation. Use tqx_trading_lookup for status. Unknown write outcomes must not be blindly retried.',
     },
     async (request, auth) => {
       if (request.action === 'place') {

@@ -9,7 +9,7 @@ export function registerSnapshot(server: McpServer, context: TradingToolContext)
     server,
     context,
     {
-      name: 'trading_snapshot',
+      name: 'tqx_trading_snapshot',
       schema: snapshotSchema,
       description:
         'Read account and/or positions for the authorized agent. Sections default to both. Currency affects account only; symbol/market/cursor affect positions. Default page 20, max 100; pass next_cursor unchanged for more. Sections are not an atomic snapshot; preserve as_of/is_stale. Does not place trades.',

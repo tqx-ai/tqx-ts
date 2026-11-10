@@ -11,7 +11,7 @@ export function registerLookup(server: McpServer, context: TradingToolContext): 
     server,
     context,
     {
-      name: 'trading_lookup',
+      name: 'tqx_trading_lookup',
       schema: lookupSchema,
       scopeChallenge: (challengeContext) => {
         const parsed = v.safeParse(

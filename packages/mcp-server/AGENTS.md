@@ -157,7 +157,7 @@ When implementation begins, development should proceed through the following pha
 ### Phase 3: Valibot Schema Adapter & Tool Registry
 
 - Implement a lightweight adapter converting Valibot schemas to MCP-compatible JSON Schemas via `@valibot/to-json-schema`.
-- Build a modular Tool Registry where tools register their name, description, Valibot schema, and execution handler.
+- Build a modular Tool Registry where tools register their name, description, Valibot schema, and execution handler. All public tool names must start with `tqx_`; keep tool references in descriptions, prompts, docs, and tests synchronized.
 - Implement gateway clients, types, Valibot schemas and errors inside this package. Do not import `@tqx-ai/sdk` or `@tqx-ai/cli`, including type-only or relative source imports.
 
 ### Phase 4: RFC 8693 Token Exchange & Upstream Forwarding
@@ -189,7 +189,7 @@ Trading is opt-in through the four runtime values in `.env.example`. The public
 trading token audience is separately configured (normally `/openapi`); do not
 reuse the older generic `/api` examples above as a deployment contract. Only
 HTTP Basic confidential-client authentication is implemented for exchange.
-Research gateway integration remains future work. See
-[trading-tools-plan.md](docs/trading-tools-plan.md) and README for the implemented
-contracts, read-cache revocation window and validation limits. CLI and SDK
-packages must remain independent and unchanged by MCP implementation work.
+Research gateway integration remains future work. See [README.md](README.md) for
+the implemented contracts, read-cache revocation window, and validation limits.
+CLI and SDK packages must remain independent and unchanged by MCP implementation
+work.

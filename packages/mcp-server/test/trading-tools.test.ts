@@ -129,12 +129,12 @@ describe('trading MCP tools over authenticated HTTP', () => {
     expect(body.error).toBeUndefined()
     const tools = body.result.tools
     expect(tools.map((x: { name: string }) => x.name)).toEqual([
-      'trading_snapshot',
-      'trading_activity',
-      'trading_lookup',
-      'trading_order',
-      'trading_control',
-      'submit_bug_report',
+      'tqx_trading_snapshot',
+      'tqx_trading_activity',
+      'tqx_trading_lookup',
+      'tqx_trading_order',
+      'tqx_trading_control',
+      'tqx_submit_bug_report',
     ])
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe('object')
@@ -174,7 +174,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
       'First investigate the reported problem and determine whether the responsibility belongs to TQX',
     )
     expect(body.result.messages[0].content.text).toContain(
-      'After organizing the evidence, call submit_bug_report directly',
+      'After organizing the evidence, call tqx_submit_bug_report directly',
     )
     expect(body.result.messages[0].content.text).toContain(
       "Match the user's language and writing system in all user-facing output",
@@ -192,7 +192,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
 
   it('reads account and positions concurrently with one exchange and no MCP token passthrough', async () => {
     const s = setup()
-    const { response, body } = await s.call('trading_snapshot', {})
+    const { response, body } = await s.call('tqx_trading_snapshot', {})
     expect(response.status).toBe(200)
     expect(body.result.isError).not.toBe(true)
     expect(body.result.structuredContent).toMatchObject({
@@ -212,28 +212,28 @@ describe('trading MCP tools over authenticated HTTP', () => {
 
   it.each([
     [
-      'trading_activity',
+      'tqx_trading_activity',
       { type: 'orders', cursor: 'opaque+/=' },
       '/openapi/v1/trading/orders?limit=20&cursor=opaque%2B%2F%3D',
     ],
     [
-      'trading_activity',
+      'tqx_trading_activity',
       { type: 'trades', market: 'US', orderId: 'id/with?chars' },
       '/openapi/v1/trading/trades?limit=20&market=US&order_id=id%2Fwith%3Fchars',
     ],
     [
-      'trading_activity',
+      'tqx_trading_activity',
       { type: 'cash_flows', startDate: '2026-11-01', endDate: '2026-11-06', currency: 'USD' },
       '/openapi/v1/trading/cash-flows?limit=20&start_date=2026-11-01&end_date=2026-11-06&currency=USD',
     ],
-    ['trading_lookup', { type: 'order', id: 'order-1' }, '/openapi/v1/trading/orders/order-1'],
+    ['tqx_trading_lookup', { type: 'order', id: 'order-1' }, '/openapi/v1/trading/orders/order-1'],
     [
-      'trading_lookup',
+      'tqx_trading_lookup',
       { type: 'signal', id: 'signal/123?x' },
       '/openapi/v1/trading/signals/signal%2F123%3Fx',
     ],
     [
-      'trading_snapshot',
+      'tqx_trading_snapshot',
       { sections: ['positions'], market: 'HK', symbol: '00700.HK', limit: 3 },
       '/openapi/v1/trading/positions?symbol=00700.HK&market=HK&limit=3',
     ],
@@ -246,9 +246,9 @@ describe('trading MCP tools over authenticated HTTP', () => {
   })
 
   it.each([
-    ['trading_order', place],
-    ['trading_order', { action: 'modify', orderId: 'order-1', price: '101.1' }],
-    ['trading_order', { action: 'cancel', orderId: 'order-1' }],
+    ['tqx_trading_order', place],
+    ['tqx_trading_order', { action: 'modify', orderId: 'order-1', price: '101.1' }],
+    ['tqx_trading_order', { action: 'cancel', orderId: 'order-1' }],
   ])('requires order:write before executing %s %j', async (tool, request) => {
     const s = setup()
     const { response } = await s.call(tool as string, request, readToken)
@@ -267,7 +267,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
     async (_scope, token) => {
       const s = setup()
       const { response, body } = await s.call(
-        'submit_bug_report',
+        'tqx_submit_bug_report',
         { title: 'title', description: 'description' },
         token,
       )
@@ -281,7 +281,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
   it('challenges bug reports when no usable Trading Resource scope is present', async () => {
     const s = setup()
     const { response } = await s.call(
-      'submit_bug_report',
+      'tqx_submit_bug_report',
       { title: 'title', description: 'description' },
       researchToken,
     )
@@ -299,8 +299,8 @@ describe('trading MCP tools over authenticated HTTP', () => {
       description: 'Steps, environment, response, and request_id=request-1',
       idempotencyKey: 'bug-report-001',
     }
-    const first = await s.call('submit_bug_report', request, rankingToken)
-    const second = await s.call('submit_bug_report', request, rankingToken)
+    const first = await s.call('tqx_submit_bug_report', request, rankingToken)
+    const second = await s.call('tqx_submit_bug_report', request, rankingToken)
     expect(first.body.result.structuredContent).toMatchObject({
       kind: 'bug_report.submitted',
       data: bugReport,
@@ -328,7 +328,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
   it('submits a bug report with ranking:read and no Agent binding', async () => {
     const s = setup()
     const { response, body } = await s.call(
-      'submit_bug_report',
+      'tqx_submit_bug_report',
       { title: 'title', description: 'description' },
       rankingToken,
     )
@@ -352,7 +352,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
       ),
     )
     const { body } = await s.call(
-      'submit_bug_report',
+      'tqx_submit_bug_report',
       {
         title: 'Broken quote',
         description: 'Details',
@@ -376,11 +376,11 @@ describe('trading MCP tools over authenticated HTTP', () => {
     'enforces operation-specific lookup/hold scopes over %s',
     async (version) => {
       const s = setup()
-      const holdResult = await s.call('trading_control', { action: 'hold' }, readToken, version)
+      const holdResult = await s.call('tqx_trading_control', { action: 'hold' }, readToken, version)
       expect(holdResult.response.status).toBe(200)
       expect(holdResult.body.result.isError).not.toBe(true)
       const signalResult = await s.call(
-        'trading_lookup',
+        'tqx_trading_lookup',
         { type: 'signal', id: 'signal-123' },
         readToken,
         version,
@@ -389,23 +389,23 @@ describe('trading MCP tools over authenticated HTTP', () => {
       expect(signalResult.response.headers.get('WWW-Authenticate')).toContain('scope="order:write"')
       expect(s.fetch).toHaveBeenCalledTimes(1)
       const writeSignal = await s.call(
-        'trading_lookup',
+        'tqx_trading_lookup',
         { type: 'signal', id: 'signal-123' },
         writeToken,
         version,
       )
       expect(writeSignal.body.result.isError).not.toBe(true)
-      const writeHold = await s.call('trading_control', { action: 'hold' }, writeToken, version)
+      const writeHold = await s.call('tqx_trading_control', { action: 'hold' }, writeToken, version)
       expect(writeHold.response.status).toBe(403)
       const readOrder = await s.call(
-        'trading_lookup',
+        'tqx_trading_lookup',
         { type: 'order', id: 'order-1' },
         readToken,
         version,
       )
       expect(readOrder.body.result.isError).not.toBe(true)
       const writeOrder = await s.call(
-        'trading_lookup',
+        'tqx_trading_lookup',
         { type: 'order', id: 'order-1' },
         writeToken,
         version,
@@ -435,7 +435,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
             [undefined, researchToken, 'trade:read'],
           ] as const
         ).map(async ([request, token, scope]) => {
-          const { response } = await s.call('trading_lookup', request, token, version)
+          const { response } = await s.call('tqx_trading_lookup', request, token, version)
           expect(response.status).toBe(403)
           expect(response.headers.get('WWW-Authenticate')).toContain(`scope="${scope}"`)
         }),
@@ -443,7 +443,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
       expect(s.exchange).not.toHaveBeenCalled()
       expect(s.fetch).not.toHaveBeenCalled()
       const { response, body } = await s.call(
-        'trading_lookup',
+        'tqx_trading_lookup',
         { type: 'signal', id: 'short' },
         writeToken,
         version,
@@ -481,7 +481,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
           { status },
         ),
       )
-      const { response, body } = await s.call('trading_order', place)
+      const { response, body } = await s.call('tqx_trading_order', place)
       expect(response.status).toBe(200)
       expect(body.result.isError).toBe(true)
       expect(body.result.structuredContent.error).toMatchObject({
@@ -507,7 +507,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
     async (input, normalized) => {
       const s = setup()
       s.reply(envelope(signal))
-      const { body } = await s.call('trading_order', { ...place, symbol: input })
+      const { body } = await s.call('tqx_trading_order', { ...place, symbol: input })
       expect(body.result.isError).not.toBe(true)
       expect(JSON.parse(s.fetch.mock.calls[0]![1]!.body as string).symbol).toBe(normalized)
       expect(s.audit).toHaveBeenCalledWith(expect.objectContaining({ symbol: normalized }))
@@ -515,21 +515,24 @@ describe('trading MCP tools over authenticated HTTP', () => {
   )
 
   it.each([
-    ['trading_snapshot', { sections: [] }],
-    ['trading_snapshot', { sections: ['account'], market: 'US' }],
-    ['trading_activity', { type: 'orders', market: 'US' }],
-    ['trading_activity', { type: 'trades', limit: 101 }],
-    ['trading_activity', { type: 'cash_flows', startDate: '2026-02-30' }],
-    ['trading_activity', { type: 'cash_flows', startDate: '2026-11-06', endDate: '2026-11-01' }],
-    ['trading_lookup', { type: 'signal', id: 'short' }],
-    ['trading_order', { ...place, quantity: '1.2' }],
-    ['trading_order', { ...place, price: '0' }],
-    ['trading_order', { ...place, orderType: 'MARKET' }],
-    ['trading_order', { ...place, idempotencyKey: '' }],
-    ['trading_control', { action: 'hold', yes: true }],
-    ['submit_bug_report', { title: '', description: 'details' }],
-    ['submit_bug_report', { title: 'title', description: '' }],
-    ['submit_bug_report', { title: 'title', description: 'details', idempotencyKey: '\n' }],
+    ['tqx_trading_snapshot', { sections: [] }],
+    ['tqx_trading_snapshot', { sections: ['account'], market: 'US' }],
+    ['tqx_trading_activity', { type: 'orders', market: 'US' }],
+    ['tqx_trading_activity', { type: 'trades', limit: 101 }],
+    ['tqx_trading_activity', { type: 'cash_flows', startDate: '2026-02-30' }],
+    [
+      'tqx_trading_activity',
+      { type: 'cash_flows', startDate: '2026-11-06', endDate: '2026-11-01' },
+    ],
+    ['tqx_trading_lookup', { type: 'signal', id: 'short' }],
+    ['tqx_trading_order', { ...place, quantity: '1.2' }],
+    ['tqx_trading_order', { ...place, price: '0' }],
+    ['tqx_trading_order', { ...place, orderType: 'MARKET' }],
+    ['tqx_trading_order', { ...place, idempotencyKey: '' }],
+    ['tqx_trading_control', { action: 'hold', yes: true }],
+    ['tqx_submit_bug_report', { title: '', description: 'details' }],
+    ['tqx_submit_bug_report', { title: 'title', description: '' }],
+    ['tqx_submit_bug_report', { title: 'title', description: 'details', idempotencyKey: '\n' }],
   ])('rejects invalid %s arguments before exchange: %j', async (tool, request) => {
     const s = setup()
     const { body } = await s.call(tool as string, request)
@@ -541,7 +544,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
   it('submits a limit order with the original stable key and reports a signal envelope', async () => {
     const s = setup()
     s.reply(envelope(signal))
-    const { body } = await s.call('trading_order', place)
+    const { body } = await s.call('tqx_trading_order', place)
     expect(body.result.structuredContent.data).toMatchObject({ action: 'place', ...signal })
     const [url, init] = s.fetch.mock.calls[0]!
     expect(String(url)).toBe('https://trade.example.test/openapi/v1/trading/orders')
@@ -589,7 +592,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
           error_code: null,
         }),
       )
-      const r = await s.call('trading_order', request)
+      const r = await s.call('tqx_trading_order', request)
       expect(r.body.result.structuredContent.data.accepted).toBe(true)
       expect(r.body.result.structuredContent.data.new_order_id).toBe('order-2')
       expect(s.fetch.mock.calls[0]![1]!.method).toBe(method)
@@ -600,10 +603,10 @@ describe('trading MCP tools over authenticated HTTP', () => {
 
   it('exchanges again for every hold and never uses a warmed read cache', async () => {
     const s = setup()
-    await s.call('trading_snapshot', { sections: ['account'] }, readToken)
+    await s.call('tqx_trading_snapshot', { sections: ['account'] }, readToken)
     await Promise.all([
-      s.call('trading_control', { action: 'hold' }, readToken),
-      s.call('trading_control', { action: 'hold' }, readToken),
+      s.call('tqx_trading_control', { action: 'hold' }, readToken),
+      s.call('tqx_trading_control', { action: 'hold' }, readToken),
     ])
     expect(s.exchange).toHaveBeenCalledTimes(3)
     expect(s.fetch.mock.calls[1]![1]!.method).toBe('POST')
@@ -616,7 +619,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
         ? envelope(null, 503, 'trading_service_unavailable')
         : envelope({ items: [], next_cursor: null }),
     )
-    const { body } = await s.call('trading_snapshot', {})
+    const { body } = await s.call('tqx_trading_snapshot', {})
     expect(body.result.isError).toBe(true)
     expect(body.result.structuredContent.data.account).toBeNull()
     expect(body.result.structuredContent.data.positions.items).toEqual([])
@@ -639,7 +642,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
         { status: 501 },
       ),
     )
-    const { body } = await s.call('trading_activity', { type: 'cash_flows' })
+    const { body } = await s.call('tqx_trading_activity', { type: 'cash_flows' })
     expect(body.result.isError).toBe(true)
     expect(body.result.structuredContent.error).toMatchObject({
       code: 'cash_flows_unsupported',
@@ -652,7 +655,7 @@ describe('trading MCP tools over authenticated HTTP', () => {
   it('serves a legacy protocol trading call through the same tools', async () => {
     const s = setup()
     const { body } = await s.call(
-      'trading_lookup',
+      'tqx_trading_lookup',
       { type: 'signal', id: 'signal-123' },
       mcpToken,
       '2025-11-25',

@@ -14,7 +14,7 @@ const token = await oauth.sign()
 function call(
   app: ReturnType<typeof createApp>,
   authorization?: string,
-  tool = 'ping',
+  tool = 'tqx_ping',
   url = 'http://127.0.0.1/mcp',
 ) {
   return app.request(url, {
@@ -68,7 +68,7 @@ describe('authenticated MCP requests', () => {
     const response = await call(
       app,
       undefined,
-      'ping',
+      'tqx_ping',
       `http://127.0.0.1/mcp?access_token=${token}`,
     )
     expect(response.status).toBe(401)

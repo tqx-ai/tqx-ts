@@ -43,10 +43,10 @@ describe('Bun OAuth runtime', () => {
         method: 'POST', headers: {
           Host: '127.0.0.1', Authorization: 'Bearer ' + token,
           'Content-Type': 'application/json', Accept: 'application/json, text/event-stream',
-          'MCP-Protocol-Version': '2026-07-28', 'Mcp-Method': 'tools/call', 'Mcp-Name': 'ping',
+          'MCP-Protocol-Version': '2026-07-28', 'Mcp-Method': 'tools/call', 'Mcp-Name': 'tqx_ping',
         },
         body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: {
-          name: 'ping', arguments: { name: 'Bun' }, _meta: {
+          name: 'tqx_ping', arguments: { name: 'Bun' }, _meta: {
             'io.modelcontextprotocol/protocolVersion': '2026-07-28',
             'io.modelcontextprotocol/clientCapabilities': {},
           },

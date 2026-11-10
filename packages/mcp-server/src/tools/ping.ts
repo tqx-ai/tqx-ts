@@ -4,7 +4,7 @@ import * as v from 'valibot'
 
 export function registerPingTool(server: McpServer) {
   server.registerTool(
-    'ping',
+    'tqx_ping',
     {
       description: 'Say pong to the given name.',
       inputSchema: toStandardJsonSchema(v.object({ name: v.string('name must be a string') })),

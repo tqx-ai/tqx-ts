@@ -124,21 +124,25 @@ Configure `TQX_MCP_EXCHANGE_CLIENT_ID` and `TQX_MCP_EXCHANGE_CLIENT_SECRET` in b
 services with exactly the same values. The client ID is public configuration; the
 secret remains deployment-only.
 
-| Tool                | Request discriminator                             | Scope                                                                  |
-| ------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
-| `trading_snapshot`  | `sections`: account, positions (defaults to both) | `trade:read`                                                           |
-| `trading_activity`  | `type`: orders, trades, cash_flows                | `trade:read`                                                           |
-| `trading_lookup`    | `type`: order, signal; exact `id`                 | order: `trade:read`; signal: `order:write`                             |
-| `trading_order`     | `action`: place, modify, cancel                   | `order:write`                                                          |
-| `trading_control`   | `action`: hold                                    | `trade:read`                                                           |
-| `submit_bug_report` | `title`, `description`, optional `idempotencyKey` | existing Trading scope: `ranking:read`, `trade:read`, or `order:write` |
+All tool names use the `tqx_` prefix, including the demonstration `tqx_ping`
+tool. Clients using the previous unprefixed names must refresh `tools/list` and
+update their tool references and allowlists; the old names are no longer registered.
+
+| Tool                    | Request discriminator                             | Scope                                                                  |
+| ----------------------- | ------------------------------------------------- | ---------------------------------------------------------------------- |
+| `tqx_trading_snapshot`  | `sections`: account, positions (defaults to both) | `trade:read`                                                           |
+| `tqx_trading_activity`  | `type`: orders, trades, cash_flows                | `trade:read`                                                           |
+| `tqx_trading_lookup`    | `type`: order, signal; exact `id`                 | order: `trade:read`; signal: `order:write`                             |
+| `tqx_trading_order`     | `action`: place, modify, cancel                   | `order:write`                                                          |
+| `tqx_trading_control`   | `action`: hold                                    | `trade:read`                                                           |
+| `tqx_submit_bug_report` | `title`, `description`, optional `idempotencyKey` | existing Trading scope: `ranking:read`, `trade:read`, or `order:write` |
 
 Every tool takes a required `request` object. Use `tools/list` for the complete
 current schema. Example `params` for a read:
 
 ```json
 {
-  "name": "trading_activity",
+  "name": "tqx_trading_activity",
   "arguments": { "request": { "type": "orders", "limit": 20 } }
 }
 ```
@@ -153,13 +157,13 @@ Results are provided in both `structuredContent` and JSON text content.
 Order placement requires an explicit stable `idempotencyKey`. MARKET forbids
 price, LIMIT requires price, and DAY is the supported validity. Signal ACCEPTED
 and modify/cancel `accepted` are acknowledgements, not a final fill/cancellation.
-Use `trading_lookup` to follow the exact signal/order ID; after modify, use `new_order_id` when supplied. Missing active order
+Use `tqx_trading_lookup` to follow the exact signal/order ID; after modify, use `new_order_id` when supplied. Missing active order
 results do not prove final status. Writes are never automatically replayed;
 transport/protocol failures may include `outcomeUnknown: true`. Client hosts
 must apply their authorization/confirmation policy; a boolean tool argument
 cannot prove human confirmation. Hold marks agent activity and does not trade.
 
-`submit_bug_report` writes `POST /openapi/v1/bug-reports` and returns the
+`tqx_submit_bug_report` writes `POST /openapi/v1/bug-reports` and returns the
 upstream `bug_id` and `created_at`. It is marked as a destructive, idempotent
 write and always performs a fresh token exchange. It dynamically uses an
 existing Trading Resource scope from the MCP token, preferring `ranking:read`
@@ -170,7 +174,7 @@ authorization. The deployed contract has no `bug:write`. Reuse `idempotencyKey` 
 `prepare_bug_report` prompt helps compose a reproducible report and never calls
 the upstream API. It instructs the Agent to investigate ownership first, submit
 only when the evidence points to a TQX issue, produce a short title and a
-structured Markdown description, call `submit_bug_report` directly after the
+structured Markdown description, call `tqx_submit_bug_report` directly after the
 evidence is organized, and report the send status while displaying the exact
 submitted title and description. When the client/host supports rich UI, the
 prompt asks the Agent to prefer an envelope-style card or panel; otherwise it
@@ -213,7 +217,7 @@ Embedding hosts may configure `createApp({ trading: ... })` with `maxEntries`
 provider wait, including injected exchanges. `gatewayTimeoutMs` (10000) controls
 only trading HTTP requests; the two timeout budgets are independent.
 
-When trading is enabled in production, the demonstration `ping` tool is disabled
+When trading is enabled in production, the demonstration `tqx_ping` tool is disabled
 by default, leaving six business tools. It remains available in development or
 authentication-only mode. Health checks and the MCP protocol ping remain usable.
 Research APIs are reserved for a later phase.
@@ -237,7 +241,7 @@ Discovery advertises all six TQX scopes, matching the API key permission groups:
 will request all six; clients can explicitly request a subset. Consent involving
 `trade:read` or `order:write` requires an Agent selection in tqx-web. Existing
 transactions and tokens retain their scopes; start a new authorization to request
-additional permissions. `ping` itself has no additional business scope requirement
+additional permissions. `tqx_ping` itself has no additional business scope requirement
 beyond a valid MCP token. Business tools are enabled separately through the trading configuration above.
 
 This package does not implement Device Flow, an OAuth callback, an authorization
@@ -270,12 +274,10 @@ server cannot infer which login flow issued one.
 Browser end-to-end login still requires the tqx-web consent page and a reachable,
 compatible test AS/deployment. Workspace tests use test signing keys and injected
 public discovery responses; they do not establish that those services are deployed.
-See the [implementation plan](docs/oauth-authorization-code-plan.md) for ownership,
-contracts, and the remaining integration checklist.
 
 ## Call a tool and test
 
-After the MCP client completes login, it can call `ping` with
+After the MCP client completes login, it can call `tqx_ping` with
 `params.arguments: {"name":"world"}`. The result contains
 `content: [{"type":"text","text":"pong, world"}]`. Use `tools/list` for its schema.
 Missing or non-string names produce `isError: true`; unknown tools return JSON-RPC

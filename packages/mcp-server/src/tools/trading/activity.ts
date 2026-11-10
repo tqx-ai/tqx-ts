@@ -8,7 +8,7 @@ export function registerActivity(server: McpServer, context: TradingToolContext)
     server,
     context,
     {
-      name: 'trading_activity',
+      name: 'tqx_trading_activity',
       schema: activitySchema,
       description:
         'Read one page of active orders, recent trades, or native-currency cash flows. Orders support pagination only, not history/market filters. Dates are YYYY-MM-DD in Hong Kong time. Cash-flow unsupported is an error, not an empty ledger. Default page 20, max 100; reuse opaque next_cursor only when more results are needed.',

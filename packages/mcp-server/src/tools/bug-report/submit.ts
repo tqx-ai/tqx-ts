@@ -29,7 +29,7 @@ export function registerBugReport(server: McpServer, context: TradingToolContext
     server,
     context,
     {
-      name: 'submit_bug_report',
+      name: 'tqx_submit_bug_report',
       schema: bugReportSchema,
       write: true,
       scopeChallenge: bugReportScopeChallenge,
