@@ -3,6 +3,8 @@ import type { CommandRuntime } from '../runtime/command-runtime'
 import {
   listArgs,
   listInput,
+  boundedInteger,
+  nonNegativeInteger,
   pageResponse,
   type ListArgs,
   resourceId,
@@ -36,6 +38,7 @@ export function createBacktestCommand(runtime: CommandRuntime) {
           },
           offset: { type: 'string' },
           limit: { type: 'string' },
+          keyword: { type: 'string' },
           symbol: { type: 'string' },
         },
         run: ({ args }) =>
@@ -46,8 +49,13 @@ export function createBacktestCommand(runtime: CommandRuntime) {
               resourceId(args.runId, 'Backtest run ID'),
               {
                 field: args.field as never,
-                offset: args.offset === undefined ? undefined : Number(args.offset),
-                limit: args.limit === undefined ? undefined : Number(args.limit),
+                offset:
+                  args.offset === undefined ? undefined : nonNegativeInteger(args.offset, 'offset'),
+                limit:
+                  args.limit === undefined
+                    ? undefined
+                    : boundedInteger(args.limit, 'limit', 1, 500),
+                keyword: args.keyword,
                 symbol: args.symbol,
               },
             ),

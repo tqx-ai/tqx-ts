@@ -120,7 +120,8 @@ export class TqxClient {
     const { url, requestInit } = this.#prepareRequest(path, options)
     const method = requestInit.method
     const headers = new Headers(requestInit.headers)
-    const retryableRequest = method === 'GET' || headers.has('Idempotency-Key')
+    const retryableRequest =
+      method === 'GET' || headers.has('Idempotency-Key') || hasRequestId(requestInit.body)
     let lastRetryableResponse: RetryableResponseMetadata | undefined
 
     /* eslint-disable no-await-in-loop */
@@ -225,6 +226,22 @@ export class TqxClient {
       throw protocolError(response, 'The TQX API returned an invalid research event stream', url)
     }
     return response
+  }
+}
+
+function hasRequestId(body: BodyInit | null | undefined): boolean {
+  if (typeof body !== 'string') return false
+  try {
+    const value: unknown = JSON.parse(body)
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      typeof (value as Record<string, unknown>).request_id === 'string' &&
+      ((value as Record<string, unknown>).request_id as string).length > 0
+    )
+  } catch {
+    return false
   }
 }
 
@@ -385,12 +402,7 @@ function decodeGatewayResponse(raw: unknown, response: Response): unknown {
 function isGatewayEnvelope(record: Record<string, unknown>): boolean {
   // Resource source text is also named code; resource identity distinguishes it from an envelope.
   if ('id' in record || 'code_type' in record) return false
-  const hasEnvelopeMarker =
-    'data' in record ||
-    'request_id' in record ||
-    'detail' in record ||
-    'message' in record ||
-    'msgKey' in record
+  const hasEnvelopeMarker = 'data' in record || 'detail' in record || 'msgKey' in record
   return hasEnvelopeMarker && gatewayCode(record) !== undefined
 }
 

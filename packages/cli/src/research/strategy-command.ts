@@ -54,7 +54,9 @@ export function createStrategyCommand(runtime: CommandRuntime) {
               description: args.description,
               code: content.value,
               market,
-              backtest: backtestParameters(args as unknown as BacktestArgs, true),
+              backtest: hasBacktestInput(args as unknown as BacktestArgs)
+                ? backtestParameters(args as unknown as BacktestArgs, false)
+                : undefined,
             })
             return { success: true, strategy_id: strategy.id, strategy }
           }),

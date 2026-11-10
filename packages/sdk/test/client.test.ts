@@ -514,6 +514,47 @@ describe('TqxClient', () => {
     )
   })
 
+  it('retries research writes that carry a request_id body', async () => {
+    vi.useFakeTimers()
+    const factor = {
+      id: '507f1f77bcf86cd799439011',
+      title: 'close',
+      description: '',
+      market: 'hk',
+      code_type: 'formula',
+      source_revision: 1,
+      config_revision: 1,
+      parameters: {},
+    }
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          { code: 'service_unavailable', message: 'service unavailable' },
+          { status: 503 },
+        ),
+      )
+      .mockResolvedValueOnce(response(factor, { status: 201 }))
+    const client = new TqxClient({
+      baseUrl: 'https://api.example.test/tqxApi',
+      apiKey: 'key',
+      fetch,
+    })
+
+    const promise = client.research.createFactor({
+      requestId: 'factor-create-retry',
+      title: 'close',
+      description: '',
+      code: 'close',
+      codeType: 'formula',
+      market: 'hk',
+    })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(100)
+    await expect(promise).resolves.toMatchObject({ id: factor.id })
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
   it('accepts signal diagnostics when querying a signal', async () => {
     const signal = {
       signal_id: 'signal-001',
@@ -839,6 +880,28 @@ describe('TqxClient', () => {
       contentType: 'text/html',
       url: 'https://api.example.test/pandaApi/qube/api/factors?limit=24',
     })
+  })
+
+  it('does not treat a direct research payload with a code field as a gateway envelope', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(
+      Response.json({
+        code: 'python source',
+        request_id: 'raw-result',
+        rows: [],
+        total: 0,
+        offset: 0,
+        limit: 1,
+        has_more: false,
+      }),
+    )
+    const client = new TqxClient({
+      baseUrl: 'https://api.example.test/tqxApi',
+      apiKey: 'key',
+      fetch,
+    })
+    await expect(
+      client.research.getBacktestResultPage('507f1f77bcf86cd799439011', { field: 'trades' }),
+    ).resolves.toMatchObject({ rows: [], total: 0 })
   })
 
   it('covers the remaining account, order, trade and signal operations', async () => {

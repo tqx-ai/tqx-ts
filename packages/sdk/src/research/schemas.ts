@@ -265,6 +265,12 @@ export const ListResearchInputSchema = v.pipe(
     'from must not be later than to',
   ),
 )
+export const ListFactorAnalysesInputSchema = v.strictObject({
+  includeDeleted: v.optional(v.boolean()),
+  status: v.optional(
+    v.picklist(['preparing', 'queued', 'running', 'succeeded', 'failed', 'cancelled']),
+  ),
+})
 const record = v.looseObject({})
 const optionalRecord = v.optional(v.nullable(record))
 export const DiagnosticSchema = v.looseObject({
@@ -479,7 +485,7 @@ export const StrategyTuningInputSchema = v.pipe(
     candidates: v.pipe(
       v.array(
         v.strictObject({
-          strategyParameters: v.optional(v.pipe(numericParameters, v.maxEntries(256))),
+          strategyParameters: v.pipe(numericParameters, v.minEntries(1), v.maxEntries(256)),
         }),
       ),
       v.minLength(1),
@@ -494,6 +500,23 @@ export const StrategyTuningInputSchema = v.pipe(
       input.tradingDates.every((date, index, dates) => index === 0 || date > dates[index - 1]!),
     'tradingDates must be sorted and unique',
   ),
+  v.check((input) => {
+    const candidates = new Map(
+      input.candidates.map((candidate) => [
+        JSON.stringify(
+          Object.entries(candidate.strategyParameters).toSorted(([a], [b]) => a.localeCompare(b)),
+        ),
+        candidate.strategyParameters,
+      ]),
+    )
+    return (
+      candidates.size <= 31 &&
+      [...candidates.values()].reduce(
+        (total, parameters) => total + Object.keys(parameters).length,
+        0,
+      ) <= 256
+    )
+  }, 'Expected at most 31 unique candidates and 256 total strategy parameter keys'),
 )
 export const FactorTuningSchema = v.looseObject({
   id: ResourceIdSchema,
@@ -570,6 +593,7 @@ export type ValidateStrategyInput = v.InferInput<typeof ValidateStrategyInputSch
 export type ListQubeResourcesInput = v.InferInput<typeof ListQubeResourcesInputSchema>
 export type ListFactorsInput = v.InferInput<typeof ListFactorsInputSchema>
 export type ListResearchInput = v.InferInput<typeof ListResearchInputSchema>
+export type ListFactorAnalysesInput = v.InferInput<typeof ListFactorAnalysesInputSchema>
 export type ListBacktestsInput = ListResearchInput
 export type Factor = v.InferOutput<typeof FactorSchema>
 export type Strategy = v.InferOutput<typeof StrategySchema>
@@ -586,23 +610,40 @@ export type ListFactorVersionsInput = v.InferInput<typeof ListFactorVersionsInpu
 
 export function getBacktestParameters(value: unknown): BacktestParameters {
   if (!isRecord(value)) return {}
+  const parameters = isRecord(value.parameters) ? value.parameters : value
+  const raw = isRecord(value.backtest_params)
+    ? value.backtest_params
+    : isRecord(parameters.backtest)
+      ? parameters.backtest
+      : parameters
   return parseResearchInput(BacktestParametersSchema, {
-    periodStart: value.period_start,
-    periodEnd: value.period_end,
-    initBalance: value.init_balance,
-    commissionRate: value.commission_rate,
-    slippage: value.slippage,
-    frequency: value.frequency,
+    periodStart: raw.period_start ?? undefined,
+    periodEnd: raw.period_end ?? undefined,
+    initBalance: raw.init_balance ?? undefined,
+    commissionRate: raw.commission_rate ?? undefined,
+    slippage: raw.slippage ?? undefined,
+    frequency: raw.frequency ?? undefined,
+    standardSymbol: raw.standard_symbol ?? undefined,
+    marginRate: raw.margin_rate ?? undefined,
   })
 }
 export function getFactorAnalysisParams(value: unknown): FactorAnalysisParamsInput {
   if (!isRecord(value)) return {}
+  const raw = isRecord(value.analysis_parameters)
+    ? value.analysis_parameters
+    : isRecord(value.parameters)
+      ? value.parameters
+      : isRecord(value.params)
+        ? value.params
+        : value
   return parseResearchInput(FactorAnalysisParamsInputSchema, {
-    periodStart: value.period_start,
-    periodEnd: value.period_end,
-    adjustmentCycle: value.adjustment_cycle,
-    groupNumber: value.group_number,
-    factorDirection: value.factor_direction,
+    periodStart: raw.period_start ?? undefined,
+    periodEnd: raw.period_end ?? undefined,
+    adjustmentCycle: raw.adjustment_cycle ?? undefined,
+    groupNumber: raw.group_number ?? undefined,
+    factorDirection: raw.factor_direction ?? undefined,
+    stockPool: raw.stock_pool ?? undefined,
+    marketType: raw.market_type ?? undefined,
   })
 }
 export function parseResearchInput<

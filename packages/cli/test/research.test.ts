@@ -312,11 +312,25 @@ describe('Qube Next research CLI', () => {
           init_balance: 1_000_000,
           commission_rate: 1,
           slippage: 0,
-          frequency: '1d',
         },
       },
     })
     expect(ctx.stderr.value).toBe('')
+  })
+
+  it('leaves strategy backtest defaults to the server when no overrides are provided', async () => {
+    const directory = temporaryDirectory()
+    const file = join(directory, 'strategy.py')
+    writeFileSync(file, US_DAILY_MOVING_AVERAGE_FIXTURE)
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse({ ...strategy(), saved: true }, { status: 201 }),
+    )
+    await runCli(
+      ['research', 'strategy', 'create', '--market=us', `--file=${file}`, '--json'],
+      ctx.dependencies,
+    )
+    expect(bodyOf(ctx.fetch)).not.toHaveProperty('parameters')
   })
 
   it.each(['factor', 'strategy'] as const)(
@@ -470,8 +484,6 @@ describe('Qube Next research CLI', () => {
       parameters: {
         period_start: '2026-01-01',
         period_end: '2026-06-30',
-        adjustment_cycle: 5,
-        group_number: 5,
         factor_direction: -1,
       },
     })
@@ -513,6 +525,29 @@ describe('Qube Next research CLI', () => {
       result: { status: 'succeeded' },
     })
     expect(ctx.stderr.value).toBe('')
+  })
+
+  it('submits factor analysis without silently overriding saved parameters', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(analysisReceipt(), { status: 202 }))
+    await runCli(
+      [
+        'research',
+        'factor',
+        'run',
+        FACTOR_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--noWait',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(bodyOf(ctx.fetch)).toEqual({
+      request_id: expect.any(String),
+      expected_source_revision: 2,
+      expected_config_revision: 3,
+    })
   })
 
   it('submits strategy backtests to the new endpoint without fetching or altering HEAD', async () => {
@@ -633,6 +668,37 @@ describe('Qube Next research CLI', () => {
     })
   })
 
+  it('reports an accepted cancellation for a still-running factor analysis as success', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse(analysis({ status: 'running', cancel_requested: true })),
+    )
+    await runCli(['research', 'factor', 'stop', RUN_ID, '--json'], ctx.dependencies)
+    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+      success: true,
+      result: { status: 'running', cancel_requested: true },
+    })
+  })
+
+  it('lists a factor analyses history through the factor resource route', async () => {
+    const ctx = setup()
+    const rows = [analysis()]
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse({ runs: rows }))
+    await runCli(
+      ['research', 'factor', 'analyses', FACTOR_ID, '--status=succeeded', '--json'],
+      ctx.dependencies,
+    )
+    const url = new URL(String(ctx.fetch.mock.calls[0]?.[0]))
+    expect(url.pathname).toBe(`/tqxApi/qube/api/factors/${FACTOR_ID}/analyses`)
+    expect(Object.fromEntries(url.searchParams)).toEqual({ status: 'succeeded' })
+    expect(JSON.parse(ctx.stdout.value)).toEqual({
+      success: true,
+      factor_id: FACTOR_ID,
+      count: 1,
+      analyses: rows,
+    })
+  })
+
   it('downloads the complete backtest detail while keeping its raw fields', async () => {
     const directory = temporaryDirectory()
     const file = join(directory, 'nested', 'backtest.json')
@@ -710,6 +776,7 @@ describe('Qube Next research CLI', () => {
         '--field=trades',
         '--offset=10',
         '--limit=5',
+        '--keyword=fill',
         '--symbol=AAPL.US',
         '--json',
       ],
@@ -721,9 +788,21 @@ describe('Qube Next research CLI', () => {
       field: 'trades',
       offset: '10',
       limit: '5',
+      q: 'fill',
       symbol: 'AAPL.US',
     })
     expect(JSON.parse(ctx.stdout.value)).toEqual({ success: true, run_id: RUN_ID, result: page })
+  })
+
+  it('validates backtest result offsets and limits before fetching', async () => {
+    const ctx = setup()
+    await runCli(
+      ['research', 'backtest', 'result', RUN_ID, '--field=trades', '--offset=-1', '--json'],
+      ctx.dependencies,
+    )
+    expect(ctx.fetch).not.toHaveBeenCalled()
+    expect(JSON.parse(ctx.stderr.value).error.message).toContain('non-negative integer')
+    expect(process.exitCode).toBe(2)
   })
 
   it.each(['factor', 'strategy'] as const)(

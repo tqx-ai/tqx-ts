@@ -348,16 +348,23 @@ export function createFactorCommand(runtime: CommandRuntime) {
           factorId: resourceIdArg('Factor ID'),
           expectedSourceRevision: { type: 'string', required: true },
           expectedConfigRevision: { type: 'string', required: true },
-          startDate: { type: 'string', required: true },
-          endDate: { type: 'string', required: true },
-          adjustmentCycle: { type: 'string', default: '5' },
-          groupNumber: { type: 'string', default: '5' },
-          factorDirection: { type: 'string', default: 'Positive' },
+          startDate: { type: 'string' },
+          endDate: { type: 'string' },
+          adjustmentCycle: { type: 'string' },
+          groupNumber: { type: 'string' },
+          factorDirection: { type: 'string' },
           ...waitArgs,
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
             const id = resourceId(args.factorId, 'factor ID')
+            const hasParameters = [
+              args.startDate,
+              args.endDate,
+              args.adjustmentCycle,
+              args.groupNumber,
+              args.factorDirection,
+            ].some((value) => value !== undefined)
             const submitted = await client.research.createFactorAnalysis(id, {
               requestId: randomUUID(),
               expectedSourceRevision: revision(
@@ -368,23 +375,31 @@ export function createFactorCommand(runtime: CommandRuntime) {
                 args.expectedConfigRevision,
                 'expectedConfigRevision',
               ),
-              parameters: {
-                periodStart: normalizeDate(args.startDate),
-                periodEnd: normalizeDate(args.endDate),
-                adjustmentCycle: boundedInteger(args.adjustmentCycle, 'adjustmentCycle', 1, 30) as
-                  | 1
-                  | 3
-                  | 5
-                  | 10
-                  | 20
-                  | 30,
-                groupNumber: boundedInteger(args.groupNumber, 'groupNumber', 3, 20) as
-                  | 3
-                  | 5
-                  | 10
-                  | 20,
-                factorDirection: factorDirection(args.factorDirection)!,
-              },
+              parameters: hasParameters
+                ? {
+                    periodStart: normalizeDate(args.startDate),
+                    periodEnd: normalizeDate(args.endDate),
+                    adjustmentCycle:
+                      args.adjustmentCycle === undefined
+                        ? undefined
+                        : (boundedInteger(args.adjustmentCycle, 'adjustmentCycle', 1, 30) as
+                            | 1
+                            | 3
+                            | 5
+                            | 10
+                            | 20
+                            | 30),
+                    groupNumber:
+                      args.groupNumber === undefined
+                        ? undefined
+                        : (boundedInteger(args.groupNumber, 'groupNumber', 3, 20) as
+                            | 3
+                            | 5
+                            | 10
+                            | 20),
+                    factorDirection: factorDirection(args.factorDirection),
+                  }
+                : undefined,
             })
             if (args.noWait)
               return {
@@ -412,9 +427,43 @@ export function createFactorCommand(runtime: CommandRuntime) {
             const id = resourceId(args.analysisId, 'analysis ID')
             const result = await client.research.cancelFactorAnalysis(id)
             return {
-              success: resultStatus(result as never) === 'CANCELLED',
+              success:
+                resultStatus(result as never) === 'CANCELLED' ||
+                (result as Record<string, unknown>).cancel_requested === true,
               analysis_id: id,
               result,
+            }
+          }),
+      }),
+      analyses: defineCommand({
+        meta: { name: 'analyses', description: 'List analyses for a factor' },
+        args: {
+          factorId: resourceIdArg('Factor ID'),
+          includeDeleted: { type: 'boolean' },
+          status: {
+            type: 'enum',
+            options: ['queued', 'preparing', 'running', 'succeeded', 'failed', 'cancelled'],
+          },
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => {
+            const factorId = resourceId(args.factorId, 'factor ID')
+            const result = await client.research.listFactorAnalyses(factorId, {
+              includeDeleted: args.includeDeleted,
+              status: args.status as
+                | 'queued'
+                | 'preparing'
+                | 'running'
+                | 'succeeded'
+                | 'failed'
+                | 'cancelled'
+                | undefined,
+            })
+            return {
+              success: true,
+              factor_id: factorId,
+              count: result.runs.length,
+              analyses: result.runs,
             }
           }),
       }),

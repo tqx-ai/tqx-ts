@@ -16,16 +16,17 @@ tqx research factor info <factor-id>
 tqx research factor source <factor-id>
 tqx research factor save <factor-id> --baseSourceRevision=<revision> (--formula=<formula> | --code=<python> | --file=<path>)
 tqx research factor update <factor-id> --baseConfigRevision=<revision> [--title=<title>] [--description=<text>] [analysis-options]
-tqx research factor run <factor-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision> --startDate=<date> --endDate=<date> [analysis-options] [wait-options]
+tqx research factor run <factor-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision> [analysis-options] [wait-options]
 tqx research factor stop <analysis-id>
 tqx research factor result <analysis-id>
+tqx research factor analyses <factor-id> [--includeDeleted] [--status=<status>]
 tqx research factor list [list-options]
 tqx research factor delete <factor-id>... --yes
 ```
 
 `analysis-options`: `--startDate`, `--endDate`, `--adjustmentCycle=1|3|5|10|20|30`,
 `--groupNumber=3|5|10|20`, `--factorDirection=Positive|Negative|1|-1`.
-Runs default to adjustment cycle 5, group number 5, and positive direction.
+Omitted analysis options reuse the factor's saved parameters. Dates accept `YYYYMMDD` or `YYYY-MM-DD`.
 Dates accept `YYYYMMDD` or `YYYY-MM-DD`. The analysis interval must increase and be shorter than five years.
 
 Create requires exactly one source input; `--file` supplies Python code. A formula uses `code_type=formula`.
@@ -45,11 +46,12 @@ tqx research strategy result <run-id> [--download=<path>]
 tqx research strategy list [list-options]
 tqx research strategy delete <strategy-id>... --yes
 tqx research backtest list [list-options]
-tqx research backtest result <run-id> --field=equity|trades|logs|symbol_performance|account_summary [--offset=<integer>] [--limit=1..500] [--symbol=<symbol>]
+tqx research backtest result <run-id> --field=equity|trades|logs|symbol_performance|account_summary [--offset=<non-negative-integer>] [--limit=1..500] [--keyword=<text>] [--symbol=<symbol>]
 ```
 
 `backtest-options`: `--startDate`, `--endDate`, `--startCapital`, `--commissionRate`, `--slippage`,
-`--frequency=1d|1M`. Create defaults to capital 10000000, commission 1, slippage 0, and daily bars.
+`--frequency=1d|1M`. When no backtest options are supplied during strategy creation, the server applies
+its market-specific defaults. Explicit options are passed through as overrides.
 The commission value passes through unchanged; slippage is proportional. Run and update submit only
 specified overrides; the server merges them with saved configuration. Daily intervals allow up to ten
 years and minute intervals up to one year. The CLI requires the end date to be later than the start date.

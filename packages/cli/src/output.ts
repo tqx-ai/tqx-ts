@@ -28,6 +28,12 @@ const TIMESTAMP_FIELDS = new Set([
   'created_at',
   'executed_at',
   'first_active_at',
+  'started_at',
+  'finished_at',
+  'cancelled_at',
+  'applied_at',
+  'restored_at',
+  'last_heartbeat_at',
   'submitted_at',
   'updated_at',
 ])

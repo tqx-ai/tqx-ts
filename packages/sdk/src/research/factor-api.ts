@@ -19,6 +19,7 @@ import {
   type FactorSnapshot,
   type FactorTuning,
   ListFactorsInputSchema,
+  ListFactorAnalysesInputSchema,
   ResearchSummarySchema,
   RestoreInputSchema,
   ValidationResultSchema,
@@ -33,6 +34,7 @@ import {
   type FactorAnalysisSubmission,
   type FactorVersion,
   type ListFactorsInput,
+  type ListFactorAnalysesInput,
   type ListResearchInput,
   type PollOptions,
   type PollResult,
@@ -174,15 +176,19 @@ export class FactorApi {
   }
   listFactorAnalyses(
     factorId: string,
-    input: Omit<ListResearchInput, 'strategyId' | 'factorId'> = {},
-  ): Promise<QubePage<Record<string, unknown>>> {
-    return listResearch(
-      this.#request,
-      APIs.RESEARCH_FACTOR_ANALYSES,
-      { ...input, factorId },
-      ResearchSummarySchema,
-      'runs',
-      'factor',
+    input: ListFactorAnalysesInput = {},
+  ): Promise<{ runs: FactorAnalysis[] }> {
+    const parsed = parseResearchInput(ListFactorAnalysesInputSchema, input)
+    return this.#request(
+      `${APIs.RESEARCH_FACTOR_ANALYSES_BY_FACTOR}/${resourceId(factorId)}/analyses`,
+      {
+        schema: v.looseObject({ runs: v.array(FactorAnalysisSchema) }),
+        query: {
+          include_deleted:
+            parsed.includeDeleted === undefined ? undefined : String(parsed.includeDeleted),
+          status: parsed.status,
+        },
+      },
     )
   }
   listAnalyses(input: ListResearchInput = {}): Promise<QubePage<Record<string, unknown>>> {

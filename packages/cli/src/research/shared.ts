@@ -180,6 +180,13 @@ export function positiveInteger(value: string | undefined, name: string): number
   return number
 }
 
+export function nonNegativeInteger(value: string | undefined, name: string): number {
+  const number = optionalNumber(value)
+  if (number === undefined || number < 0)
+    throw new CliUsageError(`${name} must be a non-negative integer`)
+  return number
+}
+
 export function boundedInteger(
   value: string | undefined,
   name: string,

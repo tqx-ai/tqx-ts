@@ -381,7 +381,11 @@ describe('Qube Next versions and tuning contracts', () => {
       ['2026-02-30', '2026-03-01'],
     ]) {
       await expect(
-        research.createStrategyTuning(ID, { ...revisions, candidates: [{}], tradingDates }),
+        research.createStrategyTuning(ID, {
+          ...revisions,
+          candidates: [{ strategyParameters: { window: 5 } }],
+          tradingDates,
+        }),
       ).rejects.toMatchObject({ name: 'TqxValidationError' })
     }
     expect(fetch).not.toHaveBeenCalled()
@@ -390,29 +394,13 @@ describe('Qube Next versions and tuning contracts', () => {
 
 describe('Qube Next query, validation and polling', () => {
   it('serializes summary filters and rejects unsupported parents and limits', async () => {
-    const { research, fetch } = setup({ runs: [{ id: ID2 }], next_cursor: null, has_more: false })
-    await research.listFactorAnalyses(ID, {
-      keyword: 'momentum',
-      title: 'alpha',
-      description: 'long',
-      status: 'succeeded',
-      from: '2026-01-01',
-      to: '2026-06-30',
-      timeField: 'updated_at',
-      cursor: 'a/b=',
-    })
+    const { research, fetch } = setup({ runs: [run('factor')] })
+    await expect(
+      research.listFactorAnalyses(ID, { includeDeleted: true, status: 'succeeded' }),
+    ).resolves.toEqual({ runs: [run('factor')] })
     expect(Object.fromEntries(requestAt(fetch).url.searchParams)).toEqual({
-      limit: '10',
-      view: 'summary',
-      factor_id: ID,
-      q: 'momentum',
-      title: 'alpha',
-      description: 'long',
+      include_deleted: 'true',
       status: 'succeeded',
-      from: '2026-01-01',
-      to: '2026-06-30',
-      time_field: 'updated_at',
-      cursor: 'a/b=',
     })
     expect(() => research.listBacktests({ limit: 11 })).toThrow('Invalid SDK input')
     expect(() => research.listAnalyses({ strategyId: ID })).toThrow('Invalid SDK input')

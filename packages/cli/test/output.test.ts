@@ -55,6 +55,12 @@ describe('Output', () => {
       created_at: timestamp,
       first_active_at: timestamp,
       updated_at: timestamp,
+      started_at: timestamp,
+      finished_at: timestamp,
+      cancelled_at: timestamp,
+      applied_at: timestamp,
+      restored_at: timestamp,
+      last_heartbeat_at: timestamp,
     })
 
     expect(buffer.value).toContain(offset)
