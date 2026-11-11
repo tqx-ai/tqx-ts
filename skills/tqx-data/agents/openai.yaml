@@ -1,4 +1,6 @@
 interface:
   display_name: "TQX Data"
   short_description: "Query TQX HK/US stock data locally with tqx-data"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/logo.png"
   default_prompt: "Use $tqx-data to set up the local API-Key tqx-data package and query Hong Kong or US stock data. Ask for an API key only if no key is saved yet, save it without repeating it, and use only methods documented in tqx_data.md."

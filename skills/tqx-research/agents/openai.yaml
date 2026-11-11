@@ -1,4 +1,6 @@
 interface:
   display_name: "TQX Research"
   short_description: "Set up Qube research workflows and backtests"
+  icon_small: "./assets/icon.svg"
+  icon_large: "./assets/logo.png"
   default_prompt: "Use $tqx-research to set up the CLI and help me with an explicit Qube research, factor, strategy, or backtest task."
