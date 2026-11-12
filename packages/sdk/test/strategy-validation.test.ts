@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+
 import { describe, expect, it, vi } from 'vitest'
 
 import { TqxClient, TqxValidationError, validateStrategyCode } from '../src/index'
@@ -8,14 +10,17 @@ const STOCK_VALID = `
 import panda_data as pd
 from panda_backtest.api.api import *
 
-def init_market_data(context):
+STRATEGY_PARAMS = {}
+
+def init_preheating_data(context):
     context.history = pd.get_market_data(
         start_date='2026-01-01',
         end_date='2026-02-01',
     )
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     pass
@@ -24,7 +29,10 @@ def handle_data(context, data):
 const FUTURE_VALID = `
 from panda_backtest.api.api import *
 
+STRATEGY_PARAMS = {}
+
 def initialize(context):
+    context.params = dict(STRATEGY_PARAMS)
     context.ready = True
 
 def handle_data(context, data):
@@ -36,20 +44,35 @@ import tqx_data as td
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_hk_api import *
 
-def init_market_data(context):
+STRATEGY_PARAMS = {}
+
+def init_preheating_data(context):
     context.index_members = td.get_index_component(
         market='hk',
         index_symbol='HSI',
     )
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     pass
 `
 
+const withDataCall = (call: string) =>
+  HK_VALID.replace('stock_hk_api', 'stock_us_api').replace(
+    "td.get_index_component(\n        market='hk',\n        index_symbol='HSI',\n    )",
+    call,
+  )
+
 function expectValidationError(code: string, market: string): TqxValidationError {
+  if (!code.includes('STRATEGY_PARAMS') && /def initialize\(context\):/.test(code)) {
+    code = code.replace(
+      /\ndef initialize\(context\):\n/,
+      '\nSTRATEGY_PARAMS = {}\n\ndef initialize(context):\n    context.params = dict(STRATEGY_PARAMS)\n',
+    )
+  }
   try {
     validateStrategyCode(code, market, { locale: 'en' })
     throw new Error('expected validation error')
@@ -73,21 +96,336 @@ describe('strategy validation', () => {
     expect(() => validateStrategyCode(US_DAILY_MOVING_AVERAGE_FIXTURE, 'us')).not.toThrow()
   })
 
-  it('rejects try/except blocks in strategy code', () => {
-    const error = expectValidationError(
-      STOCK_VALID.replace(
-        'def handle_data(context, data):\n    pass',
-        `def handle_data(context, data):
+  it('accepts safe try/except blocks in strategy code', () => {
+    expect(() =>
+      validateStrategyCode(
+        STOCK_VALID.replace(
+          'def handle_data(context, data):\n    pass',
+          `def handle_data(context, data):
     try:
         print(data)
     except Exception:
         return`,
+        ),
+        'stock',
       ),
-      'stock',
+    ).not.toThrow()
+  })
+
+  it('accepts named Qube API imports with the current parameter contract', () => {
+    expect(() =>
+      validateStrategyCode(
+        `
+from panda_backtest.api.api import MarketOrderStyle, order_shares
+from panda_backtest.api.stock_us_api import stock_api_quotation
+
+STRATEGY_PARAMS = {"symbol": "AAPL.NB"}
+
+def init_preheating_data(context):
+    context.history = stock_api_quotation(
+        [context.params["symbol"]],
+        start_date="20260101",
+        end_date="20260102",
+        period="1d",
     )
 
-    expect(error.issues[0]?.message).toContain('try')
-    expect(error.issues[0]?.message).toContain('except')
+def initialize(context):
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
+
+def handle_data(context, data):
+    pass
+`,
+        'us',
+      ),
+    ).not.toThrow()
+  })
+
+  it('requires init_preheating_data for HK/US historical queries', () => {
+    const error = expectValidationError(
+      `
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import stock_api_quotation
+
+STRATEGY_PARAMS = {"symbol": "TSLA.NB"}
+
+def initialize(context):
+    context.params = dict(STRATEGY_PARAMS)
+    context.history = stock_api_quotation(
+        [context.params["symbol"]], start_date="20260101", end_date="20260102", period="1d",
+    )
+
+def handle_data(context, data):
+    pass
+`,
+      'us',
+    )
+    expect(error.issues[0]?.message).toContain('init_preheating_data')
+  })
+
+  it('allows historical refreshes only reachable from before_trading without a preheater', () => {
+    const refresh = HK_VALID.replace(
+      'def init_preheating_data(context):',
+      'def before_trading(context):',
+    ).replace('    init_preheating_data(context)\n', '')
+    expect(() => validateStrategyCode(refresh, 'hk')).not.toThrow()
+    const helper =
+      refresh.replace('def before_trading(context):', 'def refresh_history(context):') +
+      '\ndef before_trading(context):\n    refresh_history(context)\n'
+    expect(() => validateStrategyCode(helper, 'hk')).not.toThrow()
+    const shared = helper.replace(
+      '    context.params = dict(STRATEGY_PARAMS)',
+      '    context.params = dict(STRATEGY_PARAMS)\n    refresh_history(context)',
+    )
+    expect(expectValidationError(shared, 'hk').issues[0]?.message).toContain('init_preheating_data')
+  })
+
+  it('allows before_trading stock API refreshes and still rejects handle_data fetches', () => {
+    const code = `
+from panda_backtest.api.api import *
+from panda_backtest.api.stock_us_api import stock_api_pre_close
+STRATEGY_PARAMS = {}
+def initialize(context):
+    context.params = dict(STRATEGY_PARAMS)
+def before_trading(context):
+    context.previous = stock_api_pre_close(["AAPL.NB"])
+def handle_data(context, data):
+    pass
+`
+    expect(() => validateStrategyCode(code, 'us')).not.toThrow()
+    const forbidden = code
+      .replace('def before_trading(context):', 'def refresh_history(context):')
+      .replace('    pass', '    refresh_history(context)')
+    expect(() => validateStrategyCode(forbidden, 'us')).toThrow(TqxValidationError)
+  })
+
+  it('checks a declared preheater even when it contains no historical queries', () => {
+    const code = FUTURE_VALID + '\ndef init_preheating_data(context):\n    pass\n'
+    expect(expectValidationError(code, 'hk').issues[0]?.message).toContain('init_preheating_data')
+  })
+
+  it('preserves Python duplicate-key semantics for the strategy table', () => {
+    expect(() =>
+      validateStrategyCode(
+        FUTURE_VALID.replace(
+          'STRATEGY_PARAMS = {}',
+          'STRATEGY_PARAMS = {"window": 1, "window": 2}',
+        ),
+        'future',
+      ),
+    ).not.toThrow()
+  })
+
+  it('rejects missing or duplicated strategy parameter tables', () => {
+    const missingCode = `
+from panda_backtest.api.api import *
+
+def initialize(context):
+    pass
+
+def handle_data(context, data):
+    pass
+`
+    const missing = (() => {
+      try {
+        validateStrategyCode(missingCode, 'future')
+        throw new Error('expected validation error')
+      } catch (error) {
+        expect(error).toBeInstanceOf(TqxValidationError)
+        return error as TqxValidationError
+      }
+    })()
+    expect(missing.issues[0]?.message).toContain('STRATEGY_PARAMS')
+
+    const duplicate = expectValidationError(
+      `
+from panda_backtest.api.api import *
+STRATEGY_PARAMS = {}
+STRATEGY_PARAMS = {}
+
+def initialize(context):
+    context.params = dict(STRATEGY_PARAMS)
+
+def handle_data(context, data):
+    pass
+`,
+      'future',
+    )
+    expect(duplicate.issues[0]?.message).toContain('STRATEGY_PARAMS')
+  })
+
+  it('ignores parameter examples in comments and strings and permits helpers before the table', () => {
+    const code = FUTURE_VALID.replace(
+      'STRATEGY_PARAMS = {}',
+      `
+# context.params = dict(STRATEGY_PARAMS)
+def helper():
+    print("context.params[key] = 42")
+
+STRATEGY_PARAMS: dict = {"window": -10, "enabled": True, "symbols": ["AAPL.NB"]}
+`,
+    )
+    expect(() => validateStrategyCode(code, 'future')).not.toThrow()
+  })
+
+  it.each([
+    ['computed defaults', 'STRATEGY_PARAMS = dict(window=10)', 'pass', 'literal'],
+    ['invalid key', 'STRATEGY_PARAMS = {"bad-key": 10}', 'pass', 'literal'],
+    ['empty symbol list', 'STRATEGY_PARAMS = {"symbols": []}', 'pass', 'literal'],
+    ['numeric list', 'STRATEGY_PARAMS = {"windows": [1, 2]}', 'pass', 'literal'],
+    ['non-finite number', 'STRATEGY_PARAMS = {"window": 1e999}', 'pass', 'literal'],
+    ['f-string', 'STRATEGY_PARAMS = {"symbol": f"AAPL"}', 'pass', 'literal'],
+    [
+      'undeclared parameter',
+      'STRATEGY_PARAMS = {}',
+      'print(context.params["missing"])',
+      'Undeclared',
+    ],
+    ['dynamic key', 'STRATEGY_PARAMS = {}', 'print(context.params[key])', 'literal string keys'],
+    [
+      'dynamic get',
+      'STRATEGY_PARAMS = {}',
+      'print(context.params.get(key))',
+      'literal string keys',
+    ],
+    ['subscript write', 'STRATEGY_PARAMS = {}', 'context.params["window"] = 10', 'read-only'],
+    ['table write', 'STRATEGY_PARAMS = {}', 'STRATEGY_PARAMS["window"] = 10', 'read-only'],
+    ['table update', 'STRATEGY_PARAMS = {}', 'STRATEGY_PARAMS |= {"window": 10}', 'read-only'],
+    ['table update method', 'STRATEGY_PARAMS = {}', 'STRATEGY_PARAMS.update({})', 'read-only'],
+    ['table pop', 'STRATEGY_PARAMS = {}', 'STRATEGY_PARAMS.pop("window")', 'read-only'],
+    ['table clear', 'STRATEGY_PARAMS = {}', 'STRATEGY_PARAMS.clear()', 'read-only'],
+    [
+      'table setdefault',
+      'STRATEGY_PARAMS = {}',
+      'STRATEGY_PARAMS.setdefault("window", 10)',
+      'read-only',
+    ],
+    ['table delete', 'STRATEGY_PARAMS = {}', 'del STRATEGY_PARAMS', 'read-only'],
+    [
+      'table read',
+      'STRATEGY_PARAMS = {"window": 10}',
+      'print(STRATEGY_PARAMS["window"])',
+      'through context.params',
+    ],
+    [
+      'table get',
+      'STRATEGY_PARAMS = {"window": 10}',
+      'print(STRATEGY_PARAMS.get("window"))',
+      'through context.params',
+    ],
+    [
+      'undeclared table read',
+      'STRATEGY_PARAMS = {}',
+      'print(STRATEGY_PARAMS["missing"])',
+      'Undeclared',
+    ],
+    [
+      'alias write',
+      'STRATEGY_PARAMS = {}',
+      'params = context.params\n    params.update({})',
+      'read-only',
+    ],
+    [
+      'alias read',
+      'STRATEGY_PARAMS = {}',
+      'params = context.params\n    print(params["missing"])',
+      'Undeclared',
+    ],
+    ['delete', 'STRATEGY_PARAMS = {}', 'del context.params["window"]', 'read-only'],
+    ['second copy', 'STRATEGY_PARAMS = {}', 'context.params = dict(STRATEGY_PARAMS)', 'read-only'],
+  ])('rejects %s under the Qube parameter contract', (_label, table, statement, message) => {
+    const code = FUTURE_VALID.replace('STRATEGY_PARAMS = {}', table).replace(
+      'def handle_data(context, data):\n    pass',
+      `def handle_data(context, data):\n    ${statement}`,
+    )
+    expect(expectValidationError(code, 'future').issues[0]?.message).toContain(message)
+  })
+
+  it('requires a real parameter copy and checks nested table declarations', () => {
+    const commented = FUTURE_VALID.replace(
+      'context.params = dict(STRATEGY_PARAMS)',
+      '# context.params = dict(STRATEGY_PARAMS)',
+    )
+    expect(expectValidationError(commented, 'future').issues[0]?.message).toContain('exactly once')
+    const nested = FUTURE_VALID.replace('context.ready = True', 'STRATEGY_PARAMS = {}')
+    expect(expectValidationError(nested, 'future').issues[0]?.message).toContain('STRATEGY_PARAMS')
+  })
+
+  it.each([
+    [
+      'async',
+      (code: string) => code.replace('def init_preheating_data', 'async def init_preheating_data'),
+    ],
+    [
+      'wrong signature',
+      (code: string) =>
+        code.replace('def init_preheating_data(context):', 'def init_preheating_data():'),
+    ],
+    [
+      'wrong call',
+      (code: string) =>
+        code.replace('    init_preheating_data(context)', '    init_preheating_data()'),
+    ],
+    [
+      'duplicate call',
+      (code: string) =>
+        code.replace(
+          '    init_preheating_data(context)',
+          '    init_preheating_data(context)\n    init_preheating_data(context)',
+        ),
+    ],
+    [
+      'conditional call',
+      (code: string) =>
+        code.replace(
+          '    init_preheating_data(context)',
+          '    if True:\n        init_preheating_data(context)',
+        ),
+    ],
+  ])('rejects a %s preheater', (_label, change) => {
+    expect(expectValidationError(change(HK_VALID), 'hk').issues[0]?.message).toContain(
+      'init_preheating_data',
+    )
+  })
+
+  it('uses the current preheater name in historical-query diagnostics', () => {
+    const code = HK_VALID.replace(
+      'def handle_data(context, data):\n    pass',
+      `def handle_data(context, data):
+    td.get_hk_daily(symbol="0700.HK")`,
+    )
+    const error = expectValidationError(code, 'hk')
+    expect(error.issues[0]?.message).toContain('init_preheating_data')
+    expect(error.issues[0]?.message).not.toContain('init_market_data')
+  })
+
+  it('checks tqx_data positional arguments, required fields, and current optional parameters', () => {
+    for (const call of [
+      'td.get_us_min(symbol="AAPL", time_zone=("10:00", "11:00"), market="us")',
+      'td.get_min_data(symbol="AAPL.NB", max_workers=5, market="us")',
+      'td.get_financial_statement("2024q1", "2024q4", ["AAPL"], ["date"], "us")',
+      'td.get_event_devidend(["AAPL"], "nb", [], "20260101", "20260201")',
+    ])
+      expect(() => validateStrategyCode(withDataCall(call), 'us')).not.toThrow()
+    for (const [call, message] of [
+      ['td.get_financial_statement("2024q1", "2024q4")', 'market'],
+      ['td.get_event_devidend(symbol="AAPL")', 'start_date'],
+      ['td.get_stock_detail(["AAPL.NB"], "ny")', 'market'],
+      ['td.get_tick_data("AAPL.NB", "us", symbol="AAPL.NB")', 'duplicate'],
+    ])
+      expect(expectValidationError(withDataCall(call!), 'us').issues[0]?.message).toContain(message)
+  })
+
+  it('matches all exported data-reader signatures in the pinned Qube wheel', () => {
+    const contract = JSON.parse(
+      readFileSync(new URL('./fixtures/tqx-data-contract.json', import.meta.url), 'utf8'),
+    ) as {
+      parameters: Record<string, string[]>
+    }
+    const params = Object.fromEntries(
+      Object.entries(catalogForMarket('us').catalog).map(([name, spec]) => [name, spec.params]),
+    )
+    expect(params).toEqual(contract.parameters)
   })
 
   it.each([
@@ -107,29 +445,33 @@ describe('strategy validation', () => {
     expect(error.issues[0]?.message).toContain('data[symbol]')
   })
 
-  it('rejects US strategies that skip init_market_data', () => {
-    const error = expectValidationError(
-      `
+  it('accepts strategies that use init_preheating_data', () => {
+    expect(() =>
+      validateStrategyCode(
+        `
 from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
+from panda_backtest.api.stock_us_api import stock_api_quotation
+
+STRATEGY_PARAMS = {"symbol": "TSLA.NB"}
+
+def init_preheating_data(context):
+    context.history = stock_api_quotation(
+        symbol_list=[context.params["symbol"]],
+        start_date="20260101",
+        end_date="20260102",
+        period="1d",
+    )
 
 def initialize(context):
-    context.account = "15032863"
-    context.stock_universe = ["TSLA.NB"]
-    context.fast_window = 4
-    context.slow_window = 12
-    context.max_position_ratio = 0.9
-    context.today_trades = []
-    context.close_history = {symbol: [] for symbol in context.stock_universe}
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     pass
 `,
-      'us',
-    )
-
-    expect(error.issues[0]?.message).toContain('init_market_data')
-    expect(error.issues[0]?.message).toContain('initialize')
+        'us',
+      ),
+    ).not.toThrow()
   })
 
   it('rejects rolling-window lookbacks that start at the backtest boundary', () => {
@@ -139,13 +481,16 @@ import pandas as pd
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_us_api import *
 
-def init_market_data(context):
+STRATEGY_PARAMS = {}
+
+def init_preheating_data(context):
     context.lookback = 30
     context.history = pd.DataFrame({"close": [1.0] * 60})
     context.requested_range = dict(start_date=context.run_info.start_date)
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     context.history["close"].rolling(context.lookback).mean()
@@ -178,11 +523,11 @@ def initialize(context)
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_api import *
 
-def init_market_data(context):
+def init_preheating_data(context):
     pass
 
 def initialize(context):
-    init_market_data(context)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     pass
@@ -197,11 +542,11 @@ def handle_data(context, data):
       `
 from panda_backtest.api.api import *
 
-def init_market_data(context):
+def init_preheating_data(context):
     pass
 
 def initialize(context):
-    init_market_data(context)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     data.get('close')
@@ -218,7 +563,9 @@ from tqx_data import get_us_daily as daily
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_us_api import *
 
-def init_market_data(context):
+STRATEGY_PARAMS = {}
+
+def init_preheating_data(context):
     context.history = daily(
         symbol='AAPL.US',
         start_date='2026-01-01',
@@ -227,7 +574,8 @@ def init_market_data(context):
     )
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     pass
@@ -243,13 +591,16 @@ import tqx_data
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_us_api import *
 
-def init_market_data(context):
+STRATEGY_PARAMS = {}
+
+def init_preheating_data(context):
     context.latest = tqx_data.get_tick_data(symbol=['XPEV.NB'], market='nb')
     context.filings = tqx_data.get_filing_announcement(symbol=['XPEV.NB'], market='nb')
     context.minutes = tqx_data.get_min_data(symbol=['XPEV.NB'], market='nb', frequency='10m')
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     pass
@@ -263,7 +614,9 @@ import tqx_data
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_us_api import *
 
-def init_market_data(context):
+STRATEGY_PARAMS = {}
+
+def init_preheating_data(context):
     context.dividends = tqx_data.get_event_devidend(
         symbol=['NIO.NB'], start_date='20260101', end_date='20261012', market='us',
     )
@@ -274,7 +627,8 @@ def init_market_data(context):
     context.consensus = tqx_data.get_consensus_recommend(symbol=['NIO.NB'], market='us')
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     pass
@@ -283,11 +637,11 @@ def handle_data(context, data):
   })
 
   it.each([
-    ["tqx_data.get_tick_data(symbol=['XPEV.NB'], market='us')", 'market'],
-    ["tqx_data.get_filing_announcement(symbol=['XPEV.NB'], market='us')", 'market'],
+    ["tqx_data.get_tick_data(symbol=['XPEV.NB'], market='ny')", 'market'],
+    ["tqx_data.get_filing_announcement(symbol=['XPEV.NB'], market='ny')", 'market'],
     ["tqx_data.get_min_data(symbol=['XPEV.NB'], market='nb', frequency='15m')", 'frequency'],
     [
-      "tqx_data.get_event_devidend(symbol=['XPEV.NB'], start_date='20260101', end_date='20261012', market='nb')",
+      "tqx_data.get_event_devidend(symbol=['XPEV.NB'], start_date='20260101', end_date='20261012', market='ny')",
       'market',
     ],
     ['tqx_data.calculate_indicators(market_data={}, indicator_params={})', 'allowlist'],
@@ -298,11 +652,11 @@ import tqx_data
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_us_api import *
 
-def init_market_data(context):
+def init_preheating_data(context):
     context.result = ${call}
 
 def initialize(context):
-    init_market_data(context)
+    init_preheating_data(context)
 
 def handle_data(context, data):
     pass
@@ -367,23 +721,52 @@ def handle_data(context, data):
     expect(usDaily).toBeDefined()
     expect(hkIndexComponent).toBeDefined()
     expect(stockMarketData).toBeDefined()
-    expect(usDaily?.enums.market).toEqual(['nb', 'ny'])
+    expect(usDaily?.required).toEqual([])
+    expect(usDaily?.enums.market).toEqual(['nb', 'us'])
     const tqxCatalog = catalogForMarket('us').catalog
-    expect(tqxCatalog.get_tick_data?.enums.market).toEqual(['hk', 'nb'])
-    expect(tqxCatalog.get_filing_announcement?.enums.market).toEqual(['hk', 'nb'])
+    expect(tqxCatalog.get_tick_data?.enums.market).toEqual(['hk', 'nb', 'us'])
+    expect(tqxCatalog.get_filing_announcement?.enums.market).toEqual(['hk', 'nb', 'us'])
     for (const name of ['get_hk_min', 'get_us_min', 'get_min_data']) {
       expect(tqxCatalog[name]?.enums.frequency).toEqual(['10m', '1m', '5m', '60m'])
     }
-    expect(tqxCatalog.get_event_devidend?.required).toEqual(['start_date', 'end_date', 'market'])
-    expect(tqxCatalog.get_event_devidend?.enums.market).toEqual(['hk', 'us'])
-    expect(tqxCatalog.get_company_oper_metrics?.required).toEqual([
-      'start_year',
-      'end_year',
-      'market',
-    ])
+    expect(tqxCatalog.get_event_devidend?.required).toEqual(['start_date', 'end_date'])
+    expect(tqxCatalog.get_event_devidend?.enums.market).toEqual(['hk', 'nb', 'us'])
+    expect(tqxCatalog.get_company_oper_metrics?.required).toEqual(['start_year', 'end_year'])
     expect(Object.keys(tqxCatalog)).toHaveLength(30)
+    expect(Object.keys(tqxCatalog).toSorted()).toEqual([
+      'get_company_concentration',
+      'get_company_current',
+      'get_company_imed',
+      'get_company_insider_transaction',
+      'get_company_investor',
+      'get_company_oper_metrics',
+      'get_company_price_vol',
+      'get_company_shareholder_report',
+      'get_company_top_concentration',
+      'get_consensus_nonperiod',
+      'get_consensus_recommend',
+      'get_currency',
+      'get_event_capital_market',
+      'get_event_corporate_actions',
+      'get_event_devidend',
+      'get_event_fina_disclosure',
+      'get_event_investor_relation_activities',
+      'get_factor',
+      'get_filing_announcement',
+      'get_financial_statement',
+      'get_hk_daily',
+      'get_hk_min',
+      'get_index_component',
+      'get_live_market_data',
+      'get_min_data',
+      'get_stock_detail',
+      'get_tick_data',
+      'get_trading_calendar',
+      'get_us_daily',
+      'get_us_min',
+    ])
     expect(tqxCatalog.calculate_indicators).toBeUndefined()
-    expect(hkIndexComponent?.required).toEqual(['market'])
+    expect(hkIndexComponent?.required).toEqual([])
     expect(stockMarketData?.enums.type).toEqual(['future', 'index', 'stock'])
   })
 })

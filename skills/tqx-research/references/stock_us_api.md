@@ -20,12 +20,13 @@ Do not call internal `run_stock_backtest()` in the strategy code; QUBE backtest 
 ## 2. Required import and market agreement
 
 ```python
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
+from panda_backtest.api.api import MarketOrderStyle, order_shares
+from panda_backtest.api.stock_us_api import stock_api_quotation
 ```
 
 - CLI markets must be `--market us`.
-- The current US stock data codes use `.NB`, such as `AAPL.NB`, `TSLA.NB`, `NVDA.NB`.
+- Strategy symbols use the `.NB` suffix, such as `AAPL.NB`, `TSLA.NB`, and `NVDA.NB`. The `tqx_data` historical readers also accept an unsuffixed symbol and return it without a suffix; real-time readers require `.NB` when a symbol is supplied.
+- `tqx_data` market arguments use `"us"` or the equivalent `"nb"` alias. `"ny"` is not supported.
 - Do not import A-share `panda_backtest.api.stock_api` or Hong Kong stock `stock_hk_api`.
 - It is recommended to use server-side validation when creating or updating, so that incorrect or missing market imports will fail directly.
 
@@ -96,15 +97,16 @@ Daily field conversion:
 | `lolimit`         | `limit_down`                                     |
 | `date`            | Convert to string and add string `trade_date`    |
 
-Commonly used daily fields are `symbol/date/trade_date/open/high/low/close/volume/turnover/vwap/preclose/`
+The current `tqx_data.get_us_daily` reader removes `amount`, so this wrapper does not provide daily `turnover`.
+Commonly used daily fields are `symbol/date/trade_date/open/high/low/close/volume/vwap/preclose/`
 `pre_close/limit_up/limit_down/trade_status`. The complete column set and dtype depend on the current data file and should not be hard-coded.
 
 The minute line will `amount -> turnover`, `us_date -> date/trade_date`, `us_minute -> time`, and increase
 `last = close`. `date/time` is an integer and `trade_date` is a string. The underlying fixed use is `frequency="1m"` and
 `market="nb"`。
 
-`symbol`, `date` are retained when `fields` is specified. The implementation of U.S. stocks will throw `KeyError` when encountering unknown fields; empty data will be returned every minute.
-Empty DataFrame, daily empty data may also throw `KeyError` due to missing `date`, the caller must capture and check the result.
+`symbol`, `date` are retained when `fields` is specified. Historical US `symbol` values have no `.NB` suffix; convert them to the strategy pool format before joining or filling per-symbol caches. The implementation of U.S. stocks will throw `KeyError` when encountering unknown fields; empty data will be returned every minute.
+Empty DataFrame, daily empty data may also throw `KeyError` due to missing `date`, the caller must capture and check the result. A successful result is a `pandas.DataFrame`; check that `symbol`, `date`, and every requested field exist before using it.
 
 ### 3.2 `stock_api_pre_close`
 
@@ -135,7 +137,7 @@ previous = stock_api_pre_close(symbols, "20260105")
 | `after_trading(context)`     | No       | At the end of each trading day, output a low-frequency summary                       |
 
 In minute backtest, `context.hms` is used according to the US stock market trading hours. Do not call stock details, trading calendar or
-`stock_api_quotation`; Historical data should be loaded and cached at low frequency during initialization or before trading.
+`stock_api_quotation`; Initial historical data belongs in `init_preheating_data(context)`, called directly once by `initialize(context)`; bounded daily refreshes may run before trading.
 
 ### Current bar, account and position
 

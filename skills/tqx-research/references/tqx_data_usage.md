@@ -2,12 +2,11 @@
 >
 > **维护**：接口说明由本仓库审阅与修订；变更时直接更新本文件并更新下方日期。
 >
-> **修订日期**：2026-10-14
+> **修订日期**：2026-11-11
 >
 > **Qube 可用范围**：本文档中的 `get_` 方法可用于 Qube 策略源码，`calculate_indicators` 仅供助手侧计算。`get_company_*` 与 `get_consensus_*` 中没有日期参数的方法返回最新快照，没有历史版本，放进回测会产生前视偏差，只能用于当前状态筛选；事件类数据须按公告日期过滤。若某个已记录的方法当前不可用，请把依赖它的计算移到策略外部，直到该方法恢复可用。
 >
-> --- 
-
+> ---
 
 # 获取港美股数据的接口文档（tqx）
 
@@ -19,7 +18,11 @@
 
 美国股票：
 
-\- NASDAQ BASIC代码格式：股票代码 + \`.NB\`后缀（如：AAPL.NB、0013.NB）
+\- 历史日线、分钟线和基本面接口接受无后缀代码（如 `AAPL`、`0013`），也接受 `.NB`；返回的 `symbol` / `stock_symbol` 不带后缀。
+\- 实时接口 `get_min_data`、`get_tick_data`、`get_live_market_data` 在传入 `symbol` 时要求 `.NB` 后缀。
+\- 市场参数统一使用 `market="us"` 或等价别名 `market="nb"`；`"ny"` 不受支持。
+
+同一版本的 wheel 不需要登录或初始化，直接从本地数据源读取。`get_financial_statement` 必须显式传入 `market`（`"hk"`、`"us"` 或 `"nb"`）。
 
 ## 一、行情数据
 
@@ -31,8 +34,8 @@
 
 | 字段 | 类型 | 描述 | 是否必填 |
 |:---|:---|:---|:---|
-| start_date | str | 开始日期,eg:"20250702"，与结束日期间不超过5年 | 必填 |
-| end_date | str | 结束日期,eg:"20250702"，与开始日期间不超过5年 | 必填 |
+| start_date | str | 开始日期,eg:"20250702"；不传则不按开始日期过滤 | 非必填 |
+| end_date | str | 结束日期,eg:"20250702"；不传则不按结束日期过滤 | 非必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
 
@@ -50,7 +53,7 @@
 | pre_close    | double | 前一日收盘价          |
 | name         | str    | 股票名称              |
 | trade_status | int    | 交易状态代码          |
-| alt_close    | double | 备用收市价，与 close 相同；未做除权除息调整，不能当复权价使用 |
+| alt_close    | double | 备用收市价，按现金分红、股票分红、拆股和反向拆股等公司行为调整 |
 | bid          | double | 买盘价                |
 | ask          | double | 卖盘价                |
 | vwap         | double | 成交量加权平均价      |
@@ -147,12 +150,15 @@ symbol date ask bid vwap
 
 | 字段 | 类型 | 描述 | 是否必填 |
 |:---|:---|:---|:---|
-| start_date | str | 开始日期,eg:"20250702"，与结束日期间不超过5年 | 必填 |
-| end_date | str | 结束日期,eg:"20250702"，与开始日期间不超过5年 | 必填 |
+| start_date | str | 开始日期,eg:"20250702"；不传则不按开始日期过滤 | 非必填 |
+| end_date | str | 结束日期,eg:"20250702"；不传则不按结束日期过滤 | 非必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
+| market | str | 美股市场，默认 "nb"；"us" 与 "nb" 等价 | 非必填 |
 
 #### 2.3. 响应参数
+
+美股历史接口返回的 `symbol` 不带 `.NB` 后缀；请求时可传 `AAPL` 或 `AAPL.NB`。不返回 `amount` 字段，即使显式请求也会剔除。
 
 | 字段         | 类型   | 描述             |
 |:-------------|:-------|:-----------------|
@@ -191,25 +197,25 @@ print(result)
 **响应示例**
 
 ```text
-symbol date amount ... trade_status volume vwap
-0 A.NB 20260102 114271300.0 ... 0.0 1650714.0 136.8875
-1 A.NB 20260105 246968868.0 ... 0.0 2981500.0 141.2442
-2 A.NB 20260106 208702238.0 ... 0.0 2627715.0 147.0739
-3 A.NB 20260107 169312459.0 ... 0.0 2279107.0 147.1272
-4 A.NB 20260108 142722373.0 ... 0.0 1728989.0 146.5342
+symbol date ... trade_status volume vwap
+0 A 20260102 ... 0.0 1650714.0 136.8875
+1 A 20260105 ... 0.0 2981500.0 141.2442
+2 A 20260106 ... 0.0 2627715.0 147.0739
+3 A 20260107 ... 0.0 2279107.0 147.1272
+4 A 20260108 ... 0.0 1728989.0 146.5342
 ... ... ... ... ... ... ... ...
-128770 ZYME.NB 20260126 20283763.0 ... 0.0 1017764.0 22.9013
-128771 ZYME.NB 20260127 8745284.0 ... 0.0 472354.0 23.1272
-128772 ZYME.NB 20260128 10779410.0 ... 0.0 652771.0 22.4135
-128773 ZYME.NB 20260129 9794904.0 ... 0.0 625269.0 22.4472
-128774 ZYME.NB 20260130 8614917.0 ... 0.0 560163.0 22.5178
+128770 ZYME 20260126 ... 0.0 1017764.0 22.9013
+128771 ZYME 20260127 ... 0.0 472354.0 23.1272
+128772 ZYME 20260128 ... 0.0 652771.0 22.4135
+128773 ZYME 20260129 ... 0.0 625269.0 22.4472
+128774 ZYME 20260130 ... 0.0 560163.0 22.5178
 ```
 
 ##### 2.4.2. 获取一定日期内部分美股的日线数据并限制返回字段
 
 ```python
 import tqx_data
-result = tqx_data.get_hk_daily(
+result = tqx_data.get_us_daily(
     symbol=["A.NB", "AAPL.NB"],
     start_date="20250101",
     end_date="20250131",
@@ -222,46 +228,46 @@ print(result)
 
 ```text
 symbol date volume close pre_close
-0 A.NB 20250102 953587.0 133.43 134.34
-1 A.NB 20250103 1246919.0 135.69 133.43
-2 A.NB 20250106 1047034.0 136.43 135.69
-3 A.NB 20250107 1056693.0 137.41 136.43
-4 A.NB 20250108 1684573.0 137.00 137.41
-5 A.NB 20250110 1369875.0 137.47 137.00
-6 A.NB 20250113 1561959.0 141.95 137.47
-7 A.NB 20250114 2445434.0 143.43 141.95
-8 A.NB 20250115 2328643.0 142.23 143.43
-9 A.NB 20250116 1661474.0 144.72 142.23
-10 A.NB 20250117 3210310.0 147.36 144.72
-11 A.NB 20250121 2759636.0 152.57 147.36
-12 A.NB 20250122 1730996.0 152.60 152.57
-13 A.NB 20250123 1332235.0 152.45 152.60
-14 A.NB 20250124 1844887.0 151.44 152.45
-15 A.NB 20250127 2229590.0 150.96 151.44
-16 A.NB 20250128 1791623.0 150.34 150.96
-17 A.NB 20250129 1583243.0 147.09 150.34
-18 A.NB 20250130 1496057.0 151.38 147.09
-19 A.NB 20250131 1886605.0 151.52 151.38
-20 AAPL.NB 20250102 55740731.0 243.85 250.42
-21 AAPL.NB 20250103 40244114.0 243.36 243.85
-22 AAPL.NB 20250106 45045571.0 245.00 243.36
-23 AAPL.NB 20250107 40855960.0 242.21 245.00
-24 AAPL.NB 20250108 37628940.0 242.70 242.21
-25 AAPL.NB 20250110 61710856.0 236.85 242.70
-26 AAPL.NB 20250113 49630725.0 234.40 236.85
-27 AAPL.NB 20250114 39435294.0 233.28 234.40
-28 AAPL.NB 20250115 39831969.0 237.87 233.28
-29 AAPL.NB 20250116 71759052.0 228.26 237.87
-30 AAPL.NB 20250117 68488301.0 229.98 228.26
-31 AAPL.NB 20250121 98070429.0 222.64 229.98
-32 AAPL.NB 20250122 64126500.0 223.83 222.64
-33 AAPL.NB 20250123 60234760.0 223.66 223.83
-34 AAPL.NB 20250124 54697907.0 222.78 223.66
-35 AAPL.NB 20250127 94863418.0 229.86 222.78
-36 AAPL.NB 20250128 75707569.0 238.26 229.86
-37 AAPL.NB 20250129 45486100.0 239.36 238.26
-38 AAPL.NB 20250130 55658279.0 237.59 239.36
-39 AAPL.NB 20250131 101075128.0 236.00 237.59
+0 A 20250102 953587.0 133.43 134.34
+1 A 20250103 1246919.0 135.69 133.43
+2 A 20250106 1047034.0 136.43 135.69
+3 A 20250107 1056693.0 137.41 136.43
+4 A 20250108 1684573.0 137.00 137.41
+5 A 20250110 1369875.0 137.47 137.00
+6 A 20250113 1561959.0 141.95 137.47
+7 A 20250114 2445434.0 143.43 141.95
+8 A 20250115 2328643.0 142.23 143.43
+9 A 20250116 1661474.0 144.72 142.23
+10 A 20250117 3210310.0 147.36 144.72
+11 A 20250121 2759636.0 152.57 147.36
+12 A 20250122 1730996.0 152.60 152.57
+13 A 20250123 1332235.0 152.45 152.60
+14 A 20250124 1844887.0 151.44 152.45
+15 A 20250127 2229590.0 150.96 151.44
+16 A 20250128 1791623.0 150.34 150.96
+17 A 20250129 1583243.0 147.09 150.34
+18 A 20250130 1496057.0 151.38 147.09
+19 A 20250131 1886605.0 151.52 151.38
+20 AAPL 20250102 55740731.0 243.85 250.42
+21 AAPL 20250103 40244114.0 243.36 243.85
+22 AAPL 20250106 45045571.0 245.00 243.36
+23 AAPL 20250107 40855960.0 242.21 245.00
+24 AAPL 20250108 37628940.0 242.70 242.21
+25 AAPL 20250110 61710856.0 236.85 242.70
+26 AAPL 20250113 49630725.0 234.40 236.85
+27 AAPL 20250114 39435294.0 233.28 234.40
+28 AAPL 20250115 39831969.0 237.87 233.28
+29 AAPL 20250116 71759052.0 228.26 237.87
+30 AAPL 20250117 68488301.0 229.98 228.26
+31 AAPL 20250121 98070429.0 222.64 229.98
+32 AAPL 20250122 64126500.0 223.83 222.64
+33 AAPL 20250123 60234760.0 223.66 223.83
+34 AAPL 20250124 54697907.0 222.78 223.66
+35 AAPL 20250127 94863418.0 229.86 222.78
+36 AAPL 20250128 75707569.0 238.26 229.86
+37 AAPL 20250129 45486100.0 239.36 238.26
+38 AAPL 20250130 55658279.0 237.59 239.36
+39 AAPL 20250131 101075128.0 236.00 237.59
 ```
 
 ### 3. 获取港股分钟线数据
@@ -272,9 +278,9 @@ symbol date volume close pre_close
 
 | 字段 | 类型 | 描述 | 是否必填 |
 |:---|:---|:---|:---|
-| start_date | str | 开始日期,eg:"20250702" | 必填 |
-| end_date | str | 结束日期,eg:"20250702" | 必填 |
-| symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码, 当symbol为空时，开始与结束日期不能超过1个月 | 非必填 |
+| start_date | str | 开始日期,eg:"20250702" | 有 symbol 时可省略；全市场查询必填 |
+| end_date | str | 结束日期,eg:"20250702" | 有 symbol 时可省略；全市场查询必填 |
+| symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码, 当symbol为空时，必须提供起止日期，含首尾自然日跨度不超过 31 天 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段,如果不传,默认为 "open","high", "low","close","volume"和"amount" | 非必填 |
 | time_zone | Optional\[tuple\] | 时间段过滤,格式为("HH:MM", "HH:MM")，例如("10:00", "23:00") | 非必填 |
 | frequency | Optional\[str\] | 频率, 支持 "1m", "5m", "10m", "60m",默认为"1m" | 非必填 |
@@ -388,14 +394,17 @@ symbol date datetime ... close volume amount
 
 | 字段 | 类型 | 描述 | 是否必填 |
 |:---|:---|:---|:---|
-| start_date | str | 开始日期,eg:"20250702"此为美国纽约日期） | 必填 |
-| end_date | str | 结束日期,eg:"20250702"（此为美国纽约日期） | 必填 |
-| symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码, 当symbol为空时，开始与结束日期不能超过1个月 | 非必填 |
+| start_date | str | 开始日期,eg:"20250702"此为美国纽约日期） | 有 symbol 时可省略；全市场查询必填 |
+| end_date | str | 结束日期,eg:"20250702"（此为美国纽约日期） | 有 symbol 时可省略；全市场查询必填 |
+| symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码, 当symbol为空时，必须提供起止日期，含首尾自然日跨度不超过 31 天 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段,如果不传,默认为 "open","high", "low","close","volume"和"amount" | 非必填 |
 | time_zone | Optional\[tuple\] | 时间段过滤,格式为("HH:MM", "HH:MM")，例如("10:00", "23:00") | 非必填 |
 | frequency | Optional\[str\] | 频率, 支持 "1m", "5m", "10m", "60m",默认为"1m" | 非必填 |
+| market | str | 美股市场，默认 "nb"；"us" 与 "nb" 等价 | 非必填 |
 
 #### 4.3. 响应参数
+
+美股分钟线返回 `symbol` 不带 `.NB` 后缀，同时提供纽约时间和中国时间字段。
 
 | 字段        | 类型   | 描述                       |
 |:------------|:-------|:---------------------------|
@@ -450,17 +459,17 @@ print(result)
 
 ```text
 symbol us_date num_trades ... volume us_datetime us_minute
-0 AAPL.NB 20260102 557.0 ... 96820.0 2026-01-02 10:00:00 100000
-1 AAPL.NB 20260102 417.0 ... 80610.0 2026-01-02 10:01:00 100100
-2 AAPL.NB 20260102 458.0 ... 88307.0 2026-01-02 10:02:00 100200
-3 AAPL.NB 20260102 429.0 ... 84335.0 2026-01-02 10:03:00 100300
-4 AAPL.NB 20260102 517.0 ... 93921.0 2026-01-02 10:04:00 100400
+0 AAPL 20260102 557.0 ... 96820.0 2026-01-02 10:00:00 100000
+1 AAPL 20260102 417.0 ... 80610.0 2026-01-02 10:01:00 100100
+2 AAPL 20260102 458.0 ... 88307.0 2026-01-02 10:02:00 100200
+3 AAPL 20260102 429.0 ... 84335.0 2026-01-02 10:03:00 100300
+4 AAPL 20260102 517.0 ... 93921.0 2026-01-02 10:04:00 100400
 ... ... ... ... ... ... ... ...
-1215 AAPL.NB 20260130 327.0 ... 72088.0 2026-01-30 10:56:00 105600
-1216 AAPL.NB 20260130 265.0 ... 62458.0 2026-01-30 10:57:00 105700
-1217 AAPL.NB 20260130 507.0 ... 88342.0 2026-01-30 10:58:00 105800
-1218 AAPL.NB 20260130 287.0 ... 51118.0 2026-01-30 10:59:00 105900
-1219 AAPL.NB 20260130 504.0 ... 100017.0 2026-01-30 11:00:00 110000
+1215 AAPL 20260130 327.0 ... 72088.0 2026-01-30 10:56:00 105600
+1216 AAPL 20260130 265.0 ... 62458.0 2026-01-30 10:57:00 105700
+1217 AAPL 20260130 507.0 ... 88342.0 2026-01-30 10:58:00 105800
+1218 AAPL 20260130 287.0 ... 51118.0 2026-01-30 10:59:00 105900
+1219 AAPL 20260130 504.0 ... 100017.0 2026-01-30 11:00:00 110000
 ```
 
 ##### 4.4.2. 获取多支股票的10分钟线数据
@@ -468,7 +477,7 @@ symbol us_date num_trades ... volume us_datetime us_minute
 ```python
 import tqx_data
 result = tqx_data.get_us_min(
-    symbol=["AAPL.NB", "TSLE.NB"],
+    symbol=["AAPL.NB", "TSLA.NB"],
     start_date="20260101",
     end_date="20260131",
     fields=[],
@@ -482,17 +491,17 @@ print(result)
 
 ```text
 symbol us_date ... us_datetime us_minute
-0 AAPL.NB 20260102 ... 2026-01-02 10:00:00 100000
-1 AAPL.NB 20260102 ... 2026-01-02 10:10:00 101000
-2 AAPL.NB 20260102 ... 2026-01-02 10:20:00 102000
-3 AAPL.NB 20260102 ... 2026-01-02 10:30:00 103000
-4 AAPL.NB 20260102 ... 2026-01-02 10:40:00 104000
+0 AAPL 20260102 ... 2026-01-02 10:00:00 100000
+1 AAPL 20260102 ... 2026-01-02 10:10:00 101000
+2 AAPL 20260102 ... 2026-01-02 10:20:00 102000
+3 AAPL 20260102 ... 2026-01-02 10:30:00 103000
+4 AAPL 20260102 ... 2026-01-02 10:40:00 104000
 .. ... ... ... ... ...
-275 TSLA.NB 20260130 ... 2026-01-30 10:20:00 102000
-276 TSLA.NB 20260130 ... 2026-01-30 10:30:00 103000
-277 TSLA.NB 20260130 ... 2026-01-30 10:40:00 104000
-278 TSLA.NB 20260130 ... 2026-01-30 10:50:00 105000
-279 TSLA.NB 20260130 ... 2026-01-30 11:00:00 110000
+275 TSLA 20260130 ... 2026-01-30 10:20:00 102000
+276 TSLA 20260130 ... 2026-01-30 10:30:00 103000
+277 TSLA 20260130 ... 2026-01-30 10:40:00 104000
+278 TSLA 20260130 ... 2026-01-30 10:50:00 105000
+279 TSLA 20260130 ... 2026-01-30 11:00:00 110000
 ```
 
 5\. **获取港美股实时分钟线数据**
@@ -505,7 +514,8 @@ symbol us_date ... us_datetime us_minute
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | count | int | 返回的分钟线条数(默认返回500条) | 非必填 |
-| market | Optional\[str\] | 市场，默认为‘hk’, 可选‘hk’，‘nb’ | 非必填 |
+| max_workers | int | 并发工作数，默认 20 | 非必填 |
+| market | Optional\[str\] | 市场，默认为 "hk"，可选 "hk"、"us"、"nb" | 非必填 |
 | frequency | Optional\[str\] | 频率, 支持 "1m", "5m", "10m", "60m",默认为"1m" | 非必填 |
 
 #### 5.3. 响应参数
@@ -678,7 +688,7 @@ symbol date open ... close volume amount
 | 字段 | 类型 | 描述 |
 |:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 |
-| market | Optional\[str\] | 市场，默认为‘hk’, 可选‘hk’，‘nb’ |
+| market | Optional\[str\] | 市场，默认为 "hk"，可选 "hk"、"us"、"nb" |
 
 #### 6.3. 响应参数
 
@@ -826,6 +836,16 @@ print(result)
 }
 ```
 
+### 实时分钟线字典：get_live_market_data
+
+```python
+def get_live_market_data(symbols: list[str], count: int = 500) -> dict[str, list[dict]]: ...
+```
+
+`symbols` 是必填非空列表，港股使用 `.HK`，美股使用 `.NB`。`count` 必须为 1 至 500。
+返回按请求股票代码分组的字典，每组是从旧到新排序的分钟线记录，包含 `date`、`open`、`high`、`low`、`close`、`volume`、`amount` 等字段。
+它不返回 DataFrame，不接受 `symbol` 或 `market` 参数，也不提供历史回测截面。
+
 ### 8. 获取公告数据
 
 #### 8.1. 方法名：get_filing_announcement
@@ -838,7 +858,7 @@ print(result)
 | start_date | Optional\[str\] | 开始日期，格式为 YYYYMMDD | 非必填 |
 | end_date | Optional\[str\] | 结束日期，格式为 YYYYMMDD | 非必填 |
 | fields | Optional\[List\[str\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持 hk 或 nb，默认为 hk | 非必填 |
+| market | str | 市场，支持 hk、us 或 nb，默认为 hk | 非必填 |
 
 #### 8.3. 响应参数
 
@@ -871,7 +891,7 @@ print(result)
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | Optional\[str\] | 市场，支持hk,us，默认hk | 非必填 |
+| market | Optional\[str\] | 市场，支持 hk、us 或 nb，默认 hk | 非必填 |
 | status | Optional\[int\] | 是否在市，1 -在市，0 -退市，-1 -未知 | 非必填 |
 
 #### 1.3. 响应参数
@@ -971,9 +991,9 @@ print(result)
 
 ```text
 symbol abbrev_symbol ... status trading_code
-0 0013.NB None ... 1 None
-1 005490.NB POSCO ... 1 893094
-2 ZYXIQ.NB ZYXIQ ... 0 None
+0 0013 None ... 1 None
+1 005490 POSCO ... 1 893094
+2 ZYXIQ ZYXIQ ... 0 None
 ```
 
 ##### 1.4.3. 获取全部港股股票代码
@@ -1023,17 +1043,17 @@ print(result)
 
 ```text
 symbol
-0 0013.NB
-1 005490.NB
-2 015760.NB
-3 017670.NB
-4 030200.NB
+0 0013
+1 005490
+2 015760
+3 017670
+4 030200
 ... ...
-7792 ZXZZT.NB
-7793 ZYBT.NB
-7794 ZYME.NB
-7795 ZYRX.NB
-7796 ZYXIQ.NB
+7792 ZXZZT
+7793 ZYBT
+7794 ZYME
+7795 ZYRX
+7796 ZYXIQ
 ```
 
 ### 2. 获取交易日历
@@ -1046,7 +1066,7 @@ symbol
 |:---|:---|:---|:---|
 | start_date | Optional\[str\] | 开始日期，格式为 YYYYMMDD | 非必填 |
 | end_date | Optional\[str\] | 结束日期，格式为 YYYYMMDD | 非必填 |
-| market | Optional\[str\] | 交易所代码，默认为 "hk"，目前支持"hk"和"us" | 非必填 |
+| market | Optional\[str\] | 交易所代码，默认为 "hk"，目前支持 "hk"、"us" 或 "nb" | 非必填 |
 | is_trading_day | Optional\[int\] | 是否为交易日，1=交易日，0=非交易日，None=全部 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 需要返回的字段列表 | 非必填 |
 
@@ -1172,7 +1192,7 @@ nature_date exchange is_trade next_trade_date pretrade_date
 | end_date | str | 结束日期,eg:"20250702" | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 3.3. 响应参数
 
@@ -1231,17 +1251,17 @@ print(result)
 
 ```text
 symbol publish_date ... currency event
-0 A.NB 20250401 ... USD A.NB Interim Cash Dividend of gross USD 0.248 ...
-1 A.NB 20250701 ... USD A.NB Interim Cash Dividend of gross USD 0.248 ...
-2 A.NB 20250930 ... USD A.NB Final Cash Dividend of gross USD 0.248 pa...
-3 A.NB 20260106 ... USD A.NB Interim Cash Dividend of gross USD 0.255 ...
-4 A.NB 20260331 ... USD A.NB Interim Cash Dividend of gross USD 0.255 ...
+0 A 20250401 ... USD A Interim Cash Dividend of gross USD 0.248 ...
+1 A 20250701 ... USD A Interim Cash Dividend of gross USD 0.248 ...
+2 A 20250930 ... USD A Final Cash Dividend of gross USD 0.248 pa...
+3 A 20260106 ... USD A Interim Cash Dividend of gross USD 0.255 ...
+4 A 20260331 ... USD A Interim Cash Dividend of gross USD 0.255 ...
 ... ... ... ... ... ...
-14433 ZWS.NB 20250220 ... USD ZWS.NB Interim Cash Dividend of gross USD 0.09...
-14434 ZWS.NB 20250520 ... USD ZWS.NB Interim Cash Dividend of gross USD 0.09...
-14435 ZWS.NB 20250820 ... USD ZWS.NB Interim Cash Dividend of gross USD 0.09...
-14436 ZWS.NB 20251120 ... USD ZWS.NB Final Cash Dividend of gross USD 0.11 p...
-14437 ZWS.NB 20260220 ... USD ZWS.NB Interim Cash Dividend of gross USD 0.11...
+14433 ZWS 20250220 ... USD ZWS Interim Cash Dividend of gross USD 0.09...
+14434 ZWS 20250520 ... USD ZWS Interim Cash Dividend of gross USD 0.09...
+14435 ZWS 20250820 ... USD ZWS Interim Cash Dividend of gross USD 0.09...
+14436 ZWS 20251120 ... USD ZWS Final Cash Dividend of gross USD 0.11 p...
+14437 ZWS 20260220 ... USD ZWS Interim Cash Dividend of gross USD 0.11...
 ```
 
 ### 4. 获取市场活动相关的事件
@@ -1256,7 +1276,7 @@ symbol publish_date ... currency event
 | end_date | str | 结束日期,eg:"20250702" | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 4.3. 响应参数
 
@@ -1315,7 +1335,7 @@ symbol start_date ... event_type fiscal_quarter
 | end_date | str | 结束日期,eg:"20250702" | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 5.3. 响应参数
 
@@ -1374,7 +1394,7 @@ symbol start_date ... event_type fiscal_quarter
 | end_date | str | 结束日期,eg:"20250702" | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 6.3. 响应参数
 
@@ -1433,7 +1453,7 @@ symbol start_date ... event_type fiscal_quarter
 | end_date | str | 结束日期,eg:"20250702" | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 7.3. 响应参数
 
@@ -1490,7 +1510,7 @@ symbol start_date ... event_type fiscal_quarter
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 8.3. 响应参数
 
@@ -1544,7 +1564,7 @@ symbol currency ... total_sharehold total_holdings_value
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 9.3. 响应参数
 
@@ -1598,7 +1618,7 @@ symbol currency ... sharehold holdings_value
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 | max_rank | Optional\[int\] | 最大返回排名（小于等于20的正整数），默认为空返回前20名 | 非必填 |
 
 #### 10.3. 响应参数
@@ -1660,7 +1680,7 @@ symbol investor_name ... rank currency
 | end_date | str | 结束日期,eg:"20250702"（此接口查询消息日期） | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 11.3. 响应参数
 
@@ -1730,7 +1750,7 @@ symbol investor_name info_date ... adjusted_indirect_sharehold reported_indirect
 | end_date | str | 结束日期,eg:"20250702"（此接口查询持股报告日期） | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 12.3. 响应参数
 
@@ -1796,7 +1816,7 @@ symbol currency investor_name ... prev_sharehold_value prev_holding_date prev_fi
 |:---|:---|:---|:---|
 | stock_symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | index_symbol | Optional\[Union\[str, List\[str\]\]\] | 指数代码 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 支持的指数列表:
 
@@ -1941,7 +1961,7 @@ index_symbol stock_symbol added_date deleted_date
 | end_year | str | 结束财年,eg:"2025" | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 14.3. 响应参数
 
@@ -2005,7 +2025,7 @@ symbol is_final financial_year ... item_unit item_currency item_num
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 15.3. 响应参数
 
@@ -2203,7 +2223,7 @@ symbol date curr_price_to_dps_issue_ttm curr_div_yld_gross_issue_ratio curr_fcf_
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 16.3. 响应参数
 
@@ -2458,7 +2478,7 @@ symbol date imed_net_trade_cycle_days_ttm imed_pretax_roa_ratio_ttm
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 17.3. 响应参数
 
@@ -2534,7 +2554,7 @@ symbol pv_beta_5y pv_rel_return_26w
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 18.3. 响应参数
 
@@ -2596,7 +2616,7 @@ symbol indicator mean std_6month high_week
 |:---|:---|:---|:---|
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | fields | Optional\[Union\[str, List\[str\]\]\] | 返回字段 | 非必填 |
-| market | str | 市场，支持"hk" ,"us"，默认为"hk" | 必填 |
+| market | str | 市场，支持 "hk"、"us" 或等价别名 "nb"，默认为 "hk" | 非必填 |
 
 #### 19.3. 响应参数
 
@@ -2666,7 +2686,7 @@ symbol strong_buy_num buy_num_week
 | end_date | str | 结束日期,eg:"20250702" | 必填 |
 | symbol | Optional\[Union\[str, List\[str\]\]\] | 股票代码 | 非必填 |
 | factors | Union\[str, List\[str\]\] | 因子列表 | 必填 |
-| type | Optional\[str\] | 产品类型，支持"hk" ,"nb"，默认为"hk" | 非必填 |
+| type | Optional\[str\] | 产品类型，支持 "hk"、"us" 或 "nb"，默认为 "hk" | 非必填 |
 
 #### 1.3. 响应参数
 
@@ -2745,26 +2765,26 @@ print(result)
 
 ```text
 symbol date volume
-0 AAPL.NB 20260130 92443408.0
-1 AAPL.NB 20260129 67253009.0
-2 AAPL.NB 20260128 41287971.0
-3 AAPL.NB 20260127 49648271.0
-4 AAPL.NB 20260126 55969234.0
-5 AAPL.NB 20260123 41688982.0
-6 AAPL.NB 20260122 39708340.0
-7 AAPL.NB 20260121 54641725.0
-8 AAPL.NB 20260120 80267517.0
-9 AAPL.NB 20260116 72142773.0
-10 AAPL.NB 20260115 39388564.0
-11 AAPL.NB 20260114 40019421.0
-12 AAPL.NB 20260113 45730847.0
-13 AAPL.NB 20260112 45263767.0
-14 AAPL.NB 20260109 39996967.0
-15 AAPL.NB 20260108 50419337.0
-16 AAPL.NB 20260107 48309804.0
-17 AAPL.NB 20260106 52352090.0
-18 AAPL.NB 20260105 45647190.0
-19 AAPL.NB 20260102 37838054.0
+0 AAPL 20260130 92443408.0
+1 AAPL 20260129 67253009.0
+2 AAPL 20260128 41287971.0
+3 AAPL 20260127 49648271.0
+4 AAPL 20260126 55969234.0
+5 AAPL 20260123 41688982.0
+6 AAPL 20260122 39708340.0
+7 AAPL 20260121 54641725.0
+8 AAPL 20260120 80267517.0
+9 AAPL 20260116 72142773.0
+10 AAPL 20260115 39388564.0
+11 AAPL 20260114 40019421.0
+12 AAPL 20260113 45730847.0
+13 AAPL 20260112 45263767.0
+14 AAPL 20260109 39996967.0
+15 AAPL 20260108 50419337.0
+16 AAPL 20260107 48309804.0
+17 AAPL 20260106 52352090.0
+18 AAPL 20260105 45647190.0
+19 AAPL 20260102 37838054.0
 ```
 
 ### 2. 获取财务季度报告
@@ -2775,16 +2795,16 @@ symbol date volume
 
 | 字段 | 类型 | 描述 | 是否必填 |
 |:---|:---|:---|:---|
-| symbol | Optional\[Union\[str, list\]\] | 股票代码；港股 `.HK`、美股 `.NB`。`None`、空字符串或空列表都会查询全市场 | 非必填 |
+| symbol | Optional\[Union\[str, list\]\] | 股票代码；港股 `.HK`，美股可传无后缀代码或 `.NB`，返回美股代码无后缀。`None`、空字符串或空列表都会查询全市场 | 非必填 |
 | start_quarter | str | 起始财期，格式为 `YYYYqN`，大小写均可 | 必填 |
 | end_quarter | str | 结束财期，格式为 `YYYYqN`，大小写均可；与起始财期合计最多覆盖 5 个自然年 | 必填 |
 | date | Optional\[str\] | 公告日期上限，格式为 `YYYYMMDD` 或 `YYYY-MM-DD`，返回该日及之前的数据 | 非必填；历史研究和回测必须填写 |
 | is_latest | Optional\[bool\] | `True`：每个 `symbol` 只保留公告日期最大的一行；`False`：返回范围内全部财期和披露记录。默认为 `True` | 非必填 |
-| market | str | `hk` 或 `nb`，大小写均可；函数默认 `hk`，但策略代码必须显式传入 | 非必填 |
+| market | str | `hk`、`us` 或等价别名 `nb`，大小写均可；无默认市场，必须显式传入 | 必填 |
 | fields | Optional\[Union\[str, list\]\] | 返回字段；推荐明确传列表。接口会自动补充 `symbol`、`fy_period`、`date` | 非必填 |
 | interim_type | str | 报表口径，可选 `cumulative`（累计，默认）或 `single`（单季） | 非必填 |
 
-#### 2.2.1. `is_latest` 选择规则（生产环境实测）
+#### 2.2.1. `is_latest` 选择规则
 
 `is_latest` 的粒度是**每只股票**，不是“每只股票的每个财期”：
 
@@ -2812,7 +2832,7 @@ symbol date volume
 | 参数 | 实测结果 | 使用规则 |
 |---|---|---|
 | `start_quarter`、`end_quarter` | 必填；`2024q1` 和 `2024Q1` 均可；超过 5 个自然年报错。生产版本对结束早于开始曾返回空表 | 调用前自行校验格式、跨度及 `start <= end`，不能依赖后端一定报错 |
-| `market` | `hk`、`nb` 及大写形式成功；`us` 报错 | 美股必须用 `nb`，港股用 `hk`，始终显式传入 |
+| `market` | 当前 wheel 接受 `hk`、`us`、`nb` 及大写形式；`us` 与 `nb` 等价 | 始终显式传入，美股可用 `us` 或 `nb`，港股用 `hk` |
 | `symbol` | 字符串和列表成功；`None`、`""`、`[]` 都变成全市场，本次美股样本返回 5095 只 | 策略查询候选池时禁止传空值；全市场查询必须是明确意图并限制字段和财期 |
 | `fields` | 字符串和列表均成功；缺少三列时接口自动补充；`None` 或 `[]` 返回约 1363 列；不存在的字段被静默忽略 | 推荐非空列表；返回后必须检查每个请求字段确实存在，不能只检查调用成功 |
 | `date` | `20250101` 与 `2025-01-01` 结果一致；`2025/01/01` 报错；`None` 不限制公告日 | 历史策略必须传入，且断言返回的最大公告日期不晚于决策日 |

@@ -25,8 +25,7 @@ Read `cross_sectional_strategies.md` for the time-point and panel rules for cros
 
 Both templates have been verified by Qube backtesting, can be managed through `tqx research`, and can be used as a timing strategy code skeleton. The US row points to the canonical fixture used by SDK/CLI validation.
 The template implements the state rule: it buys when the fast moving average is above the slow moving average and the position is short, and clears the position when the fast moving average is below the slow moving average and there are sellable positions; it is not a strict upper/lower crossing strategy.
-"1-day fast MA" appears in the comments of the US stock template, and the actual execution parameters are in the code
-`context.fast_window = 4` shall prevail.
+The US template reads its 4/12 windows from `STRATEGY_PARAMS` through `context.params`. Declare user-tunable values once in that table and copy it once in `initialize(context)`.
 
 Window units are always bars. The 5/20 of daily `1d` means 5/20 daily bars; if it is changed to a minute strategy, it cannot be interpreted as
 Trading day window, parameters and trigger time must be redefined. The current CLI verified frequencies are `1d` and `1M`.
@@ -110,7 +109,7 @@ When pre-screening you must observe:
 4. To get only the latest financial report per share as of the cross-section date, you can use `get_financial_statement(..., is_latest=True,
    date=<cross-section date>)`; `is_latest=False` must be used when calculating year-on-year, trend or dynamic qualifications that require multiple period financial reports, press
    `(symbol, fy_period)` selects the latest disclosure version before the deadline. Historical strategies must not omit `date`.
-5. The query is generated offline, `initialize` or low-frequency `before_trading` and cached, with each history cache explicitly bounded; do not repeat the query in each bar.
+5. Historical queries run in `init_preheating_data(context)`, called directly once by `initialize(context)`, or as bounded low-frequency refreshes in `before_trading`, and are cached, with each history cache explicitly bounded; do not repeat the query in each bar.
 6. Currently `tqx research strategy create` does not upload independent local DataFrame, and the strategy cannot use `open()` to read the user's local path. Small screening
    results are written into policy code; large or dynamic data is constructed using documented interfaces accessible at computing nodes.
 7. If fundamental conditions determine whether a stock continues to implement the timing rules, and the one-year backtest spans the new financial disclosure period, the qualifications must also be dynamic

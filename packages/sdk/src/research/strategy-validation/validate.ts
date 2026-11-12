@@ -24,7 +24,6 @@ interface FunctionAnalysis {
   readonly directCalls: Set<string>
   readonly contextAttrs: ContextAttrUse[]
   readonly stringBindings: Map<string, string>
-  hasTry: boolean
 }
 
 type DataApiModule = 'panda_data' | 'tqx_data'
@@ -66,11 +65,9 @@ interface Finding {
   readonly snippet?: string
 }
 
-const INIT_MARKET_DATA_NAME = 'init_market_data'
-const REQUIRED_IMPORT_RE = /^from\s+panda_backtest\.api\.api\s+import\s+\*$/
-const HK_REQUIRED_IMPORT_RE = /^from\s+panda_backtest\.api\.stock_hk_api\s+import\s+\*$/
-const US_REQUIRED_IMPORT_RE = /^from\s+panda_backtest\.api\.stock_us_api\s+import\s+\*$/
-const WRONG_STOCK_API_IMPORT_RE = /^from\s+panda_backtest\.api\.stock_api\s+import\s+\*$/
+const INIT_PREHEATING_DATA_NAME = 'init_preheating_data'
+const REQUIRED_IMPORT_RE = /^from\s+panda_backtest\.api\.api\s+import\s+/
+const WRONG_STOCK_API_IMPORT_RE = /^from\s+panda_backtest\.api\.stock_api\s+import\s+/
 const FORBIDDEN_IMPORT_RE = /\b(?:requests|urllib|pymongo|motor|socket)\b/
 const FORBIDDEN_BUILTINS = new Set([
   'eval',
@@ -168,17 +165,8 @@ export function validateStrategyCode(
   const finding =
     detectSyntaxError(root, frame, locale) ??
     detectImportContract(root, normalizedSource, frame, normalizedMarket, locale) ??
-    detectTryAndLoggerRules(root, normalizedSource, frame, normalizedMarket, locale) ??
     detectBarMapMembershipRules(root, normalizedSource, frame, locale) ??
     detectLifecycleContract(functions, normalizedSource, frame, normalizedMarket, locale) ??
-    detectInitMarketDataRequirement(
-      functions,
-      analyses,
-      normalizedSource,
-      frame,
-      normalizedMarket,
-      locale,
-    ) ??
     detectUniversalCallRules(
       analyses,
       normalizedSource,
@@ -198,7 +186,8 @@ export function validateStrategyCode(
     ) ??
     detectLookbackRule(normalizedSource, frame, locale) ??
     detectContextStateRule(analyses, frame, locale) ??
-    detectFutureSpecificRules(analyses, normalizedSource, frame, normalizedMarket, locale)
+    detectFutureSpecificRules(analyses, normalizedSource, frame, normalizedMarket, locale) ??
+    detectStrategyParameterContract(root, functions, normalizedSource, frame, locale)
 
   if (finding !== undefined) throwStrategyValidationError(finding)
 }
@@ -365,20 +354,18 @@ function detectImportContract(
           }),
         )
       }
-      const oppositeImport =
-        market === 'hk'
-          ? 'from panda_backtest.api.stock_us_api import *'
-          : 'from panda_backtest.api.stock_hk_api import *'
-      if (text.includes(oppositeImport)) {
+      const oppositeModule =
+        market === 'hk' ? 'panda_backtest.api.stock_us_api' : 'panda_backtest.api.stock_hk_api'
+      if (text.includes(oppositeModule)) {
         return makeFinding(
           frame,
           node,
           t('hk_us_wrong_market_api_import', locale, {
-            import_path: oppositeImport,
+            import_path: text,
             expected_import:
               market === 'hk'
-                ? 'from panda_backtest.api.stock_hk_api import *'
-                : 'from panda_backtest.api.stock_us_api import *',
+                ? 'panda_backtest.api.stock_hk_api'
+                : 'panda_backtest.api.stock_us_api',
           }),
         )
       }
@@ -392,61 +379,6 @@ function detectImportContract(
     }
   }
 
-  if (market === 'hk' || market === 'us') {
-    const requiredRegex = market === 'hk' ? HK_REQUIRED_IMPORT_RE : US_REQUIRED_IMPORT_RE
-    if (!importTexts.some((text) => requiredRegex.test(text))) {
-      return {
-        path: 'code',
-        message: t('missing_required_api_import', locale, {
-          required_api:
-            market === 'hk' ? 'panda_backtest.api.stock_hk_api' : 'panda_backtest.api.stock_us_api',
-        }),
-      }
-    }
-  }
-
-  return undefined
-}
-
-function detectTryAndLoggerRules(
-  root: SyntaxNode,
-  source: string,
-  frame: SourceFrame,
-  market: QubeMarket,
-  locale: string,
-): Finding | undefined {
-  let tryNode: SyntaxNode | undefined
-  let loggerNode: SyntaxNode | undefined
-  walk(root, (node) => {
-    if (tryNode === undefined && node.name === 'TryStatement') tryNode = node
-    if (
-      loggerNode === undefined &&
-      (node.name === 'VariableName' || node.name === 'PropertyName') &&
-      nodeText(source, node) === 'SRLogger'
-    ) {
-      loggerNode = node
-    }
-  })
-  if (tryNode !== undefined) {
-    const line = lineForPosition(frame, tryNode.from ?? tryNode.to)
-    return makeFinding(
-      frame,
-      tryNode,
-      market === 'future'
-        ? t('future_try_except_forbidden', locale, { lineno: line })
-        : t('stock_try_except_forbidden', locale, { lineno: line }),
-    )
-  }
-  if (loggerNode !== undefined) {
-    const line = lineForPosition(frame, loggerNode.from ?? loggerNode.to)
-    return makeFinding(
-      frame,
-      loggerNode,
-      market === 'future'
-        ? t('future_srlogger_forbidden', locale, { lineno: line })
-        : t('stock_srlogger_forbidden', locale, { lineno: line }),
-    )
-  }
   return undefined
 }
 
@@ -566,26 +498,227 @@ function detectLifecycleContract(
   return undefined
 }
 
-function detectInitMarketDataRequirement(
+function assignmentTargets(node: SyntaxNode): SyntaxNode[] {
+  const children = directChildren(node)
+  const lastOperator = children.findLastIndex((child) => child.name === 'AssignOp')
+  return children
+    .slice(0, lastOperator)
+    .filter(
+      (child) => !['AssignOp', 'TypeDef', 'Comment'].includes(child.name) && !isPunctuation(child),
+    )
+}
+
+function isContextParams(node: SyntaxNode, source: string): boolean {
+  return (
+    node.name === 'MemberExpression' &&
+    compactText(nodeText(source, node)).replace(/\s/g, '') === 'context.params'
+  )
+}
+
+function detectStrategyParameterContract(
+  root: SyntaxNode,
   functions: Map<string, SyntaxNode>,
-  analyses: Map<string, FunctionAnalysis>,
   source: string,
   frame: SourceFrame,
-  market: QubeMarket,
   locale: string,
 ): Finding | undefined {
-  if (market !== 'stock' && market !== 'hk' && market !== 'us') return undefined
-  const initNode = functions.get(INIT_MARKET_DATA_NAME)
-  const initializeNode = functions.get('initialize')
+  const nodes = walkNodes(root)
+  const failure = (reason: string, node?: SyntaxNode): Finding =>
+    makeFinding(frame, node, t('strategy_params_invalid', locale, { reason }))
+  const assignments = nodes.filter(
+    (node) =>
+      node.name === 'AssignStatement' &&
+      assignmentTargets(node).some(
+        (target) =>
+          target.name === 'VariableName' && nodeText(source, target) === 'STRATEGY_PARAMS',
+      ),
+  )
+  if (assignments.length !== 1 || assignments[0]!.parent?.name !== 'Script') {
+    return failure(t('strategy_params_unique_table', locale))
+  }
+  const assignment = assignments[0]!
+  const value = directChildren(assignment).findLast((child) => child.name !== 'Comment')
+  if (value?.name !== 'DictionaryExpression')
+    return failure(t('strategy_params_literal', locale), assignment)
+  const lifecycles = new Set([
+    'initialize',
+    INIT_PREHEATING_DATA_NAME,
+    'before_trading',
+    'handle_data',
+    'after_trading',
+    'on_stock_trade_rtn',
+    'stock_order_cancel',
+    'on_future_trade_rtn',
+    'future_order_cancel',
+  ])
+  if ([...functions].some(([name, node]) => lifecycles.has(name) && node.from < assignment.from)) {
+    return failure(t('strategy_params_before_lifecycle', locale), assignment)
+  }
+  const fields = directChildren(value).filter(
+    (child) => !isPunctuation(child) && child.name !== 'Comment',
+  )
+  const keys = new Set<string>()
+  for (let i = 0; i < fields.length; i += 2) {
+    const key = fields[i]!
+    const item = fields[i + 1]
+    const name =
+      key.name === 'String' && /^[rRuU]*['"]/.test(nodeText(source, key))
+        ? parseStringLiteral(nodeText(source, key))
+        : undefined
+    if (
+      name === undefined ||
+      !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ||
+      item === undefined ||
+      !isParameterLiteral(item, source)
+    ) {
+      return failure(t('strategy_params_literal', locale), key)
+    }
+    keys.add(name)
+  }
+  if (keys.size > 256) return failure(t('strategy_params_literal', locale), value)
+
+  const aliases = new Map<SyntaxNode, Set<string>>()
+  for (const fn of functions.values()) {
+    const names = new Set<string>()
+    const statements = walkNodes(fn).filter((node) => node.name === 'AssignStatement')
+    let changed = true
+    while (changed) {
+      changed = false
+      for (const statement of statements) {
+        const rhs = directChildren(statement).findLast((child) => child.name !== 'Comment')
+        if (
+          rhs === undefined ||
+          !(
+            isContextParams(rhs, source) ||
+            (rhs.name === 'VariableName' && names.has(nodeText(source, rhs)))
+          )
+        )
+          continue
+        for (const target of assignmentTargets(statement)) {
+          if (target.name === 'VariableName' && !names.has(nodeText(source, target))) {
+            names.add(nodeText(source, target))
+            changed = true
+          }
+        }
+      }
+    }
+    aliases.set(fn, names)
+  }
+  const isParams = (node: SyntaxNode): boolean =>
+    isContextParams(node, source) ||
+    (node.name === 'VariableName' &&
+      [...aliases].some(
+        ([fn, names]) =>
+          node.from >= fn.from && node.to <= fn.to && names.has(nodeText(source, node)),
+      ))
+  const isTable = (node: SyntaxNode): boolean =>
+    node.name === 'VariableName' && nodeText(source, node) === 'STRATEGY_PARAMS'
+  const initialize = functions.get('initialize')!
+  const copies: SyntaxNode[] = []
+  for (const node of nodes) {
+    if (node.name === 'AssignStatement') {
+      for (const target of assignmentTargets(node)) {
+        if (isContextParams(target, source)) {
+          if (node.from < initialize.from || node.to > initialize.to) {
+            return failure(t('strategy_params_readonly', locale), target)
+          }
+          copies.push(node)
+        }
+      }
+    }
+    if (['UpdateStatement', 'DeleteStatement'].includes(node.name)) {
+      if (directChildren(node).some((target) => isParams(target) || isTable(target))) {
+        return failure(t('strategy_params_readonly', locale), node)
+      }
+    }
+    if (node.name === 'MemberExpression') {
+      const children = directChildren(node)
+      const base = children[0]
+      const subscript = children[1]?.name === '['
+      if (base === undefined || !subscript) continue
+      const table = isTable(base)
+      if (!isParams(base) && !table) continue
+      const parent = node.parent
+      const written =
+        parent !== null &&
+        ((parent.name === 'AssignStatement' &&
+          assignmentTargets(parent).some((target) => target.from === node.from)) ||
+          ['UpdateStatement', 'DeleteStatement'].includes(parent.name))
+      if (written) return failure(t('strategy_params_readonly', locale), node)
+      const key = children[2]
+      const name = key?.name === 'String' ? parseStringLiteral(nodeText(source, key)) : undefined
+      if (name === undefined) return failure(t('strategy_params_static_key', locale), node)
+      if (!keys.has(name)) return failure(t('strategy_params_undeclared', locale, { name }), node)
+      if (table) return failure(t('strategy_params_context_read', locale), node)
+    }
+    if (node.name === 'CallExpression') {
+      const callee = firstMeaningfulChild(node)
+      if (callee?.name !== 'MemberExpression') continue
+      const parts = directChildren(callee)
+      if (parts[0] === undefined || (!isParams(parts[0]) && !isTable(parts[0]))) continue
+      const method = nodeText(source, parts.at(-1)!)
+      if (['clear', 'pop', 'popitem', 'setdefault', 'update'].includes(method)) {
+        return failure(t('strategy_params_readonly', locale), node)
+      }
+      const arg = parseCall(node, source)?.positionalArgs[0]
+      if (method === 'get' && arg !== undefined) {
+        const name = arg.name === 'String' ? parseStringLiteral(nodeText(source, arg)) : undefined
+        if (name === undefined) return failure(t('strategy_params_static_key', locale), arg)
+        if (!keys.has(name)) return failure(t('strategy_params_undeclared', locale, { name }), arg)
+        if (isTable(parts[0])) return failure(t('strategy_params_context_read', locale), node)
+      }
+    }
+  }
+  if (copies.length !== 1) return failure(t('strategy_params_copy_once', locale), initialize)
+  const rhs = directChildren(copies[0]!).findLast((child) => child.name !== 'Comment')
+  const call = rhs?.name === 'CallExpression' ? parseCall(rhs, source) : undefined
   if (
-    initNode === undefined ||
-    initializeNode === undefined ||
-    !exactSignature(initNode, source, ['context']) ||
-    !hasDirectCall(analyses.get('initialize'), INIT_MARKET_DATA_NAME)
+    call?.callee !== 'dict' ||
+    call.positionalArgs.length !== 1 ||
+    call.keywords.length !== 0 ||
+    nodeText(source, call.positionalArgs[0]!) !== 'STRATEGY_PARAMS'
   ) {
-    return { path: 'code', message: t('stock_missing_init_market_data', locale) }
+    return failure(t('strategy_params_copy_once', locale), copies[0])
   }
   return undefined
+}
+
+function isParameterLiteral(node: SyntaxNode, source: string): boolean {
+  const text = nodeText(source, node)
+  if (node.name === 'String') {
+    const value = /^[rRuU]*['"]/.test(text) ? parseStringLiteral(text) : undefined
+    return value !== undefined && [...value].length <= 4096
+  }
+  if (node.name === 'Boolean') return true
+  if (node.name === 'Number' || node.name === 'UnaryExpression') {
+    const number = text.replace(/[_\s]/g, '')
+    if (/^[+-]?(?:\d+|0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+)$/.test(number)) {
+      try {
+        const integer = BigInt(number.replace(/^[+-]/, ''))
+        return (integer < 0 ? -integer : integer).toString(2).length <= 1024
+      } catch {
+        return false
+      }
+    }
+    return Number.isFinite(Number(number))
+  }
+  if (node.name === 'ArrayExpression') {
+    const items = directChildren(node).filter(
+      (child) => !isPunctuation(child) && child.name !== 'Comment',
+    )
+    return (
+      items.length >= 1 &&
+      items.length <= 50 &&
+      items.every((item) => {
+        const value =
+          item.name === 'String' && /^[rRuU]*['"]/.test(nodeText(source, item))
+            ? parseStringLiteral(nodeText(source, item))
+            : undefined
+        return value !== undefined && value.trim().length > 0
+      })
+    )
+  }
+  return false
 }
 
 function detectUniversalCallRules(
@@ -745,10 +878,69 @@ function detectDataApiRules(
   dataApiBindings: DataApiBindings,
 ): Finding | undefined {
   const { catalog } = catalogForMarket(market)
-  const allowedFetchFunctions = reachableFunctionsFromRoots(analyses, [
-    'before_trading',
-    INIT_MARKET_DATA_NAME,
-  ])
+  const refreshFunctions = reachableFunctionsFromRoots(analyses, ['before_trading'])
+  const initializeFunctions = reachableFunctionsFromRoots(analyses, ['initialize'])
+  const usesHistoricalApi = [...analyses.values()].some(
+    (analysis) =>
+      (!refreshFunctions.has(analysis.name) || initializeFunctions.has(analysis.name)) &&
+      analysis.calls.some(
+        (call) =>
+          call.rootName === 'stock_api_quotation' ||
+          call.rootName === 'stock_api_pre_close' ||
+          call.rootName === 'tqx_data' ||
+          call.callee?.startsWith('tqx_data.') ||
+          resolveDataApiCall(call, dataApiBindings)?.module === 'tqx_data',
+      ),
+  )
+  if (
+    (market === 'hk' || market === 'us') &&
+    (usesHistoricalApi || analyses.has(INIT_PREHEATING_DATA_NAME))
+  ) {
+    const preheater = analyses.get(INIT_PREHEATING_DATA_NAME)
+    const initialize = analyses.get('initialize')
+    const preheaterDefinitions = directChildren(analyses.get('initialize')!.node.parent!).filter(
+      (node) =>
+        node.name === 'FunctionDefinition' &&
+        functionName(node, source) === INIT_PREHEATING_DATA_NAME,
+    )
+    const initializeBody =
+      initialize === undefined
+        ? undefined
+        : directChildren(initialize.node).find((node) => node.name === 'Body')
+    const directCalls =
+      initializeBody === undefined
+        ? []
+        : directChildren(initializeBody).filter((statement) => {
+            if (statement.name !== 'ExpressionStatement') return false
+            const expression = firstMeaningfulChild(statement)
+            const call =
+              expression?.name === 'CallExpression' ? parseCall(expression, source) : undefined
+            return (
+              call?.callee === INIT_PREHEATING_DATA_NAME &&
+              call.positionalArgs.length === 1 &&
+              nodeText(source, call.positionalArgs[0]!) === 'context' &&
+              call.keywords.length === 0
+            )
+          })
+    if (
+      preheater === undefined ||
+      preheaterDefinitions.length !== 1 ||
+      isAsyncFunction(preheater.node, source) ||
+      !exactSignature(preheater.node, source, ['context']) ||
+      directCalls.length !== 1
+    ) {
+      return {
+        path: 'code',
+        message: t('hk_us_missing_init_preheating_data', locale),
+      }
+    }
+  }
+  const allowedFetchFunctions = reachableFunctionsFromRoots(
+    analyses,
+    market === 'hk' || market === 'us'
+      ? ['before_trading', INIT_PREHEATING_DATA_NAME]
+      : ['initialize', 'before_trading', INIT_PREHEATING_DATA_NAME, 'init_market_data'],
+  )
   const handleDataFunctions = reachableFunctionsFromRoots(analyses, ['handle_data'])
   const orderForbiddenFunctions = reachableFunctionsFromRoots(analyses, [
     'initialize',
@@ -843,7 +1035,7 @@ function detectDataApiRules(
           return makeFinding(
             frame,
             call.node,
-            t('hk_us_data_outside_init_market_data', locale, {
+            t('hk_us_data_outside_init_preheating_data', locale, {
               lineno: call.line,
               func_name: analysis.name,
             }),
@@ -866,7 +1058,7 @@ function detectDataApiRules(
           return makeFinding(
             frame,
             call.node,
-            t('hk_us_data_outside_init_market_data', locale, {
+            t('hk_us_data_outside_init_preheating_data', locale, {
               lineno: call.line,
               func_name: analysis.name,
             }),
@@ -898,7 +1090,7 @@ function detectDataApiRules(
             return makeFinding(
               frame,
               call.node,
-              t('hk_us_data_outside_init_market_data', locale, {
+              t('hk_us_data_outside_init_preheating_data', locale, {
                 lineno: call.line,
                 func_name: analysis.name,
               }),
@@ -1031,7 +1223,45 @@ function validateDataApiCall(
     )
   }
 
-  for (const keyword of call.keywords) {
+  const args = [...call.keywords]
+  if (module === 'tqx_data') {
+    const argList = directChildren(call.node).find((node) => node.name === 'ArgList')
+    const unpacked =
+      argList !== undefined &&
+      directChildren(argList).some((node) => node.name === '*' || node.name === '**')
+    if (!unpacked) {
+      if (call.positionalArgs.length > spec.params.length) {
+        return makeFinding(
+          frame,
+          call.node,
+          t('data_api_invalid_arguments', locale, { method: spec.name }),
+        )
+      }
+      for (let i = 0; i < call.positionalArgs.length; i += 1) {
+        const name = spec.params[i]!
+        if (args.some((arg) => arg.name === name)) {
+          return makeFinding(
+            frame,
+            call.node,
+            t('data_api_invalid_arguments', locale, { method: spec.name }),
+          )
+        }
+        args.push({ name, valueNode: call.positionalArgs[i]! })
+      }
+      const missing = spec.required.filter((name) => !args.some((arg) => arg.name === name))
+      if (missing.length > 0) {
+        return makeFinding(
+          frame,
+          call.node,
+          t('data_api_missing_arguments', locale, {
+            method: spec.name,
+            missing: missing.join(', '),
+          }),
+        )
+      }
+    }
+  }
+  for (const keyword of args) {
     if (!spec.params.includes(keyword.name)) {
       return makeFinding(
         frame,
@@ -1447,11 +1677,9 @@ function analyzeFunction(
     directCalls: new Set<string>(),
     contextAttrs: [],
     stringBindings: new Map<string, string>(),
-    hasTry: false,
   }
 
   walk(node, (child) => {
-    if (child.name === 'TryStatement') analysis.hasTry = true
     if (child.name === 'CallExpression') {
       const call = parseCall(child, source)
       if (call !== undefined) {
@@ -1607,13 +1835,6 @@ function functionName(node: SyntaxNode, source: string): string | undefined {
 
 function isAsyncFunction(node: SyntaxNode, source: string): boolean {
   return nodeText(source, node).trimStart().startsWith('async ')
-}
-
-function hasDirectCall(analysis: FunctionAnalysis | undefined, calleeName: string): boolean {
-  return (
-    analysis?.calls.some((call) => call.callee === calleeName && call.rootName === calleeName) ??
-    false
-  )
 }
 
 function reachableFunctionsFromRoots(

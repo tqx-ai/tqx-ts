@@ -179,17 +179,14 @@ export class FactorApi {
     input: ListFactorAnalysesInput = {},
   ): Promise<{ runs: FactorAnalysis[] }> {
     const parsed = parseResearchInput(ListFactorAnalysesInputSchema, input)
-    return this.#request(
-      `${APIs.RESEARCH_FACTOR_ANALYSES_BY_FACTOR}/${resourceId(factorId)}/analyses`,
-      {
-        schema: v.looseObject({ runs: v.array(FactorAnalysisSchema) }),
-        query: {
-          include_deleted:
-            parsed.includeDeleted === undefined ? undefined : String(parsed.includeDeleted),
-          status: parsed.status,
-        },
+    return this.#request(`${APIs.RESEARCH_FACTORS}/${resourceId(factorId)}/analyses`, {
+      schema: v.looseObject({ runs: v.array(FactorAnalysisSchema) }),
+      query: {
+        include_deleted:
+          parsed.includeDeleted === undefined ? undefined : String(parsed.includeDeleted),
+        status: parsed.status,
       },
-    )
+    })
   }
   listAnalyses(input: ListResearchInput = {}): Promise<QubePage<Record<string, unknown>>> {
     return listResearch(

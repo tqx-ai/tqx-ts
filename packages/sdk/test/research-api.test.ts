@@ -393,6 +393,69 @@ describe('Qube Next versions and tuning contracts', () => {
 })
 
 describe('Qube Next query, validation and polling', () => {
+  it('lists strategy backtests with an optional bounded limit', async () => {
+    const { research, fetch } = setup({ runs: [run('strategy')] })
+    await expect(research.listStrategyBacktests(ID, { limit: 200 })).resolves.toEqual({
+      runs: [run('strategy')],
+    })
+    const request = requestAt(fetch)
+    expect(request.url.pathname).toBe(`/tqxApi/qube/api/strategies/${ID}/backtests`)
+    expect(request.url.search).toBe('?limit=200')
+    expect(request.headers.get('X-API-Key')).toBe('key')
+    expect(request.method).toBe('GET')
+    await research.listStrategyBacktests(ID)
+    expect(requestAt(fetch, 1).url.search).toBe('')
+    for (const limit of [0, 201, 1.5]) {
+      expect(() => research.listStrategyBacktests(ID, { limit })).toThrow('Invalid SDK input')
+    }
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('validates summary status and ordering for each endpoint before sending', () => {
+    const { research, fetch } = setup({})
+    for (const list of [
+      research.listAnalyses.bind(research),
+      research.listBacktests.bind(research),
+    ]) {
+      for (const status of ['cancelling', 'no_valid_candidates'] as const) {
+        expect(() => list({ status })).toThrow('Invalid SDK input')
+      }
+    }
+    for (const list of [
+      research.listFactorTuningSummaries.bind(research),
+      research.listStrategyTuningSummaries.bind(research),
+    ]) {
+      expect(() => list({ status: 'preparing' })).toThrow('Invalid SDK input')
+    }
+    expect(() => research.listStrategyVersionSummaries({ status: 'succeeded' })).toThrow(
+      'Invalid SDK input',
+    )
+    expect(() => research.listStrategyVersionSummaries({ timeField: 'updated_at' })).toThrow(
+      'Invalid SDK input',
+    )
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('serializes valid summary filters for runs, tunings and versions', async () => {
+    const { research, fetch } = setup({ runs: [], tunings: [], versions: [], next_cursor: null })
+    await research.listAnalyses({ status: 'preparing' })
+    await research.listBacktests({ status: 'succeeded', from: '2026-01-01', to: '2026-01-01' })
+    await research.listFactorTuningSummaries({ status: 'cancelling' })
+    await research.listStrategyTuningSummaries({ status: 'no_valid_candidates' })
+    await research.listStrategyVersionSummaries({ timeField: 'created_at' })
+    expect(
+      fetch.mock.calls.map((_, index) =>
+        Object.fromEntries(requestAt(fetch, index).url.searchParams),
+      ),
+    ).toEqual([
+      { view: 'summary', limit: '10', status: 'preparing' },
+      { view: 'summary', limit: '10', status: 'succeeded', from: '2026-01-01', to: '2026-01-01' },
+      { view: 'summary', limit: '10', status: 'cancelling' },
+      { view: 'summary', limit: '10', status: 'no_valid_candidates' },
+      { view: 'summary', limit: '10', time_field: 'created_at' },
+    ])
+  })
+
   it('serializes summary filters and rejects unsupported parents and limits', async () => {
     const { research, fetch } = setup({ runs: [run('factor')] })
     await expect(

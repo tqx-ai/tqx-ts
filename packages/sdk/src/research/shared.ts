@@ -176,7 +176,35 @@ export function listResearch<T>(
   key: string,
   parent: 'factor' | 'strategy',
 ): Promise<QubePage<T>> {
-  const parsed = parseResearchInput(ListResearchInputSchema, input)
+  const parsed = parseResearchInput(
+    v.pipe(
+      ListResearchInputSchema,
+      v.check(
+        (value) =>
+          value.status === undefined ||
+          (key === 'runs'
+            ? ['preparing', 'queued', 'running', 'succeeded', 'failed', 'cancelled']
+            : key === 'tunings'
+              ? [
+                  'queued',
+                  'running',
+                  'succeeded',
+                  'failed',
+                  'cancelled',
+                  'cancelling',
+                  'no_valid_candidates',
+                ]
+              : []
+          ).includes(value.status),
+        'status is not valid for this research list',
+      ),
+      v.check(
+        (value) => key !== 'versions' || value.timeField !== 'updated_at',
+        'Immutable versions only support created_at ordering',
+      ),
+    ),
+    input,
+  )
   if (
     (parent === 'factor' && parsed.strategyId !== undefined) ||
     (parent === 'strategy' && parsed.factorId !== undefined)

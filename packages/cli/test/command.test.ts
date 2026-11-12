@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { extractGlobalOptions, runCli } from '../src/command'
 import type { CredentialStore } from '../src/credentials'
+import type { BunSecretsApi } from '../src/utils/runtime'
 
 class MemoryStore implements CredentialStore {
   value: string | null = null
@@ -89,17 +90,22 @@ describe('CLI', () => {
   it('stores the key in the file and warns when the keychain cannot read it back', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'tqx-cli-keychain-'))
     const keychain = new Map<string, string>()
-    vi.stubGlobal('Bun', {
-      env: { ...process.env, XDG_CONFIG_HOME: directory },
-      secrets: {
-        get: () =>
-          Promise.reject(Object.assign(new Error('denied'), { code: 'ERR_SECRETS_AUTH_FAILED' })),
-        set: async ({ name, value }: { name: string; value: string }) => {
-          keychain.set(name, value)
-        },
-        delete: async ({ name }: { name: string }) => keychain.delete(name),
+    vi.stubEnv('XDG_CONFIG_HOME', directory)
+    const secrets = {
+      get: () =>
+        Promise.reject(Object.assign(new Error('denied'), { code: 'ERR_SECRETS_AUTH_FAILED' })),
+      set: async ({ name, value }: { name: string; value: string }) => {
+        keychain.set(name, value)
       },
-    })
+      delete: async ({ name }: { name: string }) => keychain.delete(name),
+    }
+    const bun = (globalThis as { Bun?: { secrets?: BunSecretsApi } }).Bun
+    const originalSecrets = bun?.secrets
+    if (bun) {
+      bun.secrets = secrets
+    } else {
+      vi.stubGlobal('Bun', { env: process.env, secrets })
+    }
     try {
       const fetch = vi.fn<typeof globalThis.fetch>().mockResolvedValue(apiResponse({ valid: true }))
       const stdout = new BufferOutput()
@@ -131,6 +137,7 @@ describe('CLI', () => {
       })
       expect(jsonStderr.value).toBe('')
     } finally {
+      if (bun) bun.secrets = originalSecrets
       vi.unstubAllGlobals()
     }
   })

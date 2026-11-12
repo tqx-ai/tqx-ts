@@ -4,14 +4,12 @@ This document is the canonical entry point for creating TQX factors in this work
 Read it together with:
 
 - [Commands Reference](./commands.md)
-- [Strategy Source Constraints](./strategy-source.md)
-- [Strategy Templates](./strategy_templates.md)
 - [TQX data quick reference](./tqx_data_quick_reference.md)
 - [TQX data market matrix](./tqx_data_market_matrix.md)
 - [TQX data API](./tqx_data_usage.md)
 - [Factor Operators](./factor-operators.md)
 
-When a factor needs field names, market-specific data shapes, or examples of supported inputs, use the `tqx_data_*.md` references above as the local source of truth. Use the local [Factor Operators](./factor-operators.md) reference as the authority for valid formula operators.
+Use the data references to understand field meanings and shapes. A data API response field does not guarantee factor support: factor source only receives framework-provided series through `factors["field"]`. Confirm availability with server validation. Use [Factor Operators](./factor-operators.md) for platform operator signatures.
 
 ## Scope
 
@@ -20,8 +18,7 @@ When a factor needs field names, market-specific data shapes, or examples of sup
 - Create one factor per source file when possible.
 - Prefer UTF-8 `.py` files and `--file` for multiline Python source only.
 - `--formula` is for single-expression factor formulas built from the market fields and operators listed in [Factor Operators](./factor-operators.md), such as `open`, `high`, `low`, `close`, `volume`, `amount`, `turnover`, and `market_cap`.
-- If a factor depends on data returned by [TQX data API](./tqx_data_usage.md), such as valuation metrics from `tqx_data.get_company_imed(...)`, or it needs multi-step logic, create it with Python `--file` instead of passing those API field names to `--formula`.
-
+- Python supports multi-step calculations over framework-provided fields. Neither Python nor Formula mode may fetch additional data. Do not call `tqx_data` or import `panda_backtest` in factor source; the server rejects these imports.
 
 ## Market And Data Contract
 
@@ -66,63 +63,34 @@ class MomentumFactor(Factor):
         return close.groupby(level="symbol").transform(lambda s: s / s.shift(20) - 1)
 ```
 
-## Complex Data API Factors
+## Parameters And Platform Operators
 
-For formula mode, use only fields and operators from [Factor Operators](./factor-operators.md).
-Fields such as `imed_pb_ttm`, `imed_pe_ttm`, and `imed_ps_ttm` are response fields of
-`tqx_data.get_company_imed(...)`, not direct formula fields. To build valuation or fundamental
-factors from these fields, save a Python factor in a `.py` file and create it with `--file`.
+For tunable Python factors, declare one module-level literal `FACTOR_PARAMS` dictionary before the
+class. Use unique static string keys and read values with `FACTOR_PARAMS["key"]`. Do not reassign,
+mutate, alias, or read the table with dynamic keys. Defaults are authoritative; only declared and
+referenced integer or float parameters can be overridden through tuning `factorParameters`.
+Booleans, strings, and string lists can remain fixed. Factors without a table can tune analysis
+parameters only. A lookback window is independent of the analysis adjustment cycle.
 
-The example below is Hong Kong only and keeps the valuation snapshot aligned to each bar date so
-the factor does not see later disclosures.
-
-Example:
+`Factor` and platform operators are injected by the runtime; call them directly without imports.
+Prefer platform operators and pass arguments positionally. Use `TS_MEAN(X, N)` or `MA(X, N)` for
+per-symbol rolling means, `TS_MIN`/`TS_MAX` for rolling extremes, and `RANK(X)` for ranking symbols
+on the same date. `MEAN(A, B)`, `MIN(A, B)`, and `MAX(A, B)` combine two values elementwise; their
+second argument is not a window length.
 
 ```python
-from panda_backtest.api.api import *
-import pandas as pd
-import tqx_data
+FACTOR_PARAMS = {"lookback": 5}
 
-
-class ImedValuationFactor(Factor):
+class RollingMeanClose(Factor):
     def calculate(self, factors):
-        close = factors["close"]
-        symbols = close.index.get_level_values("symbol").unique().tolist()
-        close_frame = close.rename("close").reset_index()
-        close_frame["date"] = pd.to_datetime(close_frame["date"])
-        close_frame = close_frame.sort_values(["symbol", "date"])
-
-        imed = tqx_data.get_company_imed(
-            market="hk",
-            symbol=symbols,
-            fields=["symbol", "date", "imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"],
-        )
-        if imed.empty:
-            return close * 0
-
-        imed = (
-            imed.dropna(subset=["symbol", "date"])
-            .assign(date=lambda df: pd.to_datetime(df["date"]))
-            .sort_values(["symbol", "date"])
-            .drop_duplicates(["symbol", "date"], keep="last")
-        )
-        merged = pd.merge(
-            close_frame,
-            imed[["symbol", "date", "imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]],
-            on=["symbol", "date"],
-            how="left",
-        )
-        merged[["imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]] = (
-            merged.groupby("symbol", sort=False)[["imed_pb_ttm", "imed_pe_ttm", "imed_ps_ttm"]]
-            .ffill()
-        )
-        score = -(
-            merged["imed_pb_ttm"].fillna(0)
-            + merged["imed_pe_ttm"].fillna(0)
-            + merged["imed_ps_ttm"].fillna(0)
-        )
-        return pd.Series(score.to_numpy(), index=close.index, name="imed_valuation_score")
+        return TS_MEAN(factors["close"], FACTOR_PARAMS["lookback"])
 ```
+
+When platform operators are insufficient, use supported public numeric APIs from NumPy, pandas,
+or SciPy; the server remains the authority for each API. Do not use star or relative imports,
+file/network/process access, dynamic execution, reflection, or private attributes. Additional
+valuation fields such as `imed_pb_ttm` must be supplied and supported by the factor framework;
+calling a data SDK inside `calculate` does not make them available.
 
 ## Create Workflow
 
@@ -134,7 +102,6 @@ class ImedValuationFactor(Factor):
 6. Keep the returned `factor_id` for later analysis or updates.
 
 ## Windows Notes
-
 
 - Prefer `--file` for multiline Python source on Windows.
 - If you use `--code`, make sure shell escaping preserves the inner double quotes in `factors["field"]`.

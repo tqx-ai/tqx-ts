@@ -1,0 +1,51 @@
+{
+  "source": "qube-next origin/test 19f0e909ed9132a12c74351f76cea84a10f7bacb, whl/tqx_data-0.1.0-py3-none-any.whl",
+  "sha256": "a8e955124ceb0a0259e1d203a1c536aaf57f118946fd7f2cb391b9cd56ff6551",
+  "parameters": {
+    "get_company_concentration": ["symbol", "market", "fields"],
+    "get_company_current": ["symbol", "market", "fields"],
+    "get_company_imed": ["symbol", "market", "fields"],
+    "get_company_insider_transaction": ["symbol", "market", "fields", "start_date", "end_date"],
+    "get_company_investor": ["symbol", "market", "fields", "max_rank"],
+    "get_company_oper_metrics": ["symbol", "market", "fields", "start_year", "end_year"],
+    "get_company_price_vol": ["symbol", "market", "fields"],
+    "get_company_shareholder_report": ["symbol", "market", "fields", "start_date", "end_date"],
+    "get_company_top_concentration": ["symbol", "market", "fields"],
+    "get_consensus_nonperiod": ["symbol", "market", "fields"],
+    "get_consensus_recommend": ["symbol", "market", "fields"],
+    "get_currency": ["start_date", "end_date", "fields"],
+    "get_event_capital_market": ["symbol", "market", "fields", "start_date", "end_date"],
+    "get_event_corporate_actions": ["symbol", "market", "fields", "start_date", "end_date"],
+    "get_event_devidend": ["symbol", "market", "fields", "start_date", "end_date"],
+    "get_event_fina_disclosure": ["symbol", "market", "fields", "start_date", "end_date"],
+    "get_event_investor_relation_activities": [
+      "symbol",
+      "market",
+      "fields",
+      "start_date",
+      "end_date"
+    ],
+    "get_factor": ["symbol", "start_date", "end_date", "type", "factors"],
+    "get_filing_announcement": ["symbol", "start_date", "end_date", "fields", "market"],
+    "get_financial_statement": [
+      "start_quarter",
+      "end_quarter",
+      "symbol",
+      "fields",
+      "market",
+      "date",
+      "is_latest",
+      "interim_type"
+    ],
+    "get_hk_daily": ["symbol", "start_date", "end_date", "fields"],
+    "get_hk_min": ["symbol", "start_date", "end_date", "fields", "time_zone", "frequency"],
+    "get_index_component": ["index_symbol", "stock_symbol", "market"],
+    "get_live_market_data": ["symbols", "count"],
+    "get_min_data": ["symbol", "count", "market", "max_workers", "frequency"],
+    "get_stock_detail": ["symbol", "market", "status", "fields"],
+    "get_tick_data": ["symbol", "market"],
+    "get_trading_calendar": ["start_date", "end_date", "market", "is_trading_day", "fields"],
+    "get_us_daily": ["symbol", "start_date", "end_date", "fields", "market"],
+    "get_us_min": ["symbol", "start_date", "end_date", "fields", "time_zone", "frequency", "market"]
+  }
+}

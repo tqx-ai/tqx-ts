@@ -15,7 +15,6 @@ const APIs = {
 
   // Research API
   RESEARCH_FACTORS: 'qube/api/factors',
-  RESEARCH_FACTOR_ANALYSES_BY_FACTOR: 'qube/api/factors',
   RESEARCH_FACTOR_ANALYSES: 'qube/api/factor-analyses',
   RESEARCH_STRATEGIES: 'qube/api/strategies',
   RESEARCH_BACKTESTS: 'qube/api/strategy-backtests',

@@ -24,8 +24,8 @@ outside Qube until the method is enabled again.
 | Live minute, latest tick, live snapshot | `get_min_data` / `get_tick_data` / `get_live_market_data` | `TickStreamClient` stream |
 | Stock details, calendars | `get_stock_detail` / `get_trading_calendar` | Same names; use `market="us"` for US data on both sides |
 | Index members | `get_index_component` | Not available |
-| Factors, filings | `get_factor` / `get_filing_announcement` | Not available |
-| Financial statements | `get_financial_statement(market="nb")` for US data | `get_financial_statement(market="us")` for US data |
+| Factors, filings | `get_factor(type="us" or "nb")` / `get_filing_announcement(market="us" or "nb")` | Not available |
+| Financial statements | `get_financial_statement(market="us" or "nb")` for US data | `get_financial_statement(market="us")` for US data |
 | Dividends, splits, other corporate events | `get_event_*` | `get_event_*` |
 | Company fundamentals, holdings, consensus | `get_company_*` / `get_consensus_*` | Same methods |
 | FX | `get_currency` | `get_currency` |
@@ -39,8 +39,10 @@ outside Qube until the method is enabled again.
 
 ## Known Data Issues
 
-- `alt_close` equals `close` and is not adjusted for dividends or splits. Do not use it as an adjusted or total-return price; apply `get_event_devidend` events yourself.
+- `alt_close` is the corporate-action-adjusted closing price. Use the documented `close` field when you need the theoretical close and treat `alt_close` as a separate adjusted series.
 - `get_stock_detail` can return many duplicate rows. Drop exact duplicates and confirm that the remaining rows agree on every field you use before relying on it.
+- US historical methods accept symbols with or without the `.NB` suffix and return symbols without a suffix; real-time methods (`get_min_data`, `get_tick_data`, and `get_live_market_data`) require `.NB` symbols when a symbol is supplied.
+- US market arguments accept `"us"` and `"nb"` as aliases. `"ny"` is not a supported market value.
 
 ## Minimum Return Validation
 

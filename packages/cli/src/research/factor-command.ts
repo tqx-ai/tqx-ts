@@ -10,18 +10,18 @@ import {
   pollOptions,
   pageResponse,
   positiveInteger,
-  boundedInteger,
   type ListArgs,
   type WaitArgs,
   resourceId,
   resourceIdArg,
   resourceIds,
   readJsonInput,
+  cancellationResponse,
   resultResponse,
-  resultStatus,
   selectContent,
   toMarket,
   factorDirection,
+  allowedInteger,
   waitArgs,
 } from './shared'
 
@@ -98,22 +98,20 @@ export function createFactorCommand(runtime: CommandRuntime) {
                 args.adjustmentCycle,
                 args.groupNumber,
                 args.factorDirection,
-              ].some(Boolean)
+              ].some((value) => value !== undefined)
                 ? {
                     periodStart: normalizeDate(args.startDate),
                     periodEnd: normalizeDate(args.endDate),
-                    adjustmentCycle: args.adjustmentCycle
-                      ? (boundedInteger(args.adjustmentCycle, 'adjustmentCycle', 1, 30) as
-                          | 1
-                          | 3
-                          | 5
-                          | 10
-                          | 20
-                          | 30)
-                      : undefined,
-                    groupNumber: args.groupNumber
-                      ? (boundedInteger(args.groupNumber, 'groupNumber', 3, 20) as 3 | 5 | 10 | 20)
-                      : undefined,
+                    adjustmentCycle:
+                      args.adjustmentCycle !== undefined
+                        ? allowedInteger(args.adjustmentCycle, 'adjustmentCycle', [
+                            1, 3, 5, 10, 20, 30,
+                          ] as const)
+                        : undefined,
+                    groupNumber:
+                      args.groupNumber !== undefined
+                        ? allowedInteger(args.groupNumber, 'groupNumber', [3, 5, 10, 20] as const)
+                        : undefined,
                     factorDirection: factorDirection(args.factorDirection),
                   }
                 : undefined,
@@ -382,21 +380,13 @@ export function createFactorCommand(runtime: CommandRuntime) {
                     adjustmentCycle:
                       args.adjustmentCycle === undefined
                         ? undefined
-                        : (boundedInteger(args.adjustmentCycle, 'adjustmentCycle', 1, 30) as
-                            | 1
-                            | 3
-                            | 5
-                            | 10
-                            | 20
-                            | 30),
+                        : allowedInteger(args.adjustmentCycle, 'adjustmentCycle', [
+                            1, 3, 5, 10, 20, 30,
+                          ] as const),
                     groupNumber:
                       args.groupNumber === undefined
                         ? undefined
-                        : (boundedInteger(args.groupNumber, 'groupNumber', 3, 20) as
-                            | 3
-                            | 5
-                            | 10
-                            | 20),
+                        : allowedInteger(args.groupNumber, 'groupNumber', [3, 5, 10, 20] as const),
                     factorDirection: factorDirection(args.factorDirection),
                   }
                 : undefined,
@@ -426,13 +416,7 @@ export function createFactorCommand(runtime: CommandRuntime) {
           runtime.research(async (client) => {
             const id = resourceId(args.analysisId, 'analysis ID')
             const result = await client.research.cancelFactorAnalysis(id)
-            return {
-              success:
-                resultStatus(result as never) === 'CANCELLED' ||
-                (result as Record<string, unknown>).cancel_requested === true,
-              analysis_id: id,
-              result,
-            }
+            return cancellationResponse(result, id, 'analysis_id')
           }),
       }),
       analyses: defineCommand({

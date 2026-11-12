@@ -1,16 +1,24 @@
 import pandas as pd
 
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
+from panda_backtest.api.api import MarketOrderStyle, order_shares
+from panda_backtest.api.stock_us_api import stock_api_quotation
+
+STRATEGY_PARAMS = {
+    "account": "15032863",
+    "stock_universe": ["TSLA.NB"],
+    "fast_window": 4,
+    "slow_window": 12,
+    "max_position_ratio": 0.9,
+}
 
 
-def init_market_data(context):
-    context.account = "15032863"
-    context.stock_universe = ["TSLA.NB"]
+def init_preheating_data(context):
+    context.account = context.params["account"]
+    context.stock_universe = context.params["stock_universe"]
 
-    context.fast_window = 4
-    context.slow_window = 12
-    context.max_position_ratio = 0.9
+    context.fast_window = context.params["fast_window"]
+    context.slow_window = context.params["slow_window"]
+    context.max_position_ratio = context.params["max_position_ratio"]
 
     context.today_trades = []
     context.close_history = {symbol: [] for symbol in context.stock_universe}
@@ -31,6 +39,9 @@ def init_market_data(context):
         return
 
     history = history.dropna(subset=["symbol", "date", "close"]).sort_values(["symbol", "date"])
+    history["symbol"] = history["symbol"].map(
+        lambda symbol: symbol if symbol.endswith(".NB") else symbol + ".NB"
+    )
     max_len = max(context.fast_window, context.slow_window) * 5
     for symbol, group in history.groupby("symbol", sort=False):
         closes = []
@@ -44,7 +55,8 @@ def init_market_data(context):
 
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 
 def before_trading(context):
@@ -85,7 +97,7 @@ def handle_data(context, data):
         if bar is None:
             continue
 
-        close_val = getattr(bar, "close", None)
+        close_val = bar.close
         if close_val is None:
             continue
         close_price = float(close_val)

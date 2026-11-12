@@ -25,6 +25,7 @@ client.research.listFactors({ limit?, cursor?, market?, keyword?, bindableOnly? 
 client.research.createFactorAnalysis(id, {
   requestId, expectedSourceRevision, expectedConfigRevision, parameters?, origin?
 })
+client.research.listFactorAnalyses(id, { includeDeleted?, status? })
 client.research.getFactorAnalysis(runId)
 client.research.cancelFactorAnalysis(runId)
 
@@ -36,6 +37,7 @@ client.research.updateStrategy(id, { requestId?, baseConfigRevision, title?, des
 client.research.runStrategyBacktest(id, {
   requestId, expectedSourceRevision, expectedConfigRevision, backtest?, origin?
 })
+client.research.listStrategyBacktests(id, { limit? })
 client.research.getBacktest(runId)
 client.research.cancelBacktest(runId)
 client.research.getBacktestResultPage(runId, { field, offset?, limit?, keyword?, symbol? })
@@ -43,7 +45,9 @@ client.research.getBacktestChart(runId, { from?, to?, maxPoints? })
 client.research.getBacktestSymbolKlines(runId, symbol)
 ```
 
-Lists return `{ items, hasMore, nextCursor, counts? }`. Qube research summaries use a limit of at most 10; library lists use at most 100. The server's raw fields remain available on loose response types so new service fields can be adopted without an SDK release.
+Library and summary lists return `{ items, hasMore, nextCursor, counts? }`. `listStrategyBacktests` returns `{ runs }` and accepts `limit` from 1 to 200 (server default 100). Qube research summaries use a limit of at most 10; library lists use at most 100. The server's raw fields remain available on loose response types so new service fields can be adopted without an SDK release.
+
+Summary filters use Shanghai calendar days for date-only `from`/`to`, with the entire `to` day included. Datetimes require a timezone and `from < to`. Run lists accept run states; tuning lists additionally allow `cancelling` and `no_valid_candidates` but not `preparing`. Strategy version summaries accept no `status` and only `created_at` ordering.
 
 Versions, snapshots, and tuning tasks are also available through the corresponding list/create/get/restore, `createFactorSnapshot`, `createFactorTuning`, and `createStrategyTuning` methods. Tuning requests must include the server-defined candidates, research period or trading dates, objective, and expected revisions.
 

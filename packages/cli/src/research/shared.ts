@@ -34,7 +34,6 @@ export interface BacktestArgs {
   commissionRate?: string
   slippage?: string
   frequency?: string
-  symbols?: string
 }
 
 export interface ListArgs {
@@ -199,6 +198,18 @@ export function boundedInteger(
   return number
 }
 
+export function allowedInteger<T extends number>(
+  value: string | undefined,
+  name: string,
+  allowed: readonly T[],
+): T {
+  const number = positiveInteger(value, name)
+  const selected = allowed.find((candidate) => candidate === number)
+  if (selected === undefined)
+    throw new CliUsageError(`${name} must be one of ${allowed.join(', ')}`)
+  return selected
+}
+
 export function factorDirection(value: string | undefined): FactorDirection | undefined {
   if (value === undefined) return undefined
   const normalized = value?.trim().toLowerCase()
@@ -232,8 +243,8 @@ export function backtestParameters(
   const saved = savedBacktestParameters(savedParams)
   const periodStart = normalizeDate(args.startDate) ?? saved.periodStart
   const periodEnd = normalizeDate(args.endDate) ?? saved.periodEnd
-  if (periodStart !== undefined && periodEnd !== undefined && periodStart >= periodEnd) {
-    throw new CliUsageError('endDate must be later than startDate')
+  if (periodStart !== undefined && periodEnd !== undefined && periodStart > periodEnd) {
+    throw new CliUsageError('endDate must not be earlier than startDate')
   }
   const initBalance =
     optionalNumber(args.startCapital) ?? saved.initBalance ?? (defaults ? 10_000_000 : undefined)
@@ -286,7 +297,6 @@ export function hasBacktestInput(args: BacktestArgs): boolean {
     args.commissionRate,
     args.slippage,
     args.frequency,
-    args.symbols,
   ].some((value) => value !== undefined)
 }
 
@@ -352,6 +362,22 @@ export function resultResponse<T extends StatusResult>(
 ): Record<string, unknown> {
   const status = resultStatus(result)
   return { success: status === 'SUCCESS', status, [idName]: result.id, result }
+}
+
+export function cancellationResponse<T extends StatusLike>(
+  result: T,
+  id: string,
+  idName: 'analysis_id' | 'run_id',
+): Record<string, unknown> {
+  const currentStatus = resultStatus(result)
+  const pending =
+    result.cancel_requested === true && (currentStatus === 'PENDING' || currentStatus === 'RUNNING')
+  return {
+    success: currentStatus === 'CANCELLED' || pending,
+    status: pending ? 'CANCELLING' : currentStatus,
+    [idName]: id,
+    result,
+  }
 }
 
 export function listInput(args: ListArgs): {

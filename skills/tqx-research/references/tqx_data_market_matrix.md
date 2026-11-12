@@ -7,14 +7,14 @@ which has a separate public contract; see [`tqx-data`](../../tqx-data/references
 | Data category | Hong Kong | United States | Note |
 |---|---|---|---|
 | Symbol | `0700.HK` | Depends on the method | Live minute and tick methods use `TSLA.NB`; check each method's symbol format |
-| Daily bars | `get_hk_daily` | `get_us_daily` (`market="nb"` or `"ny"` when passed) | Unadjusted; `alt_close` equals `close` |
+| Daily bars | `get_hk_daily` | `get_us_daily` (symbols may be `AAPL` or `AAPL.NB`) | `alt_close` is corporate-action adjusted; the US result symbol has no suffix |
 | Minute bars | `get_hk_min` | `get_us_min` | `frequency` is `1m`, `5m`, `10m`, or `60m`; verify timezone, DST, and sessions |
-| Live minute bars and latest tick | `market="hk"` | `market="nb"` | `get_min_data` and `get_tick_data` select symbols by their suffix when symbols are provided; use `market` for a whole-market query |
-| Filings | `market="hk"` | `market="nb"` | `get_filing_announcement` |
-| Financial statements | `market="hk"` | `market="nb"` | `get_financial_statement`; filter by announcement time |
-| Factors | `type="hk"` | `type="nb"` | Factor type must match symbols |
-| Stock details, trading calendar, index members | `market="hk"` | `market="us"` | These three methods use `us`; do not assume calendar days are trading days; historical backtests need historical index membership |
-| Events, company data, consensus | `market="hk"` | `market="us"` | `get_event_*`, `get_company_*`, `get_consensus_*`; undated company and consensus methods return the latest snapshot |
+| Live minute bars and latest tick | `market="hk"` | `market="us"` or `"nb"` | `get_min_data` and `get_tick_data` require `.NB` when symbols are supplied; whole-market queries use `market` |
+| Filings | `market="hk"` | `market="us"` or `"nb"` | `get_filing_announcement` |
+| Financial statements | `market="hk"` | `market="us"` or `"nb"` (required) | `get_financial_statement`; filter by announcement time |
+| Factors | `type="hk"` | `type="us"` or `"nb"` | Factor type must match symbols |
+| Stock details, trading calendar, index members | `market="hk"` | `market="us"` or `"nb"` | These methods accept both US aliases; do not assume calendar days are trading days; historical backtests need historical index membership |
+| Events, company data, consensus | `market="hk"` | `market="us"` or `"nb"` | `get_event_*`, `get_company_*`, `get_consensus_*`; undated company and consensus methods return the latest snapshot |
 
 ## Point-in-Time Constraints
 

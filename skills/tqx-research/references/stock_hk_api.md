@@ -18,8 +18,8 @@ Do not call internal `run_stock_backtest()` in the strategy code; QUBE backtest 
 ## 2. Required import and market agreement
 
 ```python
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_hk_api import *
+from panda_backtest.api.api import MarketOrderStyle, order_shares
+from panda_backtest.api.stock_hk_api import stock_api_quotation
 ```
 
 - CLI market must be `--market hk`.

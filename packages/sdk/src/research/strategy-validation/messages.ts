@@ -2,11 +2,22 @@ export type StrategyLocale = 'zh-CN' | 'en'
 
 export type StrategyMessageKey =
   | 'code_empty'
+  | 'strategy_params_invalid'
+  | 'strategy_params_unique_table'
+  | 'strategy_params_literal'
+  | 'strategy_params_before_lifecycle'
+  | 'strategy_params_readonly'
+  | 'strategy_params_static_key'
+  | 'strategy_params_undeclared'
+  | 'strategy_params_copy_once'
+  | 'strategy_params_context_read'
   | 'compile_code_prefix'
   | 'compile_error_framed'
   | 'compile_line_prefix'
   | 'context_attr_not_initialized'
   | 'data_api_enum_invalid'
+  | 'data_api_invalid_arguments'
+  | 'data_api_missing_arguments'
   | 'data_api_unknown_kwarg'
   | 'data_api_unknown_method'
   | 'data_get_forbidden'
@@ -19,14 +30,14 @@ export type StrategyMessageKey =
   | 'generic_syntax_error'
   | 'hk_index_symbol_must_use_catalog_code'
   | 'hk_symbol_must_be_four_digit'
-  | 'hk_us_data_outside_init_market_data'
+  | 'hk_us_missing_init_preheating_data'
+  | 'hk_us_data_outside_init_preheating_data'
   | 'hk_us_forbidden_a_share_symbol'
   | 'hk_us_forbidden_panda_data'
   | 'hk_us_forbidden_stock_api_import'
   | 'hk_us_wrong_market_api_import'
   | 'lifecycle_async_forbidden'
   | 'lifecycle_signature_mismatch'
-  | 'missing_required_api_import'
   | 'missing_required_import'
   | 'missing_required_lifecycle_def'
   | 'missing_required_method'
@@ -35,24 +46,56 @@ export type StrategyMessageKey =
   | 'missing_lookback_for_rolling_window'
   | 'preload_forbidden_future'
   | 'preload_forbidden_stock'
-  | 'stock_srlogger_forbidden'
-  | 'stock_try_except_forbidden'
   | 'stock_unsupported_lifecycle'
   | 'stock_api_quotation_bad_period'
   | 'stock_api_quotation_frequency_kwarg'
   | 'stock_api_quotation_symbol_list_empty'
   | 'stock_api_quotation_unknown_kwarg'
-  | 'stock_missing_init_market_data'
   | 'stock_panda_data_outside_init_market_data'
   | 'bar_map_membership_forbidden'
-  | 'future_srlogger_forbidden'
-  | 'future_try_except_forbidden'
   | 'future_unsupported_lifecycle'
   | 'trade_status_inverse_filter'
   | 'data_read_outside_allowed_window'
   | 'invalid_market'
 
 const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
+  strategy_params_invalid: {
+    'zh-CN': '策略参数无效：{reason}',
+    en: 'Invalid strategy parameters: {reason}',
+  },
+  strategy_params_unique_table: {
+    'zh-CN': '必须声明唯一的顶层 STRATEGY_PARAMS 字典',
+    en: 'Declare exactly one module-level STRATEGY_PARAMS dictionary',
+  },
+  strategy_params_literal: {
+    'zh-CN': '参数表只能包含标识符键与有限数字、布尔值、字符串或非空字符串列表（最多 256 个参数）',
+    en: 'Use identifier keys and literal finite numbers, booleans, strings (up to 4096 characters), or lists of 1-50 nonempty strings (up to 256 parameters)',
+  },
+  strategy_params_before_lifecycle: {
+    'zh-CN': 'STRATEGY_PARAMS 必须在生命周期函数之前声明',
+    en: 'Declare STRATEGY_PARAMS before lifecycle functions',
+  },
+  strategy_params_readonly: {
+    'zh-CN': '初始化以外禁止修改 context.params 或参数表',
+    en: 'Keep context.params and the parameter table read-only after initialization',
+  },
+  strategy_params_static_key: {
+    'zh-CN': '策略参数必须使用静态字符串键',
+    en: 'Read strategy parameters with literal string keys',
+  },
+  strategy_params_undeclared: {
+    'zh-CN': '代码引用了未声明参数：{name}',
+    en: 'Undeclared strategy parameter: {name}',
+  },
+  strategy_params_copy_once: {
+    'zh-CN': 'initialize 必须且只能使用一次 context.params = dict(STRATEGY_PARAMS)',
+    en: 'initialize must copy context.params = dict(STRATEGY_PARAMS) exactly once',
+  },
+  strategy_params_context_read: {
+    'zh-CN': '请通过 context.params 读取参数；直接读取 STRATEGY_PARAMS 不会被调优识别',
+    en: 'Read parameters through context.params; direct STRATEGY_PARAMS reads are not recognized for tuning',
+  },
+
   code_empty: {
     'zh-CN': '代码为空',
     en: 'Code is empty',
@@ -72,6 +115,14 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
   context_attr_not_initialized: {
     'zh-CN': '第 {lineno} 行读取 `context.{attr}`，但该属性没有在初始化阶段创建。',
     en: 'Line {lineno}: reads `context.{attr}`, but the attribute is not initialized.',
+  },
+  data_api_invalid_arguments: {
+    'zh-CN': '`{method}` 的位置参数过多或重复传入参数。',
+    en: '`{method}` has too many positional arguments or a duplicate argument.',
+  },
+  data_api_missing_arguments: {
+    'zh-CN': '`{method}` 缺少必填参数：{missing}。',
+    en: '`{method}` is missing required arguments: {missing}.',
   },
   data_api_enum_invalid: {
     'zh-CN':
@@ -131,10 +182,15 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
     'zh-CN': '港股代码必须是 4 位 + .HK（如 0700.HK），禁止五位写法。',
     en: 'HK symbols must be 4 digits + .HK (e.g. 0700.HK); five-digit forms are forbidden.',
   },
-  hk_us_data_outside_init_market_data: {
+  hk_us_missing_init_preheating_data: {
     'zh-CN':
-      '第 {lineno} 行在 `{func_name}` 中调用 `stock_api_quotation` / `tqx_data.*`；历史行情只能前置到 `initialize` / `before_trading`。',
-    en: 'Line {lineno}: `{func_name}` calls `stock_api_quotation` / `tqx_data.*`; historical fetches must be moved to `initialize` / `before_trading`.',
+      '港美股历史查询必须定义顶层同步 `init_preheating_data(context)`，并由 `initialize(context)` 直接调用一次。',
+    en: 'HK/US historical queries require a top-level synchronous `init_preheating_data(context)` called directly exactly once by `initialize(context)`.',
+  },
+  hk_us_data_outside_init_preheating_data: {
+    'zh-CN':
+      '第 {lineno} 行在 `{func_name}` 中查询历史数据；请把查询移到 `init_preheating_data(context)`，每日有限刷新可放在 `before_trading(context)`。',
+    en: 'Line {lineno}: `{func_name}` queries historical data; move it into `init_preheating_data(context)` or a bounded daily refresh in `before_trading(context)`.',
   },
   hk_us_forbidden_a_share_symbol: {
     'zh-CN': '{market_label}策略禁止混用 A 股 .SH/.SZ 代码。',
@@ -161,13 +217,9 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
     'zh-CN': '第 {lineno} 行：`{name}` 签名必须是 `({signature})`。',
     en: 'Line {lineno}: `{name}` signature must be `({signature})`.',
   },
-  missing_required_api_import: {
-    'zh-CN': '缺少必需的导入 `from {required_api} import *`',
-    en: 'Missing required import `from {required_api} import *`',
-  },
   missing_required_import: {
-    'zh-CN': '缺少必需的导入 `from {required_import} import *`（panda_backtest 的 API 入口）',
-    en: 'Missing required import `from {required_import} import *` (panda_backtest API entry)',
+    'zh-CN': '缺少必需的导入 `from {required_import} import ...`（panda_backtest 的 API 入口）',
+    en: 'Missing required import `from {required_import} import ...` (panda_backtest API entry)',
   },
   missing_required_lifecycle_def: {
     'zh-CN': '缺少必需的函数定义 `{func_name}`（策略生命周期函数）',
@@ -199,15 +251,6 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
     'zh-CN': '代码里出现 `preload(...)`；这是废弃 API。',
     en: 'Code uses `preload(...)`; this API is deprecated.',
   },
-  stock_srlogger_forbidden: {
-    'zh-CN': '第 {lineno} 行使用了 `SRLogger`；策略日志只能用 `print`。',
-    en: 'Line {lineno}: uses `SRLogger`; strategies may only log with `print`.',
-  },
-  stock_try_except_forbidden: {
-    'zh-CN':
-      '第 {lineno} 行使用了 `try`/`except`；请直接读取 `data[symbol]`，再按 bar 字段判断是否跳过。策略禁止吞异常。',
-    en: 'Line {lineno}: uses `try`/`except`; read `data[symbol]` directly, then decide whether to skip by checking bar fields. Strategies must not swallow exceptions.',
-  },
   stock_unsupported_lifecycle: {
     'zh-CN': '第 {lineno} 行定义了不支持的生命周期 `{name}`；股票策略不要写该钩子。',
     en: 'Line {lineno}: unsupported lifecycle `{name}`; equity strategies must not define this hook.',
@@ -235,24 +278,10 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
       '第 {lineno} 行 `stock_api_quotation(...)` 出现未知参数 `{kwarg}`；合法参数为 symbol_list/start_date/end_date/fields/period',
     en: 'Line {lineno}: `stock_api_quotation(...)` has unknown arg `{kwarg}`; valid args are symbol_list/start_date/end_date/fields/period',
   },
-  stock_missing_init_market_data: {
-    'zh-CN':
-      'US 日频策略必须定义 `init_market_data(context)`，并由 `initialize(context)` 显式调用。示例：`def init_market_data(context): ...`；`def initialize(context): init_market_data(context)`。',
-    en: 'US daily strategies must define `init_market_data(context)` and call it explicitly from `initialize(context)`. Example: `def init_market_data(context): ...`; `def initialize(context): init_market_data(context)`.',
-  },
   stock_panda_data_outside_init_market_data: {
     'zh-CN':
       '第 {lineno} 行在 `{func_name}` 的调用链中调用 `panda_data`；历史行情只能写在 `init_market_data(context)`（由 `initialize` 调用），按交易日刷新有限数据只允许在幂等的 before_trading。',
     en: 'Line {lineno}: calls `panda_data` from the `{func_name}` call chain; historical fetches must live in `init_market_data(context)` (called from `initialize`), and bounded daily refreshes only inside idempotent before_trading.',
-  },
-  future_srlogger_forbidden: {
-    'zh-CN': '第 {lineno} 行使用了 `SRLogger`；期货策略日志只能用 `print`。',
-    en: 'Line {lineno}: uses `SRLogger`; futures strategies may only log with `print`.',
-  },
-  future_try_except_forbidden: {
-    'zh-CN':
-      '第 {lineno} 行使用了 `try`/`except`；期货策略禁止吞异常。缺数据请显式判空后 `return`/`print`。',
-    en: 'Line {lineno}: uses `try`/`except`; futures strategies must not swallow exceptions. On missing data, check explicitly then `return`/`print`.',
   },
   future_unsupported_lifecycle: {
     'zh-CN':

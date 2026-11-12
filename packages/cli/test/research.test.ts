@@ -595,6 +595,101 @@ describe('Qube Next research CLI', () => {
     })
   })
 
+  it.each(['1d', '1M'])('submits a single-day %s backtest', async (frequency) => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(backtest({ status: 'queued' })))
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'run',
+        STRATEGY_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--startDate=20260101',
+        '--endDate=20260101',
+        `--frequency=${frequency}`,
+        '--noWait',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(bodyOf(ctx.fetch)).toMatchObject({
+      parameters: {
+        backtest: {
+          period_start: '2026-01-01',
+          period_end: '2026-01-01',
+          frequency,
+        },
+      },
+    })
+    expect(JSON.parse(ctx.stdout.value).success).toBe(true)
+    expect(ctx.stderr.value).toBe('')
+    expect(process.exitCode).toBeUndefined()
+  })
+
+  it.each(['--json', '--plain', ''])(
+    'lists strategy backtest history with %s output',
+    async (mode) => {
+      const ctx = setup()
+      ctx.fetch.mockResolvedValueOnce(gatewayResponse({ runs: [backtest()] }))
+      await runCli(
+        ['research', 'strategy', 'backtests', STRATEGY_ID, '--limit=200', ...(mode ? [mode] : [])],
+        ctx.dependencies,
+      )
+      expect(String(ctx.fetch.mock.calls[0]?.[0])).toBe(
+        `${API_URL}/strategies/${STRATEGY_ID}/backtests?limit=200`,
+      )
+      if (mode === '--json')
+        expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+          success: true,
+          strategy_id: STRATEGY_ID,
+          count: 1,
+          backtests: [{ id: RUN_ID }],
+        })
+      else expect(ctx.stdout.value).toContain(RUN_ID)
+      expect(ctx.stderr.value).toBe('')
+      expect(process.exitCode).toBeUndefined()
+    },
+  )
+
+  it.each(['0', '201', '1.5'])(
+    'rejects invalid strategy history limit %s without a request',
+    async (limit) => {
+      const ctx = setup()
+      await runCli(
+        ['research', 'strategy', 'backtests', STRATEGY_ID, `--limit=${limit}`, '--json'],
+        ctx.dependencies,
+      )
+      expect(ctx.fetch).not.toHaveBeenCalled()
+      expect(process.exitCode).toBe(2)
+      expect(JSON.parse(ctx.stderr.value).error.message).toMatch(/limit|integer/)
+    },
+  )
+
+  it('submits strategy backtests without a parameters object when no overrides are provided', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(
+      gatewayResponse(backtest({ status: 'queued', progress: { stage: 'queued', percent: 0 } }), {
+        status: 202,
+      }),
+    )
+    await runCli(
+      [
+        'research',
+        'strategy',
+        'run',
+        STRATEGY_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--noWait',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(bodyOf(ctx.fetch)).not.toHaveProperty('parameters')
+  })
+
   it.each(['succeeded', 'failed', 'cancelled'] as const)(
     'finishes strategy polling for the %s terminal status',
     async (status) => {
@@ -668,17 +763,39 @@ describe('Qube Next research CLI', () => {
     })
   })
 
-  it('reports an accepted cancellation for a still-running factor analysis as success', async () => {
-    const ctx = setup()
-    ctx.fetch.mockResolvedValueOnce(
-      gatewayResponse(analysis({ status: 'running', cancel_requested: true })),
-    )
-    await runCli(['research', 'factor', 'stop', RUN_ID, '--json'], ctx.dependencies)
-    expect(JSON.parse(ctx.stdout.value)).toMatchObject({
-      success: true,
-      result: { status: 'running', cancel_requested: true },
-    })
-  })
+  it.each(
+    (['factor', 'strategy'] as const).flatMap((kind) =>
+      [
+        { status: 'queued', cancelRequested: true, display: 'CANCELLING', success: true },
+        { status: 'preparing', cancelRequested: true, display: 'CANCELLING', success: true },
+        { status: 'running', cancelRequested: true, display: 'CANCELLING', success: true },
+        { status: 'running', cancelRequested: false, display: 'RUNNING', success: false },
+        { status: 'cancelled', cancelRequested: false, display: 'CANCELLED', success: true },
+        { status: 'succeeded', cancelRequested: false, display: 'SUCCESS', success: false },
+        { status: 'failed', cancelRequested: false, display: 'FAILED', success: false },
+        { status: 'succeeded', cancelRequested: true, display: 'SUCCESS', success: false },
+        { status: 'failed', cancelRequested: true, display: 'FAILED', success: false },
+      ].map((test) => Object.assign({ kind }, test)),
+    ),
+  )(
+    'reports $kind stop for $status with cancel_requested=$cancelRequested as $display ($success)',
+    async ({ kind, status, cancelRequested, display, success }) => {
+      const ctx = setup()
+      const result = (kind === 'factor' ? analysis : backtest)({
+        status,
+        cancel_requested: cancelRequested,
+      })
+      ctx.fetch.mockResolvedValueOnce(gatewayResponse(result))
+      await runCli(['research', kind, 'stop', RUN_ID, '--json'], ctx.dependencies)
+      expect(JSON.parse(ctx.stdout.value)).toMatchObject({
+        success,
+        status: display,
+        [kind === 'factor' ? 'analysis_id' : 'run_id']: RUN_ID,
+        result: { status, cancel_requested: cancelRequested },
+      })
+      expect(ctx.stderr.value).toBe('')
+    },
+  )
 
   it('lists a factor analyses history through the factor resource route', async () => {
     const ctx = setup()
@@ -1039,25 +1156,63 @@ describe('Qube Next research CLI', () => {
     expect(ctx.fetch).not.toHaveBeenCalled()
   })
 
-  it('rejects unsupported factor analysis enums before submitting', async () => {
+  it.each(
+    (['run', 'update'] as const).flatMap((command) =>
+      [
+        { flag: 'adjustmentCycle', value: '2', allowed: '1, 3, 5, 10, 20, 30' },
+        { flag: 'groupNumber', value: '4', allowed: '3, 5, 10, 20' },
+      ].map((test) => Object.assign({ command }, test)),
+    ),
+  )(
+    'rejects factor $command --$flag=$value as CLI input',
+    async ({ command, flag, value, allowed }) => {
+      const ctx = setup()
+      await runCli(
+        [
+          'research',
+          'factor',
+          command,
+          FACTOR_ID,
+          ...(command === 'run'
+            ? ['--expectedSourceRevision=2', '--expectedConfigRevision=3', '--noWait']
+            : ['--baseConfigRevision=3']),
+          `--${flag}=${value}`,
+          '--json',
+        ],
+        ctx.dependencies,
+      )
+      expect(JSON.parse(ctx.stderr.value).error).toEqual({
+        message: `${flag} must be one of ${allowed}`,
+      })
+      expect(ctx.fetch).not.toHaveBeenCalled()
+      expect(process.exitCode).toBe(2)
+    },
+  )
+
+  it.each(
+    (['run', 'update'] as const).flatMap((command) =>
+      ['startDate', 'endDate', 'adjustmentCycle', 'groupNumber', 'factorDirection'].map((flag) => ({
+        command,
+        flag,
+      })),
+    ),
+  )('rejects an explicitly empty factor $command --$flag', async ({ command, flag }) => {
     const ctx = setup()
     await runCli(
       [
         'research',
         'factor',
-        'run',
+        command,
         FACTOR_ID,
-        '--expectedSourceRevision=2',
-        '--expectedConfigRevision=3',
-        '--startDate=20260101',
-        '--endDate=20260630',
-        '--adjustmentCycle=2',
-        '--noWait',
+        ...(command === 'run'
+          ? ['--expectedSourceRevision=2', '--expectedConfigRevision=3', '--noWait']
+          : ['--baseConfigRevision=3']),
+        `--${flag}=`,
         '--json',
       ],
       ctx.dependencies,
     )
-    expect(JSON.parse(ctx.stderr.value).error.issues.length).toBeGreaterThan(0)
+    expect(JSON.parse(ctx.stderr.value).error.message).toBeTypeOf('string')
     expect(ctx.fetch).not.toHaveBeenCalled()
     expect(process.exitCode).toBe(2)
   })

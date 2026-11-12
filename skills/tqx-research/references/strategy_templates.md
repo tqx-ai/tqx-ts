@@ -1,11 +1,11 @@
-#TQX Hong Kong and US stock strategy reference templates
+# TQX Hong Kong and US stock strategy reference templates
 
 This file is a reference template for Agent to quickly generate strategies for Hong Kong and US stocks. It comes from the already run `tqx_cli/tests/hk_ma.py` and the canonical US fixture used by validation (`packages/sdk/test/fixtures/us_ma.py`). After the customer puts forward strategic requirements, the Agent should select the corresponding market template and reuse its life cycle, data reading,
 The account holding and order framework only replaces the stock pool, strategy parameters, signals, positions and risk control. Do not re-guess the back-end interface from a blank perspective.
 Before generating or modifying a strategy, first determine whether it is a time series strategy or a cross-sectional strategy, and read the `stock_hk_api.md` or
 `stock_us_api.md`. Time-series strategies must also read `time_series_strategies.md`; cross-sectional strategies and dynamic universes must also read
 `cross_sectional_strategies.md`; reads `tqx_data_usage.md` when calling `tqx_data` directly.
-The canonical US template seeds a bounded warm-up close cache in `init_market_data(context)` with `stock_api_quotation`, then keeps updating that cache in `handle_data(context, data)`.
+The canonical US template seeds a bounded warm-up close cache in `init_preheating_data(context)` with `stock_api_quotation`, then keeps updating that cache in `handle_data(context, data)`.
 
 Quick selection:
 
@@ -53,7 +53,7 @@ Do not call `start()`, `get_backtest_id()` or `run_stock_backtest()` yourself in
 
 ## 2. Reliable structure shared by both templates
 
-1. Import the general trading API and the corresponding market API at the same time.
+1. Use named imports from the general trading API and the corresponding market API.
 2. `initialize(context)` sets the account, target, parameters and all mutable states.
 3. `handle_data(context, data)` defensively checks account, bar, price and history length.
 4. Historical prices are saved in `context` and do not rely on unconfirmed `bar.close_array`.
@@ -67,14 +67,14 @@ This template corresponds to `tqx_cli/tests/hk_ma.py`, is used for QUBE `market=
 The original run-through template does not actively round up by `min_order_amount`. The current backend will normalize the order quantity again, so the requested quantity is the same as
 Actual order quantities may vary. When generating a new Hong Kong stock strategy, even if you still use `0700.HK`, you must press `stock_hk_api.md`
 Read and cache the `min_order_amount` of each target, and then round the buying amount; do not regard the unrounded part below as a best practice.
-The Hong Kong template keeps all one-time initialization in `init_market_data(context)`, and `initialize(context)` only delegates to it.
+Safe `try/except` may handle known numeric conversion failures; surface historical query errors instead of swallowing them.
+Both market templates declare one literal `STRATEGY_PARAMS` table, copy it once in `initialize(context)`, and then call `init_preheating_data(context)` for historical warm-up.
 
 ```python
 import math
 import pandas as pd
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_hk_api import *
-import tqx_data
+from panda_backtest.api.api import MarketOrderStyle, order_shares
+from panda_backtest.api.stock_hk_api import stock_api_quotation
 
 
 def _valid_price(value):
@@ -87,12 +87,21 @@ def _valid_price(value):
     return price
 
 
-def init_market_data(context):
-    context.account = "15032863"
-    context.symbol = "0700.HK"
-    context.short_window = 5
-    context.long_window = 20
-    context.max_position_ratio = 0.9
+STRATEGY_PARAMS = {
+    "account": "15032863",
+    "symbol": "0700.HK",
+    "short_window": 5,
+    "long_window": 20,
+    "max_position_ratio": 0.9,
+}
+
+
+def init_preheating_data(context):
+    context.account = context.params["account"]
+    context.symbol = context.params["symbol"]
+    context.short_window = context.params["short_window"]
+    context.long_window = context.params["long_window"]
+    context.max_position_ratio = context.params["max_position_ratio"]
     context.closes = []
     context.last_date = None
 
@@ -120,11 +129,12 @@ def init_market_data(context):
 
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 
 def _update_closes(context, bar):
-    trade_date = getattr(bar, "trade_date", None)
+    trade_date = bar.trade_date
     if trade_date is not None:
         if context.last_date == trade_date:
             return
@@ -223,8 +233,8 @@ The minute frequency is measured in minutes, so do not directly switch this temp
 ```python
 import math
 import pandas as pd
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
+from panda_backtest.api.api import MarketOrderStyle, order_shares
+from panda_backtest.api.stock_us_api import stock_api_quotation
 
 
 def _valid_price(value):
@@ -237,13 +247,22 @@ def _valid_price(value):
     return price
 
 
-def init_market_data(context):
-    context.account = "15032863"
-    context.stock_universe = ["TSLA.NB"]
+STRATEGY_PARAMS = {
+    "account": "15032863",
+    "stock_universe": ["TSLA.NB"],
+    "fast_window": 4,
+    "slow_window": 12,
+    "max_position_ratio": 0.9,
+}
 
-    context.fast_window = 4
-    context.slow_window = 12
-    context.max_position_ratio = 0.9
+
+def init_preheating_data(context):
+    context.account = context.params["account"]
+    context.stock_universe = context.params["stock_universe"]
+
+    context.fast_window = context.params["fast_window"]
+    context.slow_window = context.params["slow_window"]
+    context.max_position_ratio = context.params["max_position_ratio"]
 
     context.today_trades = []
     context.close_history = {symbol: [] for symbol in context.stock_universe}
@@ -266,6 +285,9 @@ def init_market_data(context):
         return
 
     history = history.dropna(subset=["symbol", "date", "close"]).sort_values(["symbol", "date"])
+    history["symbol"] = history["symbol"].map(
+        lambda symbol: symbol if symbol.endswith(".NB") else symbol + ".NB"
+    )
     max_len = max(context.fast_window, context.slow_window) * 5
     for symbol, group in history.groupby("symbol", sort=False):
         closes = []
@@ -277,7 +299,8 @@ def init_market_data(context):
 
 
 def initialize(context):
-    init_market_data(context)
+    context.params = dict(STRATEGY_PARAMS)
+    init_preheating_data(context)
 
 
 def before_trading(context):
@@ -315,7 +338,7 @@ def handle_data(context, data):
         if bar is None:
             continue
 
-        close_val = getattr(bar, "close", None)
+        close_val = bar.close
         if close_val is None:
             continue
         close_price = _valid_price(close_val)

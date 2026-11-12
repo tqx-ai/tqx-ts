@@ -99,7 +99,7 @@ First obtain candidate stocks from the full market, index constituents, or a use
 
 All function names, fields, market parameters, date ranges and frequencies must be verified from `tqx_data_usage.md`. Special attention:
 
-- The US stock market parameter of `get_financial_statement` is `market="nb"`, and the Hong Kong stock market parameter is `market="hk"`.
+- The US stock market parameter of `get_financial_statement` is `market="us"` or the equivalent `market="nb"`, and the Hong Kong stock market parameter is `market="hk"`.
 - Financial report year-on-year filtering uses `date=<position adjustment date>` and `is_latest=False`. Press `(symbol, fy_period)` first to retain the announcement date before the deadline
   For the latest version, find the latest financial period currently available for each stock and compare it with the same financial period of the previous year. You only need the latest single-period indicator on the rebalancing date.
   Use `is_latest=True`, but you must still pass `date=<position adjustment date>`.

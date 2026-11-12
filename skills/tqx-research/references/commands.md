@@ -27,7 +27,7 @@ tqx research factor delete <factor-id>... --yes
 `analysis-options`: `--startDate`, `--endDate`, `--adjustmentCycle=1|3|5|10|20|30`,
 `--groupNumber=3|5|10|20`, `--factorDirection=Positive|Negative|1|-1`.
 Omitted analysis options reuse the factor's saved parameters. Dates accept `YYYYMMDD` or `YYYY-MM-DD`.
-Dates accept `YYYYMMDD` or `YYYY-MM-DD`. The analysis interval must increase and be shorter than five years.
+The analysis interval must increase and not exceed five calendar years (the exact five-year boundary is included).
 
 Create requires exactly one source input; `--file` supplies Python code. A formula uses `code_type=formula`.
 Source saves retain the existing code type. The server validates source code; the client validates request shape.
@@ -43,6 +43,7 @@ tqx research strategy update <strategy-id> --baseConfigRevision=<revision> [--ti
 tqx research strategy run <strategy-id> --expectedSourceRevision=<revision> --expectedConfigRevision=<revision> [backtest-options] [wait-options] [--download=<path>]
 tqx research strategy stop <run-id>
 tqx research strategy result <run-id> [--download=<path>]
+tqx research strategy backtests <strategy-id> [--limit=1..200]
 tqx research strategy list [list-options]
 tqx research strategy delete <strategy-id>... --yes
 tqx research backtest list [list-options]
@@ -54,7 +55,7 @@ tqx research backtest result <run-id> --field=equity|trades|logs|symbol_performa
 its market-specific defaults. Explicit options are passed through as overrides.
 The commission value passes through unchanged; slippage is proportional. Run and update submit only
 specified overrides; the server merges them with saved configuration. Daily intervals allow up to ten
-years and minute intervals up to one year. The CLI requires the end date to be later than the start date.
+years and minute intervals up to one year. Single-day backtests are allowed; the end date must not precede the start date.
 The result page's symbol filter applies only to trades.
 
 `wait-options`: `--pollInterval=<seconds>`, `--timeout=<seconds>`, `--noWait`.

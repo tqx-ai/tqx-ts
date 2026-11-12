@@ -6,6 +6,7 @@ import {
   addDownload,
   backtestArgs,
   backtestParameters,
+  boundedInteger,
   type BacktestArgs,
   type ContentArgs,
   hasBacktestInput,
@@ -19,6 +20,7 @@ import {
   resourceIdArg,
   resourceIds,
   readJsonInput,
+  cancellationResponse,
   resultResponse,
   resultStatus,
   selectContent,
@@ -123,6 +125,27 @@ export function createStrategyCommand(runtime: CommandRuntime) {
               code: content.value,
             })
             return { success: true, strategy_id: id, strategy: result }
+          }),
+      }),
+      backtests: defineCommand({
+        meta: { name: 'backtests', description: 'List backtests for a strategy' },
+        args: {
+          strategyId: resourceIdArg('Strategy ID'),
+          limit: { type: 'string' },
+        },
+        run: ({ args }) =>
+          runtime.research(async (client) => {
+            const strategyId = resourceId(args.strategyId, 'strategy ID')
+            const result = await client.research.listStrategyBacktests(strategyId, {
+              limit:
+                args.limit === undefined ? undefined : boundedInteger(args.limit, 'limit', 1, 200),
+            })
+            return {
+              success: true,
+              strategy_id: strategyId,
+              count: result.runs.length,
+              backtests: result.runs,
+            }
           }),
       }),
       versions: defineCommand({
@@ -348,7 +371,9 @@ export function createStrategyCommand(runtime: CommandRuntime) {
                 args.expectedConfigRevision,
                 'expectedConfigRevision',
               ),
-              backtest: backtestParameters(args as unknown as BacktestArgs, false),
+              backtest: hasBacktestInput(args as unknown as BacktestArgs)
+                ? backtestParameters(args as unknown as BacktestArgs, false)
+                : undefined,
             })
             if (args.noWait) {
               const out = {
@@ -382,7 +407,7 @@ export function createStrategyCommand(runtime: CommandRuntime) {
           runtime.research(async (client) => {
             const id = resourceId(args.runId, 'backtest run ID')
             const result = await client.research.cancelBacktest(id)
-            return { success: true, run_id: id, status: resultStatus(result as never), result }
+            return cancellationResponse(result, id, 'run_id')
           }),
       }),
       result: defineCommand({

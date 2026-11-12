@@ -234,106 +234,43 @@ const PANDA_DATA_METHODS = [
   ),
 ] as const
 
-// Enum values follow the Qube runtime's tqx_data readers, not the chat agent contract:
-// minute data exists for 1m/5m/10m/60m, and the live, tick, and filing readers name the
-// US market `nb`.
+// Enum values follow the Qube runtime's tqx_data wheel. US market aliases are
+// accepted as `us` and `nb`; `ny` is not a current runtime value.
 const QUBE_MINUTE_FREQUENCIES = ['10m', '1m', '5m', '60m'] as const
-const HK_US_MARKET = { market: ['hk', 'us'] } as const
-const DATED_REFERENCE_PARAMS = ['symbol', 'start_date', 'end_date', 'fields', 'market'] as const
-const REFERENCE_PARAMS = ['symbol', 'fields', 'market'] as const
+const HK_US_MARKET = { market: ['hk', 'nb', 'us'] } as const
+const DATED_REFERENCE_PARAMS = ['symbol', 'market', 'fields', 'start_date', 'end_date'] as const
+const REFERENCE_PARAMS = ['symbol', 'market', 'fields'] as const
 
 const TQX_DATA_METHODS = [
-  method(
-    'get_hk_daily',
-    ['start_date', 'end_date'],
-    ['symbol', 'start_date', 'end_date', 'fields'],
-  ),
-  method(
-    'get_us_daily',
-    ['start_date', 'end_date'],
-    ['symbol', 'start_date', 'end_date', 'fields', 'market'],
-    {
-      market: ['nb', 'ny'],
-    },
-  ),
+  method('get_hk_daily', [], ['symbol', 'start_date', 'end_date', 'fields']),
+  method('get_us_daily', [], ['symbol', 'start_date', 'end_date', 'fields', 'market'], {
+    market: ['nb', 'us'],
+  }),
   method(
     'get_hk_min',
-    ['start_date', 'end_date'],
-    ['symbol', 'start_date', 'end_date', 'fields', 'frequency'],
-    {
-      frequency: QUBE_MINUTE_FREQUENCIES,
-    },
+    [],
+    ['symbol', 'start_date', 'end_date', 'fields', 'time_zone', 'frequency'],
+    { frequency: QUBE_MINUTE_FREQUENCIES },
   ),
   method(
     'get_us_min',
-    ['start_date', 'end_date'],
-    ['symbol', 'start_date', 'end_date', 'fields', 'frequency', 'market'],
-    {
-      frequency: QUBE_MINUTE_FREQUENCIES,
-      market: ['nb', 'ny'],
-    },
+    [],
+    ['symbol', 'start_date', 'end_date', 'fields', 'time_zone', 'frequency', 'market'],
+    { frequency: QUBE_MINUTE_FREQUENCIES, market: ['nb', 'us'] },
   ),
-  method('get_stock_detail', ['market'], ['symbol', 'market', 'status', 'fields'], {
-    market: ['hk', 'us'],
+  method('get_stock_detail', [], ['symbol', 'market', 'status', 'fields'], {
+    market: ['hk', 'nb', 'us'],
   }),
   method(
     'get_trading_calendar',
-    ['market'],
+    [],
     ['start_date', 'end_date', 'market', 'is_trading_day', 'fields'],
-    {
-      market: ['hk', 'us'],
-    },
+    { market: ['hk', 'nb', 'us'] },
   ),
-  method('get_live_market_data', ['symbols'], ['symbols', 'count']),
-  // The runtime ignores `market` when `symbol` is given, so `us` stays valid for existing sources.
-  method('get_min_data', ['symbol', 'market'], ['symbol', 'count', 'market', 'frequency'], {
-    market: ['hk', 'nb', 'us'],
-    frequency: QUBE_MINUTE_FREQUENCIES,
-  }),
-  method('get_tick_data', ['symbol', 'market'], ['symbol', 'market'], {
-    market: ['hk', 'nb'],
-  }),
-  method(
-    'get_factor',
-    ['start_date', 'end_date', 'type', 'factors'],
-    ['symbol', 'start_date', 'end_date', 'type', 'factors'],
-    {
-      type: ['hk', 'nb'],
-    },
-  ),
-  method(
-    'get_financial_statement',
-    ['start_quarter', 'end_quarter', 'market'],
-    [
-      'start_quarter',
-      'end_quarter',
-      'market',
-      'symbol',
-      'fields',
-      'date',
-      'is_latest',
-      'interim_type',
-    ],
-    {
-      market: ['hk', 'nb'],
-      interim_type: ['cumulative', 'single'],
-    },
-  ),
-  method(
-    'get_filing_announcement',
-    ['market'],
-    ['symbol', 'start_date', 'end_date', 'fields', 'market'],
-    {
-      market: ['hk', 'nb'],
-    },
-  ),
-  method('get_index_component', ['market'], ['stock_symbol', 'index_symbol', 'market'], {
-    market: ['hk', 'us'],
-  }),
   method('get_currency', [], ['start_date', 'end_date', 'fields']),
-  // Events, company data, and consensus exist in the Qube backtest runtime and pass the
-  // server's save check. calculate_indicators is excluded: the server rejects tqx_data calls
-  // without a get_ prefix.
+  method('get_consensus_recommend', [], REFERENCE_PARAMS, {
+    market: ['hk', 'nb', 'us'],
+  }),
   ...[
     'get_event_devidend',
     'get_event_capital_market',
@@ -342,9 +279,7 @@ const TQX_DATA_METHODS = [
     'get_event_investor_relation_activities',
     'get_company_insider_transaction',
     'get_company_shareholder_report',
-  ].map((name) =>
-    method(name, ['start_date', 'end_date', 'market'], DATED_REFERENCE_PARAMS, HK_US_MARKET),
-  ),
+  ].map((name) => method(name, ['start_date', 'end_date'], DATED_REFERENCE_PARAMS, HK_US_MARKET)),
   ...[
     'get_company_concentration',
     'get_company_top_concentration',
@@ -352,15 +287,52 @@ const TQX_DATA_METHODS = [
     'get_company_imed',
     'get_company_price_vol',
     'get_consensus_nonperiod',
-    'get_consensus_recommend',
-  ].map((name) => method(name, ['market'], REFERENCE_PARAMS, HK_US_MARKET)),
-  method('get_company_investor', ['market'], [...REFERENCE_PARAMS, 'max_rank'], HK_US_MARKET),
+  ].map((name) => method(name, [], REFERENCE_PARAMS, HK_US_MARKET)),
+  method('get_company_investor', [], [...REFERENCE_PARAMS, 'max_rank'], HK_US_MARKET),
   method(
     'get_company_oper_metrics',
-    ['start_year', 'end_year', 'market'],
+    ['start_year', 'end_year'],
     [...REFERENCE_PARAMS, 'start_year', 'end_year'],
     HK_US_MARKET,
   ),
+  method(
+    'get_financial_statement',
+    ['start_quarter', 'end_quarter', 'market'],
+    [
+      'start_quarter',
+      'end_quarter',
+      'symbol',
+      'fields',
+      'market',
+      'date',
+      'is_latest',
+      'interim_type',
+    ],
+    { market: ['hk', 'nb', 'us'], interim_type: ['cumulative', 'single'] },
+  ),
+  method('get_live_market_data', ['symbols'], ['symbols', 'count']),
+  method(
+    'get_factor',
+    ['start_date', 'end_date', 'factors'],
+    ['symbol', 'start_date', 'end_date', 'type', 'factors'],
+    { type: ['hk', 'nb', 'us'] },
+  ),
+  method(
+    'get_filing_announcement',
+    [],
+    ['symbol', 'start_date', 'end_date', 'fields', 'market'],
+    HK_US_MARKET,
+  ),
+  method('get_index_component', [], ['index_symbol', 'stock_symbol', 'market'], {
+    market: ['hk', 'nb', 'us'],
+  }),
+  method('get_min_data', [], ['symbol', 'count', 'market', 'max_workers', 'frequency'], {
+    market: ['hk', 'nb', 'us'],
+    frequency: QUBE_MINUTE_FREQUENCIES,
+  }),
+  method('get_tick_data', [], ['symbol', 'market'], {
+    market: ['hk', 'nb', 'us'],
+  }),
 ] as const
 
 export const PANDA_DATA_CATALOG = buildCatalog(PANDA_DATA_METHODS)

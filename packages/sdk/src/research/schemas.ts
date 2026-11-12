@@ -102,7 +102,7 @@ export const FactorAnalysisParamsInputSchema = v.pipe(
   v.strictObject(analysisEntries),
   v.check(
     (value) => validPeriod(value.periodStart, value.periodEnd, 5, true),
-    'Analysis period must increase and be shorter than five years',
+    'Analysis period must increase and not exceed five years',
   ),
 )
 function validPeriod(
@@ -115,7 +115,7 @@ function validPeriod(
   const [year, month, day] = start.split('-').map(Number) as [number, number, number]
   const lastDay = new Date(Date.UTC(year + years, month, 0)).getUTCDate()
   const boundary = `${String(year + years).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(Math.min(day, lastDay)).padStart(2, '0')}`
-  return (strict ? end > start : end >= start) && (strict ? end < boundary : end <= boundary)
+  return (strict ? end > start : end >= start) && end <= boundary
 }
 
 const createEntries = {
@@ -233,6 +233,13 @@ const timeFilter = v.pipe(
     'Expected an ISO date or timezone-aware datetime',
   ),
 )
+function researchTime(value: string, end: boolean): number {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    // Qube interprets date-only filters as Shanghai calendar days.
+    return Date.parse(`${value}T00:00:00+08:00`) + (end ? 86_400_000 : 0)
+  }
+  return Date.parse(value)
+}
 export const ListResearchInputSchema = v.pipe(
   v.strictObject({
     ...listEntries,
@@ -261,8 +268,8 @@ export const ListResearchInputSchema = v.pipe(
     (value) =>
       value.from === undefined ||
       value.to === undefined ||
-      Date.parse(value.from) <= Date.parse(value.to),
-    'from must not be later than to',
+      researchTime(value.from, false) < researchTime(value.to, true),
+    'from must be earlier than to',
   ),
 )
 export const ListFactorAnalysesInputSchema = v.strictObject({
@@ -270,6 +277,9 @@ export const ListFactorAnalysesInputSchema = v.strictObject({
   status: v.optional(
     v.picklist(['preparing', 'queued', 'running', 'succeeded', 'failed', 'cancelled']),
   ),
+})
+export const ListStrategyBacktestsInputSchema = v.strictObject({
+  limit: v.optional(v.pipe(positiveInteger, v.maxValue(200))),
 })
 const record = v.looseObject({})
 const optionalRecord = v.optional(v.nullable(record))
@@ -504,7 +514,9 @@ export const StrategyTuningInputSchema = v.pipe(
     const candidates = new Map(
       input.candidates.map((candidate) => [
         JSON.stringify(
-          Object.entries(candidate.strategyParameters).toSorted(([a], [b]) => a.localeCompare(b)),
+          Object.entries(candidate.strategyParameters).toSorted(([a], [b]) =>
+            a < b ? -1 : a > b ? 1 : 0,
+          ),
         ),
         candidate.strategyParameters,
       ]),
@@ -594,6 +606,7 @@ export type ListQubeResourcesInput = v.InferInput<typeof ListQubeResourcesInputS
 export type ListFactorsInput = v.InferInput<typeof ListFactorsInputSchema>
 export type ListResearchInput = v.InferInput<typeof ListResearchInputSchema>
 export type ListFactorAnalysesInput = v.InferInput<typeof ListFactorAnalysesInputSchema>
+export type ListStrategyBacktestsInput = v.InferInput<typeof ListStrategyBacktestsInputSchema>
 export type ListBacktestsInput = ListResearchInput
 export type Factor = v.InferOutput<typeof FactorSchema>
 export type Strategy = v.InferOutput<typeof StrategySchema>

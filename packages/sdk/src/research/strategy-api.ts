@@ -18,6 +18,8 @@ import {
   StrategyBacktestInputSchema,
   ListQubeResourcesInputSchema,
   ListFactorVersionsInputSchema,
+  ListStrategyBacktestsInputSchema,
+  type ListStrategyBacktestsInput,
   type ListFactorVersionsInput,
   ValidationResultSchema,
   StrategyTuningInputSchema,
@@ -189,9 +191,14 @@ export class StrategyApi {
       },
     })
   }
-  listStrategyBacktests(strategyId: string): Promise<{ runs: Backtest[] }> {
+  listStrategyBacktests(
+    strategyId: string,
+    input: ListStrategyBacktestsInput = {},
+  ): Promise<{ runs: Backtest[] }> {
+    const parsed = parseResearchInput(ListStrategyBacktestsInputSchema, input)
     return this.#request(`${APIs.RESEARCH_STRATEGIES}/${resourceId(strategyId)}/backtests`, {
       schema: v.looseObject({ runs: v.array(BacktestSchema) }),
+      query: { limit: parsed.limit },
     })
   }
   getBacktest(runId: string): Promise<Backtest> {
