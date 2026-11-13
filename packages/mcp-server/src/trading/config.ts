@@ -19,7 +19,8 @@ export function loadTradingConfig(
     'TQX_MCP_EXCHANGE_CLIENT_ID',
     'TQX_MCP_EXCHANGE_CLIENT_SECRET',
   ] as const
-  if (names.every((name) => environment[name] === undefined)) return undefined
+  // Shared exchange credentials alone must not enable Trading (e.g. Research-only deployments).
+  if (names.slice(0, 2).every((name) => environment[name] === undefined)) return undefined
   for (const name of names) {
     if (!environment[name]?.trim()) throw configurationError(name)
   }

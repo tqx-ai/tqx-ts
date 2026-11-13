@@ -189,7 +189,9 @@ Trading is opt-in through the four runtime values in `.env.example`. The public
 trading token audience is separately configured (normally `/openapi`); do not
 reuse the older generic `/api` examples above as a deployment contract. Only
 HTTP Basic confidential-client authentication is implemented for exchange.
-Research gateway integration remains future work. See [README.md](README.md) for
-the implemented contracts, read-cache revocation window, and validation limits.
+Research is independently opt-in through its own gateway base ending in `/tqxApi`
+and explicit token audience, sharing exchange credentials but requiring no Trading
+Agent binding. See [README.md](README.md) for the implemented Research and Trading
+contracts, read-cache revocation window, and validation limits.
 CLI and SDK packages must remain independent and unchanged by MCP implementation
 work.

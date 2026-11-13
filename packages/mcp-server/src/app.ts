@@ -20,6 +20,8 @@ import { loadTradingConfig } from './trading/config'
 import type { TradingConfig } from './trading/config'
 import { createTradingRuntime } from './trading/runtime'
 import type { TradingRuntimeOptions } from './trading/runtime'
+import { loadResearchConfig, type ResearchConfig } from './research/config'
+import { createResearchRuntime, type ResearchRuntimeOptions } from './research/runtime'
 
 import { getLogger, logContext, logLabel } from './utils/logger'
 import {
@@ -38,6 +40,8 @@ export interface AppOptions extends VerifierOptions {
   serverFactory?: McpServerFactory
   tradingConfig?: TradingConfig | null
   trading?: TradingRuntimeOptions
+  researchConfig?: ResearchConfig | null
+  research?: ResearchRuntimeOptions
   demoPing?: boolean
 }
 
@@ -58,13 +62,27 @@ export function createApp(options: AppOptions = {}) {
         ...options.trading,
       })
     : undefined
+  const researchConfig =
+    options.researchConfig === undefined
+      ? loadResearchConfig(config.issuer)
+      : options.researchConfig
+  const researchRuntime = researchConfig
+    ? createResearchRuntime(config.issuer, researchConfig, {
+        fetch: options.fetch,
+        now: options.now,
+        ...options.research,
+      })
+    : undefined
   const factory: McpServerFactory =
     options.serverFactory ??
     ((context) =>
       createServer(context, {
         gateway: runtime?.gateway,
+        researchGateway: researchRuntime?.gateway,
         now: options.now,
-        demoPing: options.demoPing ?? (!runtime || process.env.NODE_ENV !== 'production'),
+        demoPing:
+          options.demoPing ??
+          ((!runtime && !researchRuntime) || process.env.NODE_ENV !== 'production'),
       }))
   const handler = createMcpHandler(async (context) => observeMcpServer(await factory(context)), {
     onerror: (error) =>
@@ -159,5 +177,10 @@ export function createApp(options: AppOptions = {}) {
 
   app.route('/', mcpApp)
 
-  return Object.assign(app, { dispose: () => runtime?.dispose() })
+  return Object.assign(app, {
+    dispose: () => {
+      runtime?.dispose()
+      researchRuntime?.dispose()
+    },
+  })
 }

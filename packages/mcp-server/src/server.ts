@@ -11,14 +11,23 @@ import { registerControl } from './tools/trading/control'
 import { registerBugReportPrompt } from './tools/bug-report/prompt'
 import { registerBugReport } from './tools/bug-report/submit'
 import type { TradingGateway } from './trading/gateway'
+import type { ResearchGateway } from './research/gateway'
+import { registerResearchTools } from './research/tools'
 
 export function createServer(
   context?: McpRequestContext,
-  options: { gateway?: TradingGateway; now?: () => number; demoPing?: boolean } = {},
+  options: {
+    gateway?: TradingGateway
+    researchGateway?: ResearchGateway
+    now?: () => number
+    demoPing?: boolean
+  } = {},
 ) {
   const server = new McpServer({ name: '@tqx-ai/mcp-server', version })
 
   if (options.demoPing !== false) registerPingTool(server)
+  if (options.researchGateway)
+    registerResearchTools(server, { auth: context?.authInfo, gateway: options.researchGateway })
   if (options.gateway) {
     registerBugReportPrompt(server)
     const tools = {

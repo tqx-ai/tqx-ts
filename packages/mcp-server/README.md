@@ -1,7 +1,7 @@
 # TQX MCP Server
 
 Stateless Streamable HTTP resource server using MCP SDK v2, Hono, and Valibot.
-Every MCP request requires a TQX MCP Bearer token. Trading tools use independently implemented gateway clients; this package does not import the TQX CLI or SDK.
+Every MCP request requires a TQX MCP Bearer token. Research and Trading tools use independently implemented gateway clients; this package does not import the TQX CLI or SDK.
 Each request gets a fresh server instance and its own verified identity.
 
 ## OAuth configuration
@@ -145,8 +145,9 @@ docker compose -f docker/compose.yaml down
 
 ## Trading tools
 
-Trading is enabled when all four values below are provided. Omit all four to
-retain the authentication-only deployment; partial configuration fails startup.
+Trading is enabled when all four values below are provided. Omit both Trading
+variables to disable it; exchange credentials may still be used by Research.
+Once either Trading variable is set, partial configuration fails startup.
 The package's `.env.example` includes commented examples. These are runtime
 settings, independent of SDK/CLI build variables and `TQX_BASE_URL`.
 
@@ -182,7 +183,7 @@ update their tool references and allowlists; the old names are no longer registe
 | `tqx_trading_control`   | `action`: hold                                    | `trade:read`                                              |
 | `tqx_submit_bug_report` | `title`, `description`, optional `idempotencyKey` | authenticated MCP session; no user scope or Agent binding |
 
-Every tool takes a required `request` object. Use `tools/list` for the complete
+Trading and bug-report tools take a required `request` object. Use `tools/list` for the complete
 current schema. Example `params` for a read:
 
 ```json
@@ -262,7 +263,91 @@ only trading HTTP requests; the two timeout budgets are independent.
 When trading is enabled in production, the demonstration `tqx_ping` tool is disabled
 by default, leaving six business tools. It remains available in development or
 authentication-only mode. Health checks and the MCP protocol ping remain usable.
-Research APIs are reserved for a later phase.
+Research tools are enabled separately as described below.
+
+## Research tools
+
+Research implements the two-tool design in [the Research plan](docs/research-tools-plan.md),
+including all 43 P0/P1 actions for factors, analyses, strategies, backtests, versions
+and snapshots. It excludes tqx_data, market/financial data, standalone symbol
+klines, tuning, SSE subscriptions and trading accounts.
+
+Enable it with both runtime settings below plus the shared
+`TQX_MCP_EXCHANGE_CLIENT_ID` / `TQX_MCP_EXCHANGE_CLIENT_SECRET`. Omit both Research
+variables to disable it. A partial configuration stops startup. Research-only,
+Trading-only and combined deployments are supported.
+
+| Variable                    | Meaning                                                                                                                                             |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TQX_MCP_RESEARCH_BASE_URL` | Research gateway URL ending in `/tqxApi` (optional trailing slash). Requests preserve that prefix before `qube/api/...`. Production requires HTTPS. |
+| `TQX_MCP_RESEARCH_RESOURCE` | Exact AS-registered Research token audience. Configure independently from the gateway URL and Trading audience; there is no inferred default.       |
+
+The AS must authorize exchange to this audience with `research:read`,
+`research:run` and/or `research:write`, and the Research gateway must accept those
+exchanged Bearer tokens. Research does not require a trading Agent binding. The
+existing MCP login and HTTP Bearer authentication remain required for both tools.
+Tests exercise injected gateways and exchanges; acceptance by a deployed AS and
+Research gateway must be verified in that environment before enabling production.
+
+| Tool                   | Input                                                  | Behavior                                                                                                                                                                                                 |
+| ---------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tqx_research_explore` | `{ action?: string }`                                  | Omit action for all deployed names and descriptions; specify one for input/output JSON Schema, Markdown examples, related docs and composition guidance. No business scope or upstream call is required. |
+| `tqx_research_call`    | `{ action: string, input: object, confirm?: boolean }` | Execute the action using its exact schema and scope. Deletion requires outer `confirm=true`.                                                                                                             |
+
+Research arguments are at the tool root (there is no `request` wrapper):
+
+```json
+{
+  "name": "tqx_research_call",
+  "arguments": {
+    "action": "strategy.get",
+    "input": { "strategyId": "0123456789abcdef01234567" }
+  }
+}
+```
+
+Success returns the business object directly in `structuredContent` and the same
+JSON in text `content`. There is no `ok/action/data/nextActions` envelope.
+`call` has no combined public `outputSchema`; the handler validates the selected
+action's output and `explore({ action })` returns its precise schema. Handler
+errors return `isError: true` with `{ error: { code, message, requestId?, details? } }`.
+SDK outer argument validation and protocol errors keep SDK semantics; missing
+action permissions use the existing HTTP scope challenge.
+
+Use `strategy.get` → `strategy.validate` → `strategy.backtest.submit` →
+`strategy.backtest.get` → `backtest.result.get` / `backtest.chart.get`.
+Pass source/config revisions from the resource read, keep the submit response's
+`id` as `runId`, and poll about every two seconds with rate-limit backoff. Only
+`succeeded` permits result reads. `valid=false` and remote `status=failed` are
+business results, not tool execution errors. Cancellation acknowledgements do
+not imply the run is already cancelled. An Agent poll timeout does not cancel
+the remote run.
+
+Resources omit source by default; use `get_source` or `get({ includeSource: true })`.
+Result rows retain engine field names and units. Cursor lists use the upstream
+cursor. Factor analysis history and snapshots expose at most the upstream's
+latest 200 entries, version lists at most 1000; MCP offset pagination slices only
+that returned batch. `possiblyTruncated=true` signals a reached upstream cap;
+`hasMore` only describes further rows within the batch. Use search actions for
+complete analysis/version history; older snapshots have no further upstream
+pagination. Recent backtests similarly expose `possiblyTruncated` at the requested
+limit. Results and charts are read only after checking the actual run state.
+
+Read token exchanges use the existing process-local cache. Every execution or
+write uses a fresh exchange and is never automatically replayed. Preserve
+`requestId` for retries of the same intent; after timeouts or invalid responses,
+verify remote state before retrying. Research uses a separate token provider and
+audience from Trading, with no database or local task store.
+
+Embedding hosts can set `createApp({ researchConfig, research: ... })` to inject
+fetch, exchange and clocks, or set `researchConfig: null` to disable Research.
+Limits default to 10 seconds per gateway request, 4 MiB per upstream JSON body,
+1 MiB per business output, 100 concurrent requests and 4 per user/client. The
+existing exchange cache/timeout options also apply. `maxResponseBytes`,
+`maxOutputBytes`, `gatewayTimeoutMs`, `maxConcurrent` and `maxPerPrincipal` can be
+configured through `research`. Oversized results fail explicitly instead of being
+silently shortened; narrow the page or time range. Open engine JSON is bounded
+to depth 24 and 100,000 values per checked value.
 
 ## Authorization Code login
 
@@ -284,7 +369,7 @@ will request all six; clients can explicitly request a subset. Consent involving
 `trade:read`, `order:write`, or `ranking:read` requires an Agent selection in tqx-web. Existing
 transactions and tokens retain their scopes; start a new authorization to request
 additional permissions. `tqx_ping` itself has no additional business scope requirement
-beyond a valid MCP token. Business tools are enabled separately through the trading configuration above.
+beyond a valid MCP token. Business tools are enabled separately through the Research and Trading configurations above.
 
 This package does not implement Device Flow, an OAuth callback, an authorization
 server, or code/refresh-token storage. It does not call device authorization,
@@ -328,7 +413,8 @@ error `-32602`, following the SDK's standard behavior.
 `src/app.ts` provides an injectable Fetch app factory, `src/auth/` owns resource
 metadata, JWT verification and token exchange/caching, `src/trading/` owns the
 independent gateway contracts and transport, `src/tools/trading/` owns the five
-trading tool handlers, `src/tools/bug-report/` owns the bug-report tool and
+trading tool handlers, `src/research/` owns the two Research tools, action contracts,
+documentation and independent Research gateway, `src/tools/bug-report/` owns the bug-report tool and
 prompt, `src/server.ts` registers tools and prompts, and `src/index.ts` is the
 Bun entry. Reusable helpers live in `src/utils/`, with configuration parsing
 helpers in `src/utils/config.ts`. Other runtimes can serve `createApp().fetch` through an HTTP
