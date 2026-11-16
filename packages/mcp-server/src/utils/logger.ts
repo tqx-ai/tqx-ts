@@ -41,9 +41,14 @@ export function formatShanghaiTimestamp(date: Date): { pretty: string; iso: stri
   }
 }
 
+export function resolvePrettyColor(noColor: string | undefined = process.env.NO_COLOR): boolean {
+  return noColor === undefined || noColor === ''
+}
+
 export function createLogger(settings: ISettingsParam<ILogObj> = {}): Logger<ILogObj> {
   const level = levels.indexOf(process.env.MCP_LOG_LEVEL?.trim().toLowerCase() ?? 'info')
   const format = process.env.MCP_LOG_FORMAT?.trim().toLowerCase()
+  const prettyColor = resolvePrettyColor()
   return new Logger<ILogObj>({
     name: 'tqx-mcp-server',
     minLevel: level < 0 ? 3 : level,
@@ -62,14 +67,35 @@ export function createLogger(settings: ISettingsParam<ILogObj> = {}): Logger<ILo
       time: (date) => formatShanghaiTimestamp(date).iso,
     },
     pretty: {
+      style: prettyColor,
       template: '{{timestamp}} {{level}} [{{name}}]{{requestId}} ',
       placeholders: {
         timestamp: (meta) => formatShanghaiTimestamp(meta.date).pretty,
         level: (meta) => meta.logLevelName.padEnd(5),
         requestId: (meta) => {
           const requestId = (meta as Record<string, unknown>).requestId
-          return typeof requestId === 'string' ? ` [${requestId}]` : ''
+          return typeof requestId === 'string' && requestId.length > 0 ? ` [${requestId}]` : ''
         },
+      },
+      styles: {
+        timestamp: 'dim',
+        name: ['cyan', 'bold'],
+        requestId: 'dim',
+        level: {
+          '*': ['bold', 'white'],
+          SILLY: ['dim', 'white'],
+          TRACE: ['dim', 'cyan'],
+          DEBUG: ['bold', 'green'],
+          INFO: ['bold', 'blueBright'],
+          WARN: ['bold', 'yellowBright'],
+          ERROR: ['bold', 'redBright'],
+          FATAL: ['bold', 'bgRed', 'whiteBright'],
+        },
+      },
+      inspectOptions: {
+        colors: prettyColor,
+        compact: false,
+        depth: Infinity,
       },
     },
     mask: {

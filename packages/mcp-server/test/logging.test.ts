@@ -2,7 +2,13 @@ import { McpServer } from '@modelcontextprotocol/server'
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../src/app'
-import { createLogger, formatShanghaiTimestamp, getLogger, logContext } from '../src/utils/logger'
+import {
+  createLogger,
+  formatShanghaiTimestamp,
+  getLogger,
+  logContext,
+  resolvePrettyColor,
+} from '../src/utils/logger'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
 import { envelope, signal, tradingConfig } from './helpers/trading'
 
@@ -444,6 +450,25 @@ describe('MCP logging', () => {
     expect(captured).toHaveLength(1)
     expect(JSON.stringify(captured)).not.toContain('never-log')
     expect(captured[0]).toMatchObject({ _logMeta: { requestId: 'context-test' } })
+  })
+
+  it('emits ANSI colors and indented objects for pretty logs even without TTY and respects NO_COLOR', () => {
+    expect(resolvePrettyColor(undefined)).toBe(true)
+    expect(resolvePrettyColor('')).toBe(true)
+    expect(resolvePrettyColor('1')).toBe(false)
+
+    const consoleLog = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    try {
+      const colored = createLogger({ type: 'pretty' })
+      colored.getSubLogger({ name: 'http' }).info({ event: 'mcp.color_check', status: 200 })
+      const output = consoleLog.mock.calls[0]?.map(String).join(' ') ?? ''
+      expect(output).toContain('\u001b[94m') // blueBright for INFO
+      expect(output).toContain('\u001b[36m') // cyan for [tqx-mcp-server:http]
+      expect(output).toContain('\u001b[32m') // green for string value
+      expect(output).toContain('{\n  event:')
+    } finally {
+      consoleLog.mockRestore()
+    }
   })
 })
 
