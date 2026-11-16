@@ -23,6 +23,12 @@ HTTP URLs/origins, including LAN addresses and hostnames, are allowed outside
 `NODE_ENV=production`. Host and Origin
 checks remain enabled; native clients without an Origin header are supported.
 
+When troubleshooting connection issues, the service emits structured
+`mcp.origin_rejected`, `mcp.authorization_header_rejected`, and
+`mcp.authentication_failed` events. Logs contain only the request method, path,
+Origin, response status, and whether an Authorization header was provided;
+bearer tokens are never logged.
+
 ## Run locally
 
 Once workspace dependencies are installed, run in `packages/mcp-server/`.

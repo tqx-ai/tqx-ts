@@ -66,8 +66,17 @@ export function createApp(options: AppOptions = {}) {
   app.use('*', async (c, next) => {
     const origin = c.req.header('Origin')
     // The SDK validates origin hostnames; also bind scheme and port for browser clients.
-    if (origin && !config.allowedOrigins.includes(origin))
+    if (origin && !config.allowedOrigins.includes(origin)) {
+      console.warn(
+        JSON.stringify({
+          event: 'mcp.origin_rejected',
+          method: c.req.method,
+          path: c.req.path,
+          origin,
+        }),
+      )
       return c.json({ error: 'Forbidden origin' }, 403)
+    }
     await next()
   })
   app.use(
@@ -99,13 +108,33 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     const authorization = c.req.header('Authorization')
     if (authorization && !/^Bearer [^\s,]+$/i.test(authorization)) {
+      console.warn(
+        JSON.stringify({
+          event: 'mcp.authorization_header_rejected',
+          method: c.req.method,
+          path: c.req.path,
+          origin: c.req.header('Origin') ?? null,
+        }),
+      )
       return bearerAuthChallengeResponse(
         new OAuthError(OAuthErrorCode.InvalidToken, 'Invalid Authorization header'),
         { resourceMetadataUrl: metadata.url.href },
       )
     }
     const authInfo = await authenticate(c.req.raw)
-    if (authInfo instanceof Response) return authInfo
+    if (authInfo instanceof Response) {
+      console.info(
+        JSON.stringify({
+          event: 'mcp.authentication_failed',
+          method: c.req.method,
+          path: c.req.path,
+          origin: c.req.header('Origin') ?? null,
+          status: authInfo.status,
+          hasAuthorization: Boolean(authorization),
+        }),
+      )
+      return authInfo
+    }
     return handler.fetch(c.req.raw, { parsedBody: c.get('parsedBody'), authInfo })
   })
 
