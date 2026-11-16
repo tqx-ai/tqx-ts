@@ -2,6 +2,7 @@ import type { AuthInfo } from '@modelcontextprotocol/server'
 import * as v from 'valibot'
 
 import type { ApiTokenProvider } from '../auth/api-token-provider'
+import { getLogger, logLabel } from '../utils/logger'
 import { readJson } from '../utils/http-json'
 import { TradingError } from './errors'
 import { operations, type OperationName, type TradingScope } from './operations'
@@ -91,7 +92,9 @@ export class TradingGateway {
       for (const [key, value] of Object.entries(request.query ?? {})) {
         if (value !== undefined) url.searchParams.set(key, String(value))
       }
-      const execute = async (accessToken: string) => {
+      let attempt = 0
+      let attemptStatus: number | undefined
+      const executeAttempt = async (accessToken: string) => {
         const headers = new Headers({
           Authorization: `Bearer ${accessToken}`,
           Accept: 'application/json',
@@ -115,16 +118,21 @@ export class TradingGateway {
             { outcomeUnknown: op.write },
           )
         }
-        const headerId = response.headers.get('X-Request-ID') ?? undefined
+        attemptStatus = response.status
+        const headerId = response.headers.get('X-Request-ID')?.slice(0, 128) ?? undefined
         let raw: unknown
         try {
           raw = await readJson(response, 1_048_576)
         } catch {
           // A bare 401 is an authentication failure even when the proxy omitted an envelope.
           if (response.status === 401)
-            throw new TradingError('api', 'Trading token rejected', { status: 401 })
+            throw new TradingError('api', 'Trading token rejected', {
+              status: 401,
+              ...(headerId ? { requestId: headerId } : {}),
+            })
           throw new TradingError('protocol', 'Invalid trading gateway response', {
             status: response.status,
+            ...(headerId ? { requestId: headerId } : {}),
             outcomeUnknown: op.write,
           })
         }
@@ -132,11 +140,11 @@ export class TradingGateway {
         if (!envelope.success)
           throw new TradingError('protocol', 'Invalid trading gateway envelope', {
             status: response.status,
+            ...(headerId ? { requestId: headerId } : {}),
             outcomeUnknown: op.write,
           })
         const data = envelope.output
         const id = (data.request_id ?? headerId)?.slice(0, 128)
-        requestId = id
         if (!response.ok || data.code !== '0') {
           const apiCode = safeCode.test(data.code) ? data.code : 'upstream_error'
           // Only signal operations may expose a validated public signal payload.
@@ -164,7 +172,43 @@ export class TradingGateway {
             requestId: id,
             outcomeUnknown: op.write,
           })
-        return parsed.output as v.InferOutput<(typeof operations)[N]['schema']>
+        return {
+          output: parsed.output as v.InferOutput<(typeof operations)[N]['schema']>,
+          requestId: id,
+        }
+      }
+      const execute = async (accessToken: string) => {
+        attempt += 1
+        attemptStatus = undefined
+        const startedAt = performance.now()
+        let attemptResult = 'success'
+        let errorKind: string | undefined
+        let upstreamRequestId: string | undefined
+        try {
+          const executed = await executeAttempt(accessToken)
+          upstreamRequestId = executed.requestId
+          requestId = executed.requestId
+          return executed.output
+        } catch (error) {
+          attemptResult = 'error'
+          if (error instanceof TradingError) {
+            errorKind = error.kind
+            upstreamRequestId = error.details.requestId
+          }
+          throw error
+        } finally {
+          const level = attemptResult === 'success' ? 'info' : 'warn'
+          getLogger('gateway')[level]({
+            event: 'mcp.gateway_completed',
+            operation: name,
+            attempt,
+            status: attemptStatus,
+            result: attemptResult,
+            errorKind,
+            upstreamRequestId: logLabel(upstreamRequestId),
+            durationMs: Math.round(performance.now() - startedAt),
+          })
+        }
       }
       let output: v.InferOutput<(typeof operations)[N]['schema']>
       try {
@@ -189,7 +233,10 @@ export class TradingGateway {
       result = 'success'
       return output
     } catch (error) {
-      if (error instanceof TradingError) code = error.details.code ?? error.kind
+      if (error instanceof TradingError) {
+        code = error.details.code ?? error.kind
+        requestId = error.details.requestId
+      }
       throw error
     } finally {
       this.#active -= 1

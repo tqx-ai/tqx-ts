@@ -1,4 +1,5 @@
 import { createApp } from './app'
+import { getLogger } from './utils/logger'
 
 const app = createApp()
 const resourceUrl = process.env.TQX_MCP_RESOURCE_URL ?? ''
@@ -8,14 +9,12 @@ const allowedOrigins = (process.env.TQX_MCP_ALLOWED_ORIGINS ?? '')
   .map((value) => value.trim())
   .filter(Boolean)
 
-console.info(
-  JSON.stringify({
-    event: 'mcp.config_loaded',
-    resourceUrl,
-    issuer,
-    allowedOriginCount: allowedOrigins.length,
-  }),
-)
+getLogger('server').info({
+  event: 'mcp.config_loaded',
+  resourceUrl,
+  issuer,
+  allowedOriginCount: allowedOrigins.length,
+})
 
 export default {
   hostname: process.env.TQX_MCP_BIND_HOST ?? '127.0.0.1',

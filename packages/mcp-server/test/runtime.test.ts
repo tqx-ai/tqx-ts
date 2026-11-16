@@ -13,10 +13,12 @@ const joseModule = new URL('../node_modules/jose/dist/webapi/index.js', import.m
 
 describe('Bun OAuth runtime', () => {
   it('verifies a real JWT before invoking an MCP tool under Bun', async () => {
-    const { stdout } = await exec('bun', [
-      '--no-env-file',
-      '-e',
-      `
+    const { stdout } = await exec(
+      'bun',
+      [
+        '--no-env-file',
+        '-e',
+        `
       import { createApp } from ${JSON.stringify(appModule)}
       import { loadMcpConfig } from ${JSON.stringify(configModule)}
       import { generateKeyPair, exportJWK, SignJWT } from ${JSON.stringify(joseModule)}
@@ -60,8 +62,11 @@ describe('Bun OAuth runtime', () => {
       }
       console.log('authenticated')
     `,
-    ])
-    expect(stdout.trim()).toBe('authenticated')
+      ],
+      { env: { ...process.env, MCP_LOG_FORMAT: 'json' } },
+    )
+    expect(stdout.trim().split('\n')).toContain('authenticated')
+    expect(stdout).toContain('mcp.request_completed')
   })
 
   it('refuses startup when OAuth configuration is absent', async () => {

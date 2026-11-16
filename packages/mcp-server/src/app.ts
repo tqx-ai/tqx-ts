@@ -21,6 +21,17 @@ import type { TradingConfig } from './trading/config'
 import { createTradingRuntime } from './trading/runtime'
 import type { TradingRuntimeOptions } from './trading/runtime'
 
+import { getLogger, logContext, logLabel } from './utils/logger'
+import {
+  createLoggedApp,
+  logPath,
+  observeMcpServer,
+  recordMcpRequest,
+} from './utils/request-logging'
+
+const authLog = getLogger('auth')
+const auditLog = getLogger('audit')
+
 export interface AppOptions extends VerifierOptions {
   config?: McpConfig
   verifier?: OAuthTokenVerifier
@@ -32,7 +43,8 @@ export interface AppOptions extends VerifierOptions {
 
 export function createApp(options: AppOptions = {}) {
   const config = options.config ?? loadMcpConfig()
-  const app = createMcpHonoApp({
+  const app = createLoggedApp()
+  const mcpApp = createMcpHonoApp({
     allowedHosts: [...config.allowedHosts],
     allowedOrigins: config.allowedOrigins.map((origin) => new URL(origin).hostname),
   })
@@ -42,20 +54,26 @@ export function createApp(options: AppOptions = {}) {
     ? createTradingRuntime(config.issuer, tradingConfig, {
         fetch: options.fetch,
         now: options.now,
-        audit: (event) =>
-          console.info(JSON.stringify({ event: `${event.domain}.write`, ...event })),
+        audit: (event) => auditLog.info({ event: `${event.domain}.write`, ...event }),
         ...options.trading,
       })
     : undefined
-  const handler = createMcpHandler(
+  const factory: McpServerFactory =
     options.serverFactory ??
-      ((context) =>
-        createServer(context, {
-          gateway: runtime?.gateway,
-          now: options.now,
-          demoPing: options.demoPing ?? (!runtime || process.env.NODE_ENV !== 'production'),
-        })),
-  )
+    ((context) =>
+      createServer(context, {
+        gateway: runtime?.gateway,
+        now: options.now,
+        demoPing: options.demoPing ?? (!runtime || process.env.NODE_ENV !== 'production'),
+      }))
+  const handler = createMcpHandler(async (context) => observeMcpServer(await factory(context)), {
+    onerror: (error) =>
+      getLogger('protocol').warn({
+        event: 'mcp.protocol_rejected',
+        errorType: logLabel(error.name),
+        errorCode: 'code' in error && typeof error.code === 'number' ? error.code : undefined,
+      }),
+  })
   const metadata = createResourceMetadata(config)
   const authenticate = requireBearerAuth({
     verifier: options.verifier ?? createTokenVerifier(config, options),
@@ -63,23 +81,21 @@ export function createApp(options: AppOptions = {}) {
     resourceMetadataUrl: metadata.url.href,
   })
 
-  app.use('*', async (c, next) => {
+  mcpApp.use('*', async (c, next) => {
     const origin = c.req.header('Origin')
     // The SDK validates origin hostnames; also bind scheme and port for browser clients.
     if (origin && !config.allowedOrigins.includes(origin)) {
-      console.warn(
-        JSON.stringify({
-          event: 'mcp.origin_rejected',
-          method: c.req.method,
-          path: c.req.path,
-          origin,
-        }),
-      )
+      authLog.warn({
+        event: 'mcp.origin_rejected',
+        method: c.req.method,
+        path: logPath(c.req.path),
+        origin: logLabel(origin),
+      })
       return c.json({ error: 'Forbidden origin' }, 403)
     }
     await next()
   })
-  app.use(
+  mcpApp.use(
     '*',
     cors({
       origin: [...config.allowedOrigins],
@@ -94,28 +110,26 @@ export function createApp(options: AppOptions = {}) {
         'Mcp-Name',
         'Last-Event-ID',
       ],
-      exposeHeaders: ['WWW-Authenticate', 'Mcp-Session-Id', 'MCP-Protocol-Version'],
+      exposeHeaders: ['WWW-Authenticate', 'Mcp-Session-Id', 'MCP-Protocol-Version', 'X-Request-ID'],
       maxAge: 600,
     }),
   )
 
-  app.get('/healthz', (c) => c.json({ status: 'ok' }))
-  app.get(metadata.url.pathname, (c) => c.json(metadata.document))
+  mcpApp.get('/healthz', (c) => c.json({ status: 'ok' }))
+  mcpApp.get(metadata.url.pathname, (c) => c.json(metadata.document))
   if (metadata.url.pathname !== '/.well-known/oauth-protected-resource') {
-    app.get('/.well-known/oauth-protected-resource', (c) => c.json(metadata.document))
+    mcpApp.get('/.well-known/oauth-protected-resource', (c) => c.json(metadata.document))
   }
-  app.all('/mcp', async (c: Context) => {
+  mcpApp.all('/mcp', async (c: Context) => {
     c.header('Cache-Control', 'no-store')
     const authorization = c.req.header('Authorization')
     if (authorization && !/^Bearer [^\s,]+$/i.test(authorization)) {
-      console.warn(
-        JSON.stringify({
-          event: 'mcp.authorization_header_rejected',
-          method: c.req.method,
-          path: c.req.path,
-          origin: c.req.header('Origin') ?? null,
-        }),
-      )
+      authLog.warn({
+        event: 'mcp.authorization_header_rejected',
+        method: c.req.method,
+        path: logPath(c.req.path),
+        origin: logLabel(c.req.header('Origin')),
+      })
       return bearerAuthChallengeResponse(
         new OAuthError(OAuthErrorCode.InvalidToken, 'Invalid Authorization header'),
         { resourceMetadataUrl: metadata.url.href },
@@ -123,20 +137,27 @@ export function createApp(options: AppOptions = {}) {
     }
     const authInfo = await authenticate(c.req.raw)
     if (authInfo instanceof Response) {
-      console.info(
-        JSON.stringify({
-          event: 'mcp.authentication_failed',
-          method: c.req.method,
-          path: c.req.path,
-          origin: c.req.header('Origin') ?? null,
-          status: authInfo.status,
-          hasAuthorization: Boolean(authorization),
-        }),
-      )
+      const level = authInfo.status >= 500 ? 'error' : 'info'
+      authLog[level]({
+        event: 'mcp.authentication_failed',
+        method: c.req.method,
+        path: logPath(c.req.path),
+        origin: logLabel(c.req.header('Origin')),
+        status: authInfo.status,
+        hasAuthorization: Boolean(authorization),
+      })
       return authInfo
     }
-    return handler.fetch(c.req.raw, { parsedBody: c.get('parsedBody'), authInfo })
+    const context = logContext.getStore()
+    if (context) context.clientId = authInfo.clientId
+    const parsedBody = c.get('parsedBody')
+    if (parsedBody !== undefined) {
+      recordMcpRequest(parsedBody, c.req.header('MCP-Protocol-Version'))
+    }
+    return handler.fetch(c.req.raw, { parsedBody, authInfo })
   })
+
+  app.route('/', mcpApp)
 
   return Object.assign(app, { dispose: () => runtime?.dispose() })
 }

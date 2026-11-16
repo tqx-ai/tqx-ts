@@ -2,6 +2,7 @@ import type { AuthInfo } from '@modelcontextprotocol/server'
 
 import { TradingError } from '../trading/errors'
 import { KvUtil } from '../utils/kv-util'
+import { getLogger } from '../utils/logger'
 import { withTimeout } from '../utils/timeout'
 import type { ExchangedToken, TokenExchange } from './token-exchange'
 
@@ -76,14 +77,24 @@ export class ApiTokenProvider {
     const scopes = [...new Set(requestedScopes)].toSorted()
     if (this.#closed) throw new TradingError('busy', 'Token provider closed')
     this.#validateAuth(auth, scopes, requireAgent)
-    if (write) return this.#fresh(auth, scopes)
+    if (write) {
+      getLogger('token-exchange').debug({ event: 'mcp.token_cache', result: 'write_bypass' })
+      return this.#fresh(auth, scopes)
+    }
     const key = await this.#key(auth, scopes)
     const cached = this.#cache.get(key)
-    if (cached) return cached
+    if (cached) {
+      getLogger('token-exchange').debug({ event: 'mcp.token_cache', result: 'hit' })
+      return cached
+    }
     const pending = this.#pending.get(key)
-    if (pending) return pending
+    if (pending) {
+      getLogger('token-exchange').debug({ event: 'mcp.token_cache', result: 'pending' })
+      return pending
+    }
     if (this.#pending.size >= this.#maxPending)
       throw new TradingError('busy', 'Token exchange busy; retry later')
+    getLogger('token-exchange').debug({ event: 'mcp.token_cache', result: 'miss' })
     const startedAt = this.#now()
     const promise = this.#fresh(auth, scopes).then((token) => {
       const ttl =
@@ -102,6 +113,29 @@ export class ApiTokenProvider {
   }
 
   async #fresh(auth: AuthInfo, scopes: readonly string[]): Promise<ExchangedToken> {
+    const startedAt = performance.now()
+    let result = 'success'
+    let errorKind: string | undefined
+    try {
+      return await this.#exchangeToken(auth, scopes)
+    } catch (error) {
+      result = 'error'
+      errorKind = error instanceof TradingError ? error.kind : 'internal'
+      throw error
+    } finally {
+      const level = result === 'success' ? 'info' : 'warn'
+      getLogger('token-exchange')[level]({
+        event: 'mcp.token_exchange_completed',
+        resource: this.resource,
+        scopes,
+        result,
+        errorKind,
+        durationMs: Math.round(performance.now() - startedAt),
+      })
+    }
+  }
+
+  async #exchangeToken(auth: AuthInfo, scopes: readonly string[]): Promise<ExchangedToken> {
     let token: ExchangedToken
     try {
       token = await withTimeout(
