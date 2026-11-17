@@ -25,5 +25,17 @@
     "agent trading",
     "Hong Kong stocks",
     "US stocks"
-  ]
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "TQX",
+        "shortDescription": "Let TQX help you invest and trade",
+        "composerIcon": "./com.openai/assets/icon.svg",
+        "composerIconDark": "./com.openai/assets/icon.svg",
+        "logo": "./com.openai/assets/logo.png",
+        "logoDark": "./com.openai/assets/logo.png"
+      }
+    }
+  }
 }

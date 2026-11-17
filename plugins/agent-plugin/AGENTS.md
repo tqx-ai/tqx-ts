@@ -23,9 +23,7 @@ decisions through the capabilities explicitly exposed by the plugin.
 
 The plugin must remain useful when loaded from a user's own compatible client.
 Do not describe internal repository workflows, development-only utilities, or
-TQX staff operations as user capabilities. Product descriptions must not promise
-returns or turn the plugin into personalized financial advice; expose evidence,
-constraints, and uncertainty through the actual skills and tools.
+TQX staff operations as user capabilities.
 
 ## Implementation Language
 
@@ -36,9 +34,9 @@ existing localization resources. Keep product copy separate from code semantics.
 
 ## Research Record
 
-研究日期：2026-11-17（Asia/Shanghai）。
+Research date: 2026-11-17 (Asia/Shanghai).
 
-已阅读并交叉核对以下资料：
+The following sources were reviewed and cross-checked:
 
 - [Agent Plugins overview](https://agent-plugins.org/.md)
 - [Agent Plugins Specification v1.0.0](https://agent-plugins.org/specification)

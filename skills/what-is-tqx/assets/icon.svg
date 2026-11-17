@@ -1,4 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="TQX logo">
-  <rect width="64" height="64" rx="12" fill="#0A0A0A"/>
-  <image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADYAAAA2CAYAAACMRWrdAAAC00lEQVR42u2aS2jUUBSG44CiCD5qF9Yn1O7qCwQVFVF0Iyi60UWpVUFBS3VVRHAh6kZBEUSRglJBcRatuPEBCkJLS5Hx/aC+oNaFVEvViqKicvwPnoEgSSaZuZOcO8wPHwxt5uZ+k9ybm5M4jsEQUQU4DB6C3+Aj6ACbQcqxLej0CLAPfCL/3ANLbJJaC55TuPwBl0CNZqHZ4ArlFz6yB8B4TUJjwUnwnQrPAFif+PhDB/aAQTKfDJiXhNAy8JSKnxYwLQ6hWSBN8YZP8WY+5YshNBIcBZ8pufSBFSalNoI3pCdXQXUhQivBXdKbE2ByFKFJoE0untozIDNzKozYa7Ivp3PKkb3ZWapi/WBMKYpxlmsUGwbdoB08y7ONrdrEPoAFrj6kwKE82tmuTazOpy9dtotN9OlLk+1i4zSKvZMV/2VZCeSTJo9+jAa9SYml3acRPk8FPRHb+Am2gOnZ1QO3Cc4kNXkMgUqP71dHXGcekx+Ej/ZjcLOAu3IjYu0BbdwJ2cYDvkMG9w2NVSNi1wPaeBTyiLPUEYOTkBGxL2Cmx/dHSTEm17iqA5vksyoxkllrruu7C8FuMEHqFIMy3o5zURTU8iocHJRxNWT4smF0uudf/Al4AX7I316CdWAGV4Z99uMeV/N92Kv1An0xYD83shsFbFOvVexVwH4u2Cz2zevmT1bvPTaLcU557KPZvYGtYpxrYBfYBs6Br5rFbtO/Gr4XmSi90SbWGtDGrbJYWUyXGC+ZWn3oK4JYQ1xivQHbnDcsxq9bzClFsYypErcmMV58b8gllrZMjC/2jWEeI/E6bodUn7SLdYJFUZ9oVkqZ+ZdCsbdgTaHPoLnq1KZEbFjuvs294ILGlv5XwIxTjMsLZ0FVsd7z4EJNY/bCG5MY37ctjuvNnClgVQxiVY6mmBLT+IpfWcw2sf0yk+USe8+1Q8emSMGzJeD/q0FFXP35C4hL/0QnboQSAAAAAElFTkSuQmCC" x="12" y="12" width="40" height="40" preserveAspectRatio="xMidYMid meet"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img" aria-label="TQX logo">
+  <defs>
+    <!-- Reconstructed from the existing TQX Logomark artwork as scalable geometry. -->
+    <mask id="tqx-mark" maskUnits="userSpaceOnUse" x="0" y="0" width="1028" height="1024">
+      <path
+        d="M466 84.862A96 96 0 0 1 562 84.862L868 261.531A96 96 0 0 1 916 344.669V679.331A96 96 0 0 1 868 762.469L562 939.138A96 96 0 0 1 466 939.138L160 762.469A96 96 0 0 1 112 679.331V344.669A96 96 0 0 1 160 261.531Z"
+        fill="#fff"
+      />
+      <g fill="#000">
+        <path d="M320 581H416V1024H320ZM466 681H562V1024H466ZM610 487H706V1024H610Z"/>
+        <path d="M368 464L514 564L658 370" fill="none" stroke="#000" stroke-width="16"/>
+        <circle cx="368" cy="464" r="48"/>
+        <circle cx="514" cy="564" r="48"/>
+        <circle cx="658" cy="370" r="48"/>
+      </g>
+    </mask>
+  </defs>
+  <rect width="1024" height="1024" rx="192" fill="#0a0a0a"/>
+  <g transform="translate(100.8 102.4) scale(0.8)">
+    <path d="M0 0H1028V1024H0Z" fill="#fff" mask="url(#tqx-mark)"/>
+  </g>
 </svg>
