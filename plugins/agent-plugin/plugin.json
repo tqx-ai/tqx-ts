@@ -1,0 +1,29 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "tqx-agent-plugin",
+  "version": "0.7.0",
+  "description": "Let TQX help you invest and trade",
+  "author": {
+    "name": "TQX Team",
+    "email": "joshua@tqx.ai",
+    "url": "https://www.tqx.ai"
+  },
+  "homepage": "https://www.tqx.ai",
+  "repository": "https://github.com/tqx-ai/tqx-ts",
+  "license": "GPL-3.0-only",
+  "keywords": [
+    "investment",
+    "trading",
+    "asset-discovery",
+    "finance",
+    "market-research",
+    "tqx",
+    "agent-plugin",
+    "AI investing",
+    "AI trading",
+    "agent investing",
+    "agent trading",
+    "Hong Kong stocks",
+    "US stocks"
+  ]
+}

@@ -8,7 +8,7 @@
   ],
   "type": "module",
   "scripts": {
-    "bump-version": "lerna version --no-git-tag-version",
+    "bump-version": "lerna version --no-git-tag-version && bun scripts/sync-plugin-version.ts",
     "build": "bun run --env-file=.env --env-file=.env.prod --filter '@tqx-ai/*' build",
     "dev": "bun run --env-file=.env --env-file=.env.dev tsdown --workspace --out-dir output --watch",
     "docs:check": "bun scripts/sync-install-docs.ts --check",

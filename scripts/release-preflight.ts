@@ -6,6 +6,7 @@ const rootPackageJson = readJson(resolve(root, 'package.json'))
 const lernaJson = readJson(resolve(root, 'lerna.json'))
 const sdkPackageJson = readJson(resolve(root, 'packages/sdk/package.json'))
 const cliPackageJson = readJson(resolve(root, 'packages/cli/package.json'))
+const agentPluginManifest = readJson(resolve(root, 'plugins/agent-plugin/plugin.json'))
 const expectedVersion = rootPackageJson.version
 
 const versions = new Map([
@@ -13,6 +14,7 @@ const versions = new Map([
   ['lerna.json', lernaJson.version],
   ['packages/sdk/package.json', sdkPackageJson.version],
   ['packages/cli/package.json', cliPackageJson.version],
+  ['plugins/agent-plugin/plugin.json', agentPluginManifest.version],
 ])
 
 for (const [file, version] of versions) {
