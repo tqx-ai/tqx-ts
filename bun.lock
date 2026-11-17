@@ -16,7 +16,7 @@
     },
     "packages/cli": {
       "name": "@tqx-ai/cli",
-      "version": "0.7.0",
+      "version": "0.8.0-beta.1",
       "bin": {
         "tqx": "./dist/index.mjs",
       },
@@ -47,7 +47,7 @@
     },
     "packages/sdk": {
       "name": "@tqx-ai/sdk",
-      "version": "0.7.0",
+      "version": "0.8.0-beta.1",
       "dependencies": {
         "@lezer/common": "1.5.5",
         "@lezer/python": "1.1.19",

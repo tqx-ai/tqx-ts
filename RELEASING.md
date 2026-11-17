@@ -3,7 +3,7 @@
 `@tqx-ai/cli` bundles the `@tqx-ai/sdk` source into its build output and declares the SDK only as a
 dev dependency, so installing the CLI never installs the SDK.
 
-The release being prepared is npm version `0.7.0` with planned Git tag `v0.7.0`.
+The release being prepared is npm version `0.8.0-beta.1` with planned Git tag `v0.8.0-beta.1`.
 
 Use Bun to pack packages. Bun rewrites `workspace:*` specifiers, including the CLI's SDK dev
 dependency, to the workspace package version, so no published manifest contains the workspace
@@ -38,6 +38,7 @@ Review the version changes and ensure these values match:
 - `lerna.json`
 - `packages/sdk/package.json`
 - `packages/cli/package.json`
+- `plugins/agent-plugin/plugin.json`
 - `README.md`, `packages/sdk/README.md`, and `packages/cli/README.md`
 - `../skills/tqx-trading/SKILL.md`
 - `../skills/tqx-trading/references/commands.md`
@@ -131,8 +132,9 @@ CommonJS require if either package layout changed.
 
 ## Confirm
 
-The workflow publishes both packages with the `latest` dist-tag. After verification, confirm the
-registry metadata:
+The workflow publishes stable versions with the `latest` dist-tag. Versions with a prerelease
+suffix, such as `0.8.0-beta.1`, use the `beta` dist-tag and a GitHub prerelease, leaving the stable
+`latest` channel unchanged. After verification, confirm the registry metadata:
 
 ```bash
 npm view @tqx-ai/sdk dist-tags --json

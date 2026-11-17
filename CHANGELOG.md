@@ -4,6 +4,23 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.8.0-beta.1 - 2026-11-17
+
+### Added
+
+- Add a portable TQX Agent Plugin with shared setup, market data, and trading skills, an MCP
+  connection, and documented client extensions.
+- Generate a native Claude plugin ZIP from the portable source and publish it with download
+  and setup instructions in GitHub Releases.
+- Add the hosted MCP server with TQX tools and client authentication support.
+
+### Changed
+
+- Improve plugin onboarding, presentation metadata, and skill descriptions.
+- Allow bug reports without a scope and update the bundled reporting guidance.
+- Publish this preview to the npm `beta` channel and as a GitHub prerelease; stable update
+  checks continue to select stable releases.
+
 ## 0.7.0 - 2026-11-05
 
 ### Changed
