@@ -1,6 +1,6 @@
 ---
 name: tqx-setup
-description: Set up and diagnose the TQX MCP server for compatible Agent clients. Covers Streamable HTTP, OAuth discovery, Auto/CIMD/DCR registration, client metadata failures, post-auth verification, tqx_submit_bug_report, and the prepare_bug_report prompt. Do not use this Skill for CLI, tqx-data, research, or trading operations.
+description: Use when the user needs to connect, authorize, diagnose, or verify the TQX MCP server, or when the user's request is ambiguous and they need help determining whether it belongs to setup, trading, market data, research, or another TQX capability. Covers Streamable HTTP, OAuth discovery, Auto/CIMD/DCR registration, client metadata failures, post-auth verification, tqx_submit_bug_report, and the prepare_bug_report prompt. Do not use this Skill for CLI or SDK development, or for clearly scoped tqx-data or trading operations.
 ---
 
 # TQX MCP Setup

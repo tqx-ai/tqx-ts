@@ -1,6 +1,6 @@
 ---
 name: tqx-trading
-description: Use the TQX trading-side MCP tools for account snapshots, positions, active orders, trades, cash flows, order lookup, order placement, order modification, cancellation, and the daily activity control. Do not use this Skill for tqx-data, investment research, backtesting, CLI workflows, or SDK development.
+description: Use when the user asks to inspect or operate a TQX trading account, including account snapshots, positions, active orders, trades, cash flows, order lookup, order placement, order modification, cancellation, or the daily activity control. Do not use this Skill for tqx-data, investment research, backtesting, CLI workflows, or SDK development.
 ---
 
 # TQX Trading

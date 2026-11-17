@@ -178,7 +178,9 @@ def main() -> int:
         return 0
     if args.command == "info":
         import tqx_data
-        emit({"ok": True, "tqx_data_version": getattr(tqx_data, "__version__", None), "home": str(home()), "credential_store": "keychain" if keyring_module() else "file"})
+        version = getattr(tqx_data, "__version__", None)
+        store = "keychain" if keyring_module() else "file"
+        emit({"ok": True, "tqx_data_version": version, "home": str(home()), "credential_store": store})
         return 0
     value = load()
     if value is None:
