@@ -28,13 +28,38 @@
   ],
   "extensions": {
     "com.openai": {
+      "onboardingSkill": "./skills/tqx-setup/SKILL.md",
       "interface": {
         "displayName": "TQX",
-        "shortDescription": "Let TQX help you invest and trade",
+        "shortDescription": "Invest and trade with TQX",
+        "longDescription": "Connect your TQX account to view balances, positions, orders, trades, and cash flows, and place, modify, or cancel orders when requested. Access Hong Kong and US market data through the included Python skill. Trading requires OAuth authorization; market data requires a TQX API key and a compatible local Python environment.",
+        "developerName": "TQX Team",
+        "category": "Productivity",
+        "capabilities": ["Market data", "Portfolio monitoring", "Order management"],
+        "websiteURL": "https://www.tqx.ai",
+        "supportURL": "https://docs.tqx.ai/more/contact-us",
+        "privacyPolicyURL": "https://www.tqx.ai/auth/privacy-policy",
+        "termsOfServiceURL": "https://www.tqx.ai/auth/user-agreement",
+        "defaultPrompt": [
+          "Show my TQX account balance and positions.",
+          "List my active orders and recent trades.",
+          "Help me set up Hong Kong and US market data."
+        ],
+        "brandColor": "#A3A325",
+        "brandColorDark": "#FFFF3A",
         "composerIcon": "./com.openai/assets/icon.svg",
         "composerIconDark": "./com.openai/assets/icon.svg",
         "logo": "./com.openai/assets/logo.png",
         "logoDark": "./com.openai/assets/logo.png"
+      }
+    },
+    "ai.nanoco.nanoclaw": {
+      "agentName": "TQX"
+    },
+    "ai.openclaw": {
+      "activation": {
+        "onStartup": false,
+        "onCapabilities": ["tool"]
       }
     }
   }

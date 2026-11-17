@@ -24,7 +24,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['packages/**/test/**/*.test.ts'],
+    include: ['packages/**/test/**/*.test.ts', 'scripts/test/**/*.test.ts'],
     restoreMocks: true,
   },
 })

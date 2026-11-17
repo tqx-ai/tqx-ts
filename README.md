@@ -164,6 +164,28 @@ const signal = await client.trading.placeOrder({
 All requests use the native Fetch API. Public request and response schemas are exported as
 Valibot schemas alongside their inferred TypeScript types.
 
+## Agent plugins
+
+The portable [TQX Agent Plugin](./plugins/agent-plugin/README.md) is the source for
+the included skills, MCP connection, and plugin metadata. Build the Claude native
+distribution from it with:
+
+```bash
+bun run plugin:claude:build
+bun run plugin:claude:check
+```
+
+Upload `dist/claude-plugin.zip` through Claude's plugin upload interface, or load
+the generated directory in Claude Code:
+
+```bash
+claude --plugin-dir ./dist/claude-plugin
+```
+
+`bun run build` generates the same artifacts. Releases include the versioned
+`tqx-agent-plugin-claude-v<version>.zip`. Generated files remain in `dist/`; edit
+the portable source to update either distribution.
+
 ## License
 
 Licensed under the [GNU General Public License v3.0](./LICENSE).
