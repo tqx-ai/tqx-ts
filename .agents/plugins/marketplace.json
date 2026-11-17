@@ -1,0 +1,20 @@
+{
+  "name": "tqx-plugins",
+  "interface": {
+    "displayName": "TQX"
+  },
+  "plugins": [
+    {
+      "name": "tqx-agent-plugin",
+      "source": {
+        "source": "local",
+        "path": "./plugins/agent-plugin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
