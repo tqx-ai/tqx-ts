@@ -23,6 +23,51 @@ HTTP URLs/origins, including LAN addresses and hostnames, are allowed outside
 `NODE_ENV=production`. Host and Origin
 checks remain enabled; native clients without an Origin header are supported.
 
+## Logging
+
+`src/utils/logger.ts` manages tslog module loggers and request-local context.
+Set `MCP_LOG_LEVEL` to `silly`, `trace`, `debug`, `info`, `warn`, `error`, or
+`fatal` (default `info`). `MCP_LOG_FORMAT` accepts `json` or `pretty`; the default
+is JSON under `NODE_ENV=production` and pretty otherwise. Invalid values use the
+defaults. Production logs are emitted to the container's standard output streams.
+
+The outer HTTP middleware generates a fresh `requestId`, returns it in
+`X-Request-ID`, and records `mcp.http_received` / `mcp.http_completed`, including
+SDK Host/Origin, JSON parsing and body-size rejections. CORS exposes `X-Request-ID`
+for allowed browser origins. Health checks are excluded. HTTP duration ends when
+the response is available; an SSE stream may continue after that point.
+
+`mcp.request_received` records bounded JSON-RPC IDs, method, target name,
+protocol version and client-reported name/version from the SDK-parsed body after
+authentication. Modern requests can provide client identity in `_meta`; legacy
+clients provide it on `initialize`, and it is not persisted across this stateless
+server's requests. Context fields (including verified OAuth `clientId`) appear
+in the JSON record's `_logMeta`; client-reported labels are diagnostic data.
+
+`mcp.request_completed` observes terminal SDK messages before transport delivery,
+with execution duration and `success`, `tool_error`, or `protocol_error` outcomes.
+It covers tool argument validation, unknown tools, list methods and prompts.
+Closing a transport before a terminal message records `cancelled`. Notifications
+without a JSON-RPC ID have no completion event. `mcp.protocol_rejected` records SDK
+reported failures with safe error type/code. Authentication diagnostics retain
+`mcp.origin_rejected`, `mcp.authorization_header_rejected`, and
+`mcp.authentication_failed`. Early HTTP/authentication rejection may finish before
+a server instance exists and is covered by HTTP/authentication events.
+
+`mcp.token_exchange_completed` records resource, scopes, result and duration;
+`mcp.token_cache` reports hit, miss, pending-request reuse and write bypass at DEBUG.
+`mcp.gateway_completed` records each downstream HTTP attempt, operation, status,
+result, duration and returned upstream request ID. Existing `trading.write` and
+`bug-report.write` audit events retain their business fields and use the audit
+logger with the same request context. Injected audit sinks remain supported.
+
+Request arguments, tool output bodies, URL queries, raw errors and credentials
+are excluded from request logs. Sensitive object keys are masked by the logger.
+Existing write audit fields include order details and idempotency keys, so deploy
+log access controls appropriate for that audit data. MCP protocol logging to
+clients and OpenTelemetry are future work. This change is local to the MCP
+package; deployment and real-client streaming verification remain pending.
+
 ## Run locally
 
 Once workspace dependencies are installed, run in `packages/mcp-server/`.

@@ -11,10 +11,12 @@ const joseModule = new URL('../node_modules/jose/dist/webapi/index.js', import.m
 
 describe('Bun trading runtime', () => {
   it('runs JWT verification, real exchange client, read caching and fresh write exchanges', async () => {
-    const { stdout } = await exec('bun', [
-      '--no-env-file',
-      '-e',
-      `
+    const { stdout } = await exec(
+      'bun',
+      [
+        '--no-env-file',
+        '-e',
+        `
       import { createApp } from ${JSON.stringify(appModule)}
       import { generateKeyPair, exportJWK, SignJWT } from ${JSON.stringify(joseModule)}
       const config = {
@@ -88,7 +90,14 @@ describe('Bun trading runtime', () => {
       app.dispose()
       console.log('trading-runtime-ok')
     `,
-    ])
-    expect(stdout.trim()).toBe('trading-runtime-ok')
+      ],
+      { env: { ...process.env, MCP_LOG_FORMAT: 'json' } },
+    )
+    expect(stdout.trim().split('\n')).toContain('trading-runtime-ok')
+    expect(stdout).toContain('mcp.request_completed')
+    expect(stdout).toContain('mcp.token_exchange_completed')
+    expect(stdout).toContain('mcp.gateway_completed')
+    expect(stdout).not.toContain('test-client-secret')
+    expect(stdout).not.toContain('api-token-')
   })
 })
