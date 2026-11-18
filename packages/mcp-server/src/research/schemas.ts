@@ -103,22 +103,7 @@ export const analysisParameters = v.pipe(
     adjustmentCycle: v.optional(v.picklist([1, 3, 5, 10, 20, 30])),
     groupNumber: v.optional(v.picklist([3, 5, 10, 20])),
     factorDirection: v.optional(v.picklist([1, -1])),
-    stockPool: v.optional(
-      v.picklist([
-        '沪深全A',
-        '沪深300',
-        '中证500',
-        '中证1000',
-        'all',
-        'HSI.HK',
-        'HSCE.HK',
-        'HSTECH.HK',
-        'SPX',
-        'IXIC',
-        'NDX',
-        'DJI',
-      ]),
-    ),
+    stockPool: v.optional(v.literal('all', 'stockPool currently supports only all (full market)')),
     marketType: v.optional(v.literal('主力')),
   }),
   v.check(

@@ -13,9 +13,7 @@ const candidateParameters = v.strictObject({
   adjustmentCycle: v.optional(v.picklist([1, 3, 5, 10, 20, 30])),
   groupNumber: v.optional(v.picklist([3, 5, 10, 20])),
   factorDirection: v.optional(v.picklist([1, -1])),
-  stockPool: v.optional(
-    v.picklist(['all', 'HSI.HK', 'HSCE.HK', 'HSTECH.HK', 'SPX', 'IXIC', 'NDX', 'DJI']),
-  ),
+  stockPool: v.optional(v.literal('all', 'stockPool currently supports only all (full market)')),
 })
 const factorCandidate = v.pipe(
   v.strictObject({
@@ -295,7 +293,13 @@ for (const kind of ['factor', 'strategy'] as const) {
     status: 'queued',
     terminal: false,
   }
-  const common = { notes, related: [`${kind}.get`, `${prefix}.get`, `${prefix}.apply`] }
+  const common = {
+    notes:
+      kind === 'factor'
+        ? `${notes} 候选参数 stockPool 当前仅支持 all（全市场）；未传时沿用保存配置与默认值，历史指数股票池需显式更新为 all。`
+        : notes,
+    related: [`${kind}.get`, `${prefix}.get`, `${prefix}.apply`],
+  }
   tuningActions.push({
     ...common,
     name: `${prefix}.submit`,

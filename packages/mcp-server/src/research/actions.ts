@@ -79,7 +79,7 @@ const runNote =
 const revisionNote =
   '先 get 当前 sourceRevision/configRevision，再提交。复用 requestId 仅重试完全相同的意图和输入；网络超时可能已经生效，先核实远端状态。revision 冲突时重新 get 后再决定，不自动覆盖。'
 const paramsNote =
-  '未传参数沿用上游保存配置与默认值。分析日期严格递增、最长五年；回测日频最长十年，1M 表示分钟频率、最长一年。港股 stockPool 可用 all/HSI.HK/HSCE.HK/HSTECH.HK，美股可用 all/SPX/IXIC/NDX/DJI；默认 all。standardSymbol 使用对应市场的指数（不含 all），跨市场参数由上游拒绝。'
+  '未传参数沿用上游保存配置与默认值。分析日期严格递增、最长五年；回测日频最长十年，1M 表示分钟频率、最长一年。因子分析与调优的 stockPool 当前仅支持 all（全市场）。历史指数股票池需显式更新为 all，不会自动改写保存配置。standardSymbol 使用对应市场的指数（不含 all），跨市场参数由上游拒绝。'
 function expectIdentity(raw: p.Input, key: string, expected: unknown) {
   if (raw[key] !== expected)
     throw new ResearchError('INVALID_RESPONSE', 'Research response identity mismatch')

@@ -341,9 +341,11 @@ Read the selected trial/candidate ID from get, and use current resource revision
 when applying. Tuning lists are capped at 200 summaries; use search for history.
 `cancelling` is pending and `no_valid_candidates` is terminal.
 
-HK stock pools are `all`, `HSI.HK`, `HSCE.HK`, `HSTECH.HK`; US pools are
-`all`, `SPX`, `IXIC`, `NDX`, `DJI`. Backtest `standardSymbol` supports those
-indices without `all`. The backend validates market compatibility.
+Factor analysis and tuning `stockPool` currently accept only `all` (full market).
+Omitting it preserves saved configuration and server defaults; explicitly update historical
+index pools to `all` before running. Backtest `standardSymbol` supports HK (`HSI.HK`,
+`HSCE.HK`, `HSTECH.HK`) and US (`SPX`, `IXIC`, `NDX`, `DJI`) indices.
+The backend validates benchmark market compatibility.
 
 Read token exchanges use the existing process-local cache. Every execution or
 write uses a fresh exchange and is never automatically replayed. Preserve

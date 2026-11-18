@@ -205,7 +205,7 @@ type FactorAnalysisParameters = {
   adjustmentCycle?: 1 | 3 | 5 | 10 | 20 | 30
   groupNumber?: 3 | 5 | 10 | 20
   factorDirection?: 1 | -1
-  stockPool?: 'all' | 'HSI.HK' | 'HSCE.HK' | 'HSTECH.HK' | 'SPX' | 'IXIC' | 'NDX' | 'DJI'
+  stockPool?: 'all'
   marketType?: '主力'
 }
 type BacktestParameters = {
@@ -264,7 +264,7 @@ type OffsetPageInput = {
 
 - 因子分析起止严格递增，最长五年；回测起止不倒序，日频最长十年，1M 是分钟频率、最长一年。
 - 日期过滤按现有 Research 语义：纯日期使用上海自然日，to 包含完整当日；带时间的过滤必须含时区，起点早于终点。
-- stockPool、marketType、standardSymbol 是 SDK 中现有的历史市场兼容枚举，不是新增港美股池或基准。MCP 不擅自解释为 hk/us 标的；沿用上游市场校验，相关 action 详情必须解释适用性和默认行为。
+- 因子分析与调优的 stockPool 当前仅支持 all（全市场）。历史指数股票池需显式更新为 all，不会自动改写保存配置。marketType 保留历史兼容定义；standardSymbol 仍接受对应港美市场的基准指数，由上游校验市场兼容性。
 - 未传参数沿用上游保存配置和默认值；不编造港美股专属参数或覆盖上游默认。
 - 一次只使用所属领域的 factorId 或 strategyId；普通运行搜索不能使用调优状态 cancelling / no_valid_candidates。
 - factorBinding 必须绑定同市场且上游允许绑定的因子版本；解除绑定使用 null。

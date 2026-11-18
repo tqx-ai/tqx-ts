@@ -300,7 +300,7 @@ describe('Research action contracts and request mapping', () => {
     async (kind) => {
       const s = setup()
       const parameters =
-        kind === 'factor' ? { stock_pool: 'SPX' } : { backtest: { standard_symbol: 'NDX' } }
+        kind === 'factor' ? { stock_pool: 'all' } : { backtest: { standard_symbol: 'NDX' } }
       const ids = { [`${kind}Id`]: ID }
       for (const draft of [undefined, null, { invalid_setting: true }]) {
         s.fetch.mockResolvedValueOnce(envelope({ ...resource(kind), parameters_draft: draft }))
@@ -326,7 +326,7 @@ describe('Research action contracts and request mapping', () => {
         ...ids,
         baseConfigRevision: 2,
         ...(kind === 'factor'
-          ? { parameters: { stockPool: 'SPX' } }
+          ? { parameters: { stockPool: 'all' } }
           : { backtest: { standardSymbol: 'NDX' } }),
       })
       expect(saved).toMatchObject({
@@ -614,6 +614,84 @@ describe('Research action contracts and request mapping', () => {
     expect(await call(s, 'strategy.backtest.list', { strategyId: ID, limit: 1 })).toMatchObject({
       requestedLimit: 1,
       possiblyTruncated: true,
+    })
+  })
+
+  it.each([
+    'HSI.HK',
+    'HSCE.HK',
+    'HSTECH.HK',
+    'SPX',
+    'IXIC',
+    'NDX',
+    'DJI',
+    '沪深全A',
+    '沪深300',
+    '中证500',
+    '中证1000',
+  ])(
+    'rejects stockPool=%s for factor updates, analyses and tuning before exchange',
+    async (stockPool) => {
+      const s = setup()
+      const parameters = { stockPool }
+      const cases = [
+        ['factor.update', { factorId: ID, baseConfigRevision: 2, parameters }],
+        ['factor.analysis.submit', { factorId: ID, ...revisions, parameters }],
+        [
+          'factor.tuning.submit',
+          {
+            factorId: ID,
+            ...revisions,
+            candidates: [{ baseline: true }, { parameters }],
+            researchPeriod: { periodStart: '2026-01-01', periodEnd: '2026-02-01' },
+            warmupTradingDays: 0,
+          },
+        ],
+      ] as const
+      await Promise.all(
+        cases.map(async ([name, input]) => {
+          await expect(call(s, name, input)).rejects.toMatchObject({
+            code: 'INVALID_INPUT',
+            details: {
+              issues: expect.arrayContaining([
+                expect.objectContaining({
+                  message: 'stockPool currently supports only all (full market)',
+                }),
+              ]),
+            },
+          })
+        }),
+      )
+      expect(s.exchange).not.toHaveBeenCalled()
+      expect(s.fetch).not.toHaveBeenCalled()
+    },
+  )
+
+  it('submits an explicit full market pool and preserves historical response parameters', async () => {
+    const s = setup()
+    s.fetch.mockResolvedValueOnce(
+      envelope({
+        run_id: RUN,
+        factor_id: ID,
+        status: 'queued',
+        idempotent: false,
+        code_sha256: 'hash',
+        params: { stock_pool: 'all' },
+      }),
+    )
+    await call(s, 'factor.analysis.submit', {
+      factorId: ID,
+      ...revisions,
+      parameters: { stockPool: 'all' },
+    })
+    expect(JSON.parse(String(s.fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+      parameters: { stock_pool: 'all' },
+    })
+    s.fetch.mockResolvedValueOnce(
+      envelope({ ...resource('factor'), parameters: { stock_pool: 'SPX' } }),
+    )
+    await expect(call(s, 'factor.get', { factorId: ID })).resolves.toMatchObject({
+      parameters: { stock_pool: 'SPX' },
     })
   })
 

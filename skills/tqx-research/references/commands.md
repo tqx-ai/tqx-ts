@@ -26,8 +26,8 @@ tqx research factor delete <factor-id>... --yes
 
 `analysis-options`: `--startDate`, `--endDate`, `--adjustmentCycle=1|3|5|10|20|30`,
 `--groupNumber=3|5|10|20`, `--factorDirection=Positive|Negative|1|-1`,
-`--stockPool=all|HSI.HK|HSCE.HK|HSTECH.HK|SPX|IXIC|NDX|DJI`.
-Use a pool in the factor's market.
+`--stockPool=all` (full market only, including tuning candidates).
+Other pool values are rejected before a request is sent.
 Omitted analysis options reuse the factor's saved parameters. Dates accept `YYYYMMDD` or `YYYY-MM-DD`.
 The analysis interval must increase and not exceed five calendar years (the exact five-year boundary is included).
 
@@ -128,6 +128,6 @@ CLI execution output maps `succeeded` to `SUCCESS`. `SUBMITTED`, `PENDING`, `RUN
 
 ## Saved settings and result availability
 
-Follow [the resource workflow](workflow.md): verify saved parameters, matching valid source/configuration validation, and no `parameters_draft`. Read `info` when receipts omit needed fields. Submit ordinary runs with those revisions and no run overrides. For example, after a requested factor-pool change, use `factor update` with `--stockPool` and then `factor run` with the returned revisions and no `--stockPool`. Do not guess new revisions.
+Follow [the resource workflow](workflow.md): verify saved parameters, matching valid source/configuration validation, and no `parameters_draft`. Read `info` when receipts omit needed fields. Submit ordinary runs with those revisions and no run overrides. To repair a historical index pool, explicitly use `factor update --stockPool=all` and then `factor run` with the returned revisions and no `--stockPool`. Omitting the pool preserves saved configuration and server defaults; it does not repair historical pools automatically. Do not guess new revisions.
 
 Backtest pages and charts may be empty or partial while running. Preserve `partial`, `available_from`, `available_total`, `complete` and benchmark information from JSON. A successful HTTP read is not completed execution. Poll the same run; never resubmit because a partial result is empty. Tuning additionally has terminal `no_valid_candidates` and nonterminal `cancelling`.

@@ -59,7 +59,7 @@ describe('Research tuning contracts', () => {
         ? {
             candidates: [
               { baseline: true },
-              { factorParameters: { lookBack: 10 }, parameters: { stockPool: 'NDX' } },
+              { factorParameters: { lookBack: 10 }, parameters: { stockPool: 'all' } },
             ],
             researchPeriod: { periodStart: '2026-01-01', periodEnd: '2026-02-01' },
             warmupTradingDays: 20,
@@ -88,7 +88,7 @@ describe('Research tuning contracts', () => {
                   {
                     baseline: false,
                     factor_parameters: { lookBack: 10 },
-                    parameters: { stock_pool: 'NDX' },
+                    parameters: { stock_pool: 'all' },
                   },
                 ],
                 objective: 'rank_ic_mean',
@@ -290,7 +290,7 @@ describe('Research tuning contracts', () => {
       kind === 'factor'
         ? [
             { candidates: [{ baseline: false }] },
-            { candidates: [{ baseline: true, parameters: { stockPool: 'SPX' } }] },
+            { candidates: [{ baseline: true, parameters: { stockPool: 'all' } }] },
             { holdoutEnabled: true },
             { warmupTradingDays: -1 },
             { researchPeriod: { periodStart: '2026-02-01', periodEnd: '2026-01-01' } },

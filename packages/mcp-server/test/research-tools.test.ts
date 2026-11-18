@@ -142,6 +142,46 @@ describe('Research MCP tools over authenticated HTTP', () => {
     expect(s.exchange).not.toHaveBeenCalled()
   })
 
+  it.each(['factor.update', 'factor.analysis.submit', 'factor.tuning.submit'])(
+    'advertises only the full market pool for %s',
+    async (action) => {
+      const s = setup()
+      const { body } = await s.call('tqx_research_explore', { action }, unrelatedToken)
+      expect(body.result.isError).not.toBe(true)
+      const doc = body.result.structuredContent
+      const schema =
+        action === 'factor.tuning.submit'
+          ? doc.inputSchema.properties.candidates.items.properties.parameters
+          : doc.inputSchema.properties.parameters
+      expect(schema.properties.stockPool).toMatchObject({ const: 'all' })
+      expect(schema.required ?? []).not.toContain('stockPool')
+      expect(doc.documentation).toContain('stockPool 当前仅支持 all（全市场）')
+      expect(s.exchange).not.toHaveBeenCalled()
+      expect(s.fetch).not.toHaveBeenCalled()
+    },
+  )
+
+  it('returns a tool validation error for an index pool before exchange', async () => {
+    const s = setup()
+    const { body } = await s.call('tqx_research_call', {
+      action: 'factor.analysis.submit',
+      input: {
+        factorId: ID,
+        requestId: 'pool-1',
+        expectedSourceRevision: 3,
+        expectedConfigRevision: 2,
+        parameters: { stockPool: 'SPX' },
+      },
+    })
+    expect(body.result.isError).toBe(true)
+    expect(body.result.structuredContent.error.code).toBe('INVALID_INPUT')
+    expect(JSON.stringify(body.result.structuredContent)).toContain(
+      'stockPool currently supports only all (full market)',
+    )
+    expect(s.exchange).not.toHaveBeenCalled()
+    expect(s.fetch).not.toHaveBeenCalled()
+  })
+
   it.each(['constructor', '__proto__', 'factor.tuning.create', 'data.query', 'https://bad.test'])(
     'rejects unknown action %s as a tool error',
     async (action) => {

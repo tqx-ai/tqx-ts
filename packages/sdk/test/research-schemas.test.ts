@@ -37,15 +37,15 @@ describe('Qube Next research schemas', () => {
   })
 
   it.each(['HSI.HK', 'HSCE.HK', 'HSTECH.HK', 'SPX', 'IXIC', 'NDX', 'DJI'])(
-    'accepts the %s pool and benchmark',
+    'accepts the %s benchmark while rejecting it as a factor pool',
     (symbol) => {
-      expect(
-        parseResearchInput(FactorAnalysisParamsInputSchema, { stockPool: symbol }).stockPool,
-      ).toBe(symbol)
+      expect(() =>
+        parseResearchInput(FactorAnalysisParamsInputSchema, { stockPool: symbol }),
+      ).toThrow('Invalid SDK input')
       expect(
         parseResearchInput(BacktestParametersSchema, { standardSymbol: symbol }).standardSymbol,
       ).toBe(symbol)
-      expect(
+      expect(() =>
         parseResearchInput(FactorTuningInputSchema, {
           requestId: 'tuning-1',
           expectedSourceRevision: 1,
@@ -53,8 +53,25 @@ describe('Qube Next research schemas', () => {
           candidates: [{ baseline: true }, { parameters: { stockPool: symbol } }],
           researchPeriod: { periodStart: '2026-01-01', periodEnd: '2026-02-01' },
           warmupTradingDays: 0,
-        }).candidates[1]?.parameters?.stockPool,
-      ).toBe(symbol)
+        }),
+      ).toThrow('Invalid SDK input')
+    },
+  )
+  it.each([undefined, 'all'])(
+    'accepts stockPool=%s for analysis and tuning without injecting a default',
+    (stockPool) => {
+      const parameters = stockPool === undefined ? {} : { stockPool }
+      expect(parseResearchInput(FactorAnalysisParamsInputSchema, parameters)).toEqual(parameters)
+      expect(
+        parseResearchInput(FactorTuningInputSchema, {
+          requestId: 'tuning-1',
+          expectedSourceRevision: 1,
+          expectedConfigRevision: 1,
+          candidates: [{ baseline: true }, { parameters }],
+          researchPeriod: { periodStart: '2026-01-01', periodEnd: '2026-02-01' },
+          warmupTradingDays: 0,
+        }).candidates[1]?.parameters,
+      ).toEqual(parameters)
     },
   )
   it('rejects unsupported pools, benchmarks and malformed partial metadata', () => {

@@ -109,22 +109,7 @@ const analysisEntries = {
   adjustmentCycle: v.optional(v.picklist([1, 3, 5, 10, 20, 30])),
   groupNumber: v.optional(v.picklist([3, 5, 10, 20])),
   factorDirection: v.optional(v.picklist([1, -1])),
-  stockPool: v.optional(
-    v.picklist([
-      '沪深全A',
-      '沪深300',
-      '中证500',
-      '中证1000',
-      'all',
-      'HSI.HK',
-      'HSCE.HK',
-      'HSTECH.HK',
-      'SPX',
-      'IXIC',
-      'NDX',
-      'DJI',
-    ]),
-  ),
+  stockPool: v.optional(v.literal('all', 'stockPool currently supports only all (full market)')),
   marketType: v.optional(v.literal('主力')),
 }
 export const FactorAnalysisParamsInputSchema = v.pipe(
@@ -499,22 +484,7 @@ const tuningCandidateParameters = v.strictObject({
   adjustmentCycle: analysisEntries.adjustmentCycle,
   groupNumber: analysisEntries.groupNumber,
   factorDirection: analysisEntries.factorDirection,
-  stockPool: v.optional(
-    v.picklist([
-      '沪深全A',
-      '沪深300',
-      '中证500',
-      '中证1000',
-      'all',
-      'HSI.HK',
-      'HSCE.HK',
-      'HSTECH.HK',
-      'SPX',
-      'IXIC',
-      'NDX',
-      'DJI',
-    ]),
-  ),
+  stockPool: analysisEntries.stockPool,
   marketType: v.optional(v.literal('主力')),
 })
 const parameterName = v.pipe(v.string(), v.regex(/^[A-Za-z][A-Za-z0-9_]{0,127}$/))

@@ -87,7 +87,7 @@ export function createFactorCommand(runtime: CommandRuntime) {
           factorDirection: { type: 'string' },
           stockPool: {
             type: 'string',
-            description: 'Market stock pool or index; HK/US default to all',
+            description: 'Stock pool; currently only all (full market) is supported',
           },
         },
         run: ({ args }) =>
@@ -360,7 +360,7 @@ export function createFactorCommand(runtime: CommandRuntime) {
           factorDirection: { type: 'string' },
           stockPool: {
             type: 'string',
-            description: 'Market stock pool or index; HK/US default to all',
+            description: 'Stock pool; currently only all (full market) is supported',
           },
           ...waitArgs,
         },

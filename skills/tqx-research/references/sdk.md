@@ -70,7 +70,7 @@ for await (const event of client.research.streamBacktest(runId, { signal: contro
 
 For ordinary runs, use `updateFactor(id, {baseConfigRevision, parameters})` or `updateStrategy(id, {baseConfigRevision, backtest})` to persist requested settings. Inspect returned `parameters`, `parameter_validation` and `parameters_draft`; validation must be valid for the returned `config_revision` with no draft. Use `getFactor`/`getStrategy` when necessary evidence is missing. Submit with the returned source/configuration revisions and omit analysis `parameters` or strategy `backtest`. Explicit temporary overrides remain supported and do not save settings. See [the workflow](workflow.md).
 
-Factor analysis `stockPool` accepts `all` and the market's index identifiers. Backtest `standardSymbol` accepts same-market benchmarks: HK `HSI.HK`, `HSCE.HK`, `HSTECH.HK`; US `SPX`, `IXIC`, `NDX`, `DJI`. Saved/server parameter fields remain snake_case.
+Factor analysis and tuning `stockPool` currently accept only `all` (full market). Omitting it preserves saved configuration and server defaults; explicitly update historical index pools to `all` before running. Backtest `standardSymbol` accepts same-market benchmarks: HK `HSI.HK`, `HSCE.HK`, `HSTECH.HK`; US `SPX`, `IXIC`, `NDX`, `DJI`. Saved/server parameter fields remain snake_case.
 
 Backtest result pages retain optional `partial`, `available_from`, `available_total`; charts retain `partial`, `complete` and optional `benchmark: {standard_symbol, points}`. These fields can describe running or empty artifacts. A missing benchmark is not a zero return. Preserve status, pagination and snapshot metadata when interpreting results.
 

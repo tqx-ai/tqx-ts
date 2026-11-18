@@ -55,9 +55,11 @@ uncolored text or `--json` for machine-readable output.
 ## Research
 
 Research commands connect to a gateway base ending in `/tqxApi` through `TQX_BASE_URL`.
-Factor update/run support `--stockPool`: HK uses `all`, `HSI.HK`, `HSCE.HK`, `HSTECH.HK`;
-US uses `all`, `SPX`, `IXIC`, `NDX`, `DJI`. Strategy create/update/run support
-`--standardSymbol` with the corresponding index names (without `all`). Market compatibility
+Factor update/run and tuning candidates currently support only `all` (full market) for
+`stockPool`. Omitting it preserves saved configuration and server defaults; explicitly
+update historical index pools with `factor update --stockPool=all` before running.
+Strategy create/update/run support `--standardSymbol`: HK uses `HSI.HK`, `HSCE.HK`,
+`HSTECH.HK`; US uses `SPX`, `IXIC`, `NDX`, `DJI`. Market compatibility
 is checked by the backend. Use each command's `--help` for revision and run options.
 
 Backtest result/chart reads may return empty or partial data while a run is pending.

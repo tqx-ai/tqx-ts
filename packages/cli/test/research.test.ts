@@ -399,30 +399,27 @@ describe('Qube Next research CLI', () => {
     expect(JSON.parse(ctx.stdout.value).factor.config_revision).toBe(4)
   })
 
-  it.each(['HSI.HK', 'HSCE.HK', 'HSTECH.HK', 'SPX', 'IXIC', 'NDX', 'DJI'])(
-    'maps stockPool=%s as the only factor update',
-    async (stockPool) => {
-      const ctx = setup()
-      ctx.fetch.mockResolvedValueOnce(gatewayResponse(factor()))
-      await runCli(
-        [
-          'research',
-          'factor',
-          'update',
-          FACTOR_ID,
-          '--baseConfigRevision=3',
-          `--stockPool=${stockPool}`,
-          '--json',
-        ],
-        ctx.dependencies,
-      )
-      expect(bodyOf(ctx.fetch)).toEqual({
-        base_config_revision: 3,
-        parameters: { stock_pool: stockPool },
-      })
-      expect(JSON.parse(ctx.stdout.value).success).toBe(true)
-    },
-  )
+  it('maps stockPool=all as the only factor update', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(factor()))
+    await runCli(
+      [
+        'research',
+        'factor',
+        'update',
+        FACTOR_ID,
+        '--baseConfigRevision=3',
+        '--stockPool=all',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(bodyOf(ctx.fetch)).toEqual({
+      base_config_revision: 3,
+      parameters: { stock_pool: 'all' },
+    })
+    expect(JSON.parse(ctx.stdout.value).success).toBe(true)
+  })
 
   it('maps stockPool into an analysis submission without fetching HEAD', async () => {
     const ctx = setup()
@@ -435,14 +432,14 @@ describe('Qube Next research CLI', () => {
         FACTOR_ID,
         '--expectedSourceRevision=2',
         '--expectedConfigRevision=3',
-        '--stockPool=HSI.HK',
+        '--stockPool=all',
         '--noWait',
         '--json',
       ],
       ctx.dependencies,
     )
     expect(ctx.fetch).toHaveBeenCalledTimes(1)
-    expect(bodyOf(ctx.fetch)).toMatchObject({ parameters: { stock_pool: 'HSI.HK' } })
+    expect(bodyOf(ctx.fetch)).toMatchObject({ parameters: { stock_pool: 'all' } })
     expect(JSON.parse(ctx.stdout.value).status).toBe('SUBMITTED')
   })
 
@@ -490,6 +487,61 @@ describe('Qube Next research CLI', () => {
     )
     expect(process.exitCode).toBe(2)
     expect(JSON.parse(ctx.stderr.value).error.message).toBeTypeOf('string')
+    expect(ctx.stdout.value).toBe('')
+    expect(ctx.fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(['HSI.HK', 'HSCE.HK', 'HSTECH.HK', 'SPX', 'IXIC', 'NDX', 'DJI'])(
+    'rejects stockPool=%s for factor updates and runs before fetching',
+    async (stockPool) => {
+      for (const operation of ['update', 'run']) {
+        const ctx = setup()
+        await runCli(
+          [
+            'research',
+            'factor',
+            operation,
+            FACTOR_ID,
+            ...(operation === 'update'
+              ? ['--baseConfigRevision=3']
+              : ['--expectedSourceRevision=2', '--expectedConfigRevision=3', '--noWait']),
+            `--stockPool=${stockPool}`,
+            '--json',
+          ],
+          ctx.dependencies,
+        )
+        expect(process.exitCode).toBe(2)
+        expect(JSON.parse(ctx.stderr.value).error).toMatchObject({
+          code: 'validation_error',
+          issues: [
+            {
+              path: 'parameters.stockPool',
+              message: 'stockPool currently supports only all (full market)',
+            },
+          ],
+        })
+        expect(ctx.stdout.value).toBe('')
+        expect(ctx.fetch).not.toHaveBeenCalled()
+      }
+    },
+  )
+
+  it.each(['human', 'plain'])('explains the full market restriction in %s output', async (mode) => {
+    const ctx = setup()
+    await runCli(
+      [
+        'research',
+        'factor',
+        'update',
+        FACTOR_ID,
+        '--baseConfigRevision=3',
+        '--stockPool=SPX',
+        ...(mode === 'plain' ? ['--plain'] : []),
+      ],
+      ctx.dependencies,
+    )
+    expect(process.exitCode).toBe(2)
+    expect(ctx.stderr.value).toContain('stockPool currently supports only all (full market)')
     expect(ctx.stdout.value).toBe('')
     expect(ctx.fetch).not.toHaveBeenCalled()
   })
@@ -1612,6 +1664,40 @@ describe('Qube Next version and tuning CLI', () => {
     expect(process.exitCode).toBe(2)
     expect(ctx.fetch).not.toHaveBeenCalled()
     expect(JSON.parse(ctx.stderr.value).error.message).toContain('expected a JSON object')
+  })
+
+  it('rejects an index pool in a factor tuning file before fetching', async () => {
+    const ctx = setup()
+    const directory = mkdtempSync(join(tmpdir(), 'tqx-tuning-'))
+    temporaryDirectories.push(directory)
+    const file = join(directory, 'tuning.json')
+    writeFileSync(
+      file,
+      JSON.stringify({
+        requestId: 'tuning-create',
+        expectedSourceRevision: 2,
+        expectedConfigRevision: 3,
+        candidates: [{ baseline: true }, { parameters: { stockPool: 'SPX' } }],
+        researchPeriod: { periodStart: '2026-01-01', periodEnd: '2026-06-30' },
+        warmupTradingDays: 20,
+      }),
+    )
+    await runCli(
+      ['research', 'factor', 'tuning', 'create', FACTOR_ID, `--file=${file}`, '--json'],
+      ctx.dependencies,
+    )
+    expect(process.exitCode).toBe(2)
+    expect(JSON.parse(ctx.stderr.value).error).toMatchObject({
+      code: 'validation_error',
+      issues: [
+        {
+          path: 'candidates[1].parameters.stockPool',
+          message: 'stockPool currently supports only all (full market)',
+        },
+      ],
+    })
+    expect(ctx.stdout.value).toBe('')
+    expect(ctx.fetch).not.toHaveBeenCalled()
   })
 
   it.each(['factor', 'strategy'] as const)(

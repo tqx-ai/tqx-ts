@@ -268,7 +268,7 @@ describe('Qube Next versions and tuning contracts', () => {
       candidates: [
         { baseline: true },
         {
-          parameters: { adjustmentCycle: 10, factorDirection: -1 },
+          parameters: { adjustmentCycle: 10, factorDirection: -1, stockPool: 'all' },
           factorParameters: { lookBack: 20, look_back: 10 },
         },
       ],
@@ -286,7 +286,7 @@ describe('Qube Next versions and tuning contracts', () => {
         { baseline: true },
         {
           baseline: false,
-          parameters: { adjustment_cycle: 10, factor_direction: -1 },
+          parameters: { adjustment_cycle: 10, factor_direction: -1, stock_pool: 'all' },
           factor_parameters: { lookBack: 20, look_back: 10 },
         },
       ],
@@ -765,12 +765,98 @@ describe('Qube gateway error envelopes', () => {
   })
 })
 
+describe('Factor stock pool restrictions', () => {
+  it.each([
+    'HSI.HK',
+    'HSCE.HK',
+    'HSTECH.HK',
+    'SPX',
+    'IXIC',
+    'NDX',
+    'DJI',
+    '沪深全A',
+    '沪深300',
+    '中证500',
+    '中证1000',
+    'unknown',
+    '',
+  ])('rejects stockPool=%s before fetching for updates, analyses and tuning', async (stockPool) => {
+    const { research, fetch } = setup({})
+    const parameters = { stockPool: stockPool as 'all' }
+    const error = {
+      name: 'TqxValidationError',
+      issues: expect.arrayContaining([
+        expect.objectContaining({ message: 'stockPool currently supports only all (full market)' }),
+      ]),
+    }
+    await expect(
+      research.updateFactor(ID, { baseConfigRevision: 3, parameters }),
+    ).rejects.toMatchObject(error)
+    await expect(
+      research.createFactorAnalysis(ID, { ...revisions, parameters }),
+    ).rejects.toMatchObject(error)
+    await expect(
+      research.createFactorTuning(ID, {
+        ...revisions,
+        candidates: [{ baseline: true }, { parameters }],
+        researchPeriod: { periodStart: '2026-01-01', periodEnd: '2026-02-01' },
+        warmupTradingDays: 0,
+      }),
+    ).rejects.toMatchObject(error)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('maps the full market into an analysis request', async () => {
+    const receipt = {
+      run_id: ID2,
+      factor_id: ID,
+      status: 'queued',
+      idempotent: false,
+      code_sha256: 'hash',
+      params: { stock_pool: 'all' },
+    }
+    const { research, fetch } = setup(receipt)
+    await expect(
+      research.createFactorAnalysis(ID, {
+        ...revisions,
+        parameters: { stockPool: 'all' },
+      }),
+    ).resolves.toMatchObject(receipt)
+    expect(requestAt(fetch)).toMatchObject({
+      url: new URL(`https://api.example.test/tqxApi/qube/api/factors/${ID}/analyses`),
+      method: 'POST',
+      body: { parameters: { stock_pool: 'all' } },
+    })
+  })
+
+  it('preserves historical pools when reading and submitting without overrides', async () => {
+    const { research, fetch } = setup({ ...factor(), parameters: { stock_pool: 'HSI.HK' } })
+    await expect(research.getFactor(ID)).resolves.toMatchObject({
+      parameters: { stock_pool: 'HSI.HK' },
+    })
+    fetch.mockResolvedValueOnce(
+      response({
+        run_id: ID2,
+        factor_id: ID,
+        status: 'queued',
+        idempotent: false,
+        code_sha256: 'hash',
+        params: { stock_pool: 'HSI.HK' },
+      }),
+    )
+    await expect(research.createFactorAnalysis(ID, revisions)).resolves.toMatchObject({
+      params: { stock_pool: 'HSI.HK' },
+    })
+    expect(requestAt(fetch, 1).body).not.toHaveProperty('parameters')
+  })
+})
+
 describe('Saved research configuration workflow', () => {
   it.each(['factor', 'strategy'] as const)(
     'runs %s with the saved receipt revisions and no overrides',
     async (kind) => {
       const parameters =
-        kind === 'factor' ? { stock_pool: 'SPX' } : { backtest: { standard_symbol: 'NDX' } }
+        kind === 'factor' ? { stock_pool: 'all' } : { backtest: { standard_symbol: 'NDX' } }
       const saved = {
         ...(kind === 'factor' ? factor() : strategy()),
         source_revision: 2,
@@ -784,7 +870,7 @@ describe('Saved research configuration workflow', () => {
         kind === 'factor'
           ? await research.updateFactor(ID, {
               baseConfigRevision: 3,
-              parameters: { stockPool: 'SPX' },
+              parameters: { stockPool: 'all' },
             })
           : await research.updateStrategy(ID, {
               baseConfigRevision: 3,
