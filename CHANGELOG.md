@@ -4,6 +4,14 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.8.0-beta.2 - 2026-11-18
+
+### Changed
+
+- Refresh the TQX Agent Plugin skill interfaces and replace the skill icons with the new TQX
+  branded artwork.
+- Keep the preview release on the npm `beta` channel and publish it as a GitHub prerelease.
+
 ## 0.8.0-beta.1 - 2026-11-17
 
 ### Added

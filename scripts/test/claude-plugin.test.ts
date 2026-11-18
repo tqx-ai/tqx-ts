@@ -66,7 +66,7 @@ describe('Claude plugin distribution', () => {
       'skills/tqx-data/SKILL.md',
       'skills/tqx-data/scripts/tqx_data_auth.py',
       'skills/tqx-data/references/api-reference.md',
-      'skills/tqx-data/assets/logo.png',
+      'skills/tqx-data/assets/tqx-data-1118.png',
     ]) {
       expect(Buffer.from(archive[path]!)).toEqual(readFileSync(output(path)))
       if (path.startsWith('skills/') || path === 'README.md') {
