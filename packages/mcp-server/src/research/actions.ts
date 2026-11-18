@@ -1,12 +1,12 @@
 import type { AuthInfo } from '@modelcontextprotocol/server'
 import * as v from 'valibot'
 
+import APIs from '../config/APIs'
 import { ResearchError } from './errors'
 import {
   type ResearchGateway,
   array,
   object,
-  paths,
   type ResearchRequest,
   type ResearchScope,
 } from './gateway'
@@ -114,12 +114,12 @@ function parameters(input: p.Input, kind: p.ResourceKind) {
 
 for (const kind of ['factor', 'strategy'] as const) {
   const inputs = s.resourceInputs(kind),
-    base = paths[kind],
+    base = kind === 'factor' ? APIs.RESEARCH_FACTORS : APIs.RESEARCH_STRATEGIES,
     key = `${kind}Id`,
     rawKey = `${kind}_id`
   const child = kind === 'factor' ? 'analysis' : 'backtest',
     children = kind === 'factor' ? 'analyses' : 'backtests'
-  const runBase = kind === 'factor' ? paths.factorAnalysis : paths.backtest
+  const runBase = kind === 'factor' ? APIs.RESEARCH_FACTOR_ANALYSES : APIs.RESEARCH_BACKTESTS
   const runKey = kind === 'factor' ? 'analysisId' : 'runId'
   const runKind = kind === 'factor' ? 'factor_analysis' : 'backtest'
   const label = kind === 'factor' ? '因子' : '策略',
@@ -496,7 +496,8 @@ for (const kind of ['factor', 'strategy'] as const) {
       return p.resource(raw, kind)
     },
   })
-  const versionBase = kind === 'factor' ? paths.factorVersion : paths.strategyVersion
+  const versionBase =
+    kind === 'factor' ? APIs.RESEARCH_FACTOR_VERSIONS : APIs.RESEARCH_STRATEGY_VERSIONS
   add({
     name: `${kind}.version.list`,
     description: `列出指定${label}的冻结版本`,
@@ -649,7 +650,7 @@ add({
     '仅 succeeded 可读。factor_data/last_date_top_factor 按数组行分页；group_return_summary/return_chart/ic_charts 按对象键稳定排序，返回 {key,value}。null 是空结果。保留内部指标键和单位，不截断单个图表。当前上游仍一次返回完整分析；超预算时失败，不伪称上游已分页。',
   execute: async (request, input) =>
     p.factorResults(
-      await request({ path: `${paths.factorAnalysis}/${String(input.analysisId)}` }),
+      await request({ path: `${APIs.RESEARCH_FACTOR_ANALYSES}/${String(input.analysisId)}` }),
       input,
     ),
 })
@@ -673,7 +674,7 @@ add({
   notes:
     '先通过 strategy.backtest.get 确认 succeeded，再读取结果。keyword 可搜索结果行，symbol 仅用于 trades。hasMore=true 时使用 nextOffset。引擎行字段保持原值；account_summary 的 rows 为空或含一个对象，logs 保留日志行。数据属于回测产物，不是真实交易账户。',
   execute: async (request, input) => {
-    const state = await request({ path: `${paths.backtest}/${String(input.runId)}` })
+    const state = await request({ path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}` })
     expectIdentity(state, 'id', input.runId)
     const projected = p.run(state, 'strategy')
     if (projected.status !== 'succeeded')
@@ -682,7 +683,7 @@ add({
       })
     return p.backtestResults(
       await request({
-        path: `${paths.backtest}/${String(input.runId)}/result`,
+        path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}/result`,
         query: {
           field: input.field,
           offset: input.offset,
@@ -716,7 +717,7 @@ add({
   notes:
     '先确认回测 succeeded。maxPoints 只限制净值 points，不限制 tradeDays/trades；响应超限时收窄 from/to。保留 sampled/sourceCount/totalCount/complete，不将抽样结果称为完整结果。不提供标的 K 线。',
   execute: async (request, input) => {
-    const state = await request({ path: `${paths.backtest}/${String(input.runId)}` })
+    const state = await request({ path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}` })
     expectIdentity(state, 'id', input.runId)
     const projected = p.run(state, 'strategy')
     if (projected.status !== 'succeeded')
@@ -724,7 +725,7 @@ add({
         status: projected.status,
       })
     const raw = await request({
-      path: `${paths.backtest}/${String(input.runId)}/chart`,
+      path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}/chart`,
       query: { from: input.from, to: input.to, max_points: input.maxPoints },
     })
     expectIdentity(raw, 'run_id', input.runId)
@@ -752,7 +753,7 @@ for (const create of [false, true])
       : '上游最多返回最近 200 个快照，再按 offset/limit 切片；possiblyTruncated=true 表示可能还有更早快照，当前没有接口继续翻上游历史。hasMore 只指本批内的下一页。不存在独立快照 GET；从条目取 runId，作为 analysisId 调用分析状态和结果 action。',
     execute: async (request, input) => {
       const raw = await request({
-        path: `${paths.factor}/${String(input.factorId)}/analysis-snapshots`,
+        path: `${APIs.RESEARCH_FACTORS}/${String(input.factorId)}/analysis-snapshots`,
         method: create ? 'POST' : 'GET',
         ...(create ? { body: { run_id: input.runId, name: input.name } } : {}),
       })

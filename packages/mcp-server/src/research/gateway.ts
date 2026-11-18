@@ -5,14 +5,6 @@ import { readJson } from '../utils/http-json'
 import { withTimeout } from '../utils/timeout'
 import { ResearchError } from './errors'
 
-export const paths = {
-  factor: 'qube/api/factors',
-  strategy: 'qube/api/strategies',
-  factorAnalysis: 'qube/api/factor-analyses',
-  backtest: 'qube/api/strategy-backtests',
-  factorVersion: 'qube/api/factor-versions',
-  strategyVersion: 'qube/api/strategy-versions',
-} as const
 export type ResearchScope = 'research:read' | 'research:run' | 'research:write'
 export interface ResearchRequest {
   path: string
