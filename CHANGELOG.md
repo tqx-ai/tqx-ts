@@ -4,6 +4,21 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.8.0-beta.3 - 2026-11-18
+
+### Added
+
+- Add Qube Next research APIs and validation across the SDK, CLI, MCP server, and bundled agent
+  skills, including factor, strategy, backtest, and tuning workflows.
+- Add Qube Next research documentation, data contracts, examples, and migration guidance.
+
+### Changed
+
+- Align research request paths, gateway decoding, schemas, projections, and CLI output with the
+  Qube Next service.
+- Restrict factor analysis and tuning `stockPool` to `all` and update validation and guidance for
+  supported standard symbols and data methods.
+
 ## 0.8.0-beta.2 - 2026-11-18
 
 ### Changed
