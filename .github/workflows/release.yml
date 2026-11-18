@@ -98,7 +98,7 @@ jobs:
 
   compile-macos:
     name: Compile and sign macOS standalone binaries
-    runs-on: macos-latest
+    runs-on: macos-15
     env:
       TQX_BUILD_BASE_URL: ${{ vars.TQX_BUILD_BASE_URL }}
       TQX_BUILD_TRADING_BASE_URL: ${{ vars.TQX_BUILD_TRADING_BASE_URL }}
