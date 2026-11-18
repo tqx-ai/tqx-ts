@@ -52,6 +52,18 @@ is a concern.
 Use `tqx --help` to list commands. Human-readable output is colored by default; use `--plain` for
 uncolored text or `--json` for machine-readable output.
 
+## Research
+
+Research commands connect to a gateway base ending in `/tqxApi` through `TQX_BASE_URL`.
+Factor update/run support `--stockPool`: HK uses `all`, `HSI.HK`, `HSCE.HK`, `HSTECH.HK`;
+US uses `all`, `SPX`, `IXIC`, `NDX`, `DJI`. Strategy create/update/run support
+`--standardSymbol` with the corresponding index names (without `all`). Market compatibility
+is checked by the backend. Use each command's `--help` for revision and run options.
+
+Backtest result/chart reads may return empty or partial data while a run is pending.
+Preserve the run ID and availability metadata; retry `LIVE_RESULT_UNAVAILABLE` reads with
+backoff. Partial results do not imply a successful run. Chart JSON retains the benchmark curve.
+
 ## License
 
 GNU General Public License v3.0.

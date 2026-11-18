@@ -52,7 +52,7 @@ describe('Bun Research runtime', () => {
       }
       const catalog = await call('tqx_research_explore', {})
       const detail = await call('tqx_research_explore', {action:'strategy.backtest.submit'})
-      if (catalog.actions.length !== 43 || !detail.inputSchema.required.includes('strategyId') || exchanges)
+      if (catalog.actions.length !== 57 || !detail.inputSchema.required.includes('strategyId') || exchanges)
         throw new Error('Research discovery failed')
       const args = { action: 'factor.get', input: { factorId: ${JSON.stringify(ID)} } }
       const first = await call('tqx_research_call', args)

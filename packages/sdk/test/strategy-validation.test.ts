@@ -40,16 +40,17 @@ def handle_data(context, data):
 `
 
 const HK_VALID = `
-import tqx_data as td
 from panda_backtest.api.api import *
 from panda_backtest.api.stock_hk_api import *
 
 STRATEGY_PARAMS = {}
 
 def init_preheating_data(context):
-    context.index_members = td.get_index_component(
-        market='hk',
-        index_symbol='HSI',
+    context.history = stock_api_quotation(
+        symbol_list=['0700.HK'],
+        start_date='20260101',
+        end_date='20260102',
+        period='1d',
     )
 
 def initialize(context):
@@ -59,12 +60,6 @@ def initialize(context):
 def handle_data(context, data):
     pass
 `
-
-const withDataCall = (call: string) =>
-  HK_VALID.replace('stock_hk_api', 'stock_us_api').replace(
-    "td.get_index_component(\n        market='hk',\n        index_symbol='HSI',\n    )",
-    call,
-  )
 
 function expectValidationError(code: string, market: string): TqxValidationError {
   if (!code.includes('STRATEGY_PARAMS') && /def initialize\(context\):/.test(code)) {
@@ -392,31 +387,14 @@ STRATEGY_PARAMS: dict = {"window": -10, "enabled": True, "symbols": ["AAPL.NB"]}
     const code = HK_VALID.replace(
       'def handle_data(context, data):\n    pass',
       `def handle_data(context, data):
-    td.get_hk_daily(symbol="0700.HK")`,
+    stock_api_quotation(symbol_list=["0700.HK"], start_date="20260101", end_date="20260102", period="1d")`,
     )
     const error = expectValidationError(code, 'hk')
     expect(error.issues[0]?.message).toContain('init_preheating_data')
     expect(error.issues[0]?.message).not.toContain('init_market_data')
   })
 
-  it('checks tqx_data positional arguments, required fields, and current optional parameters', () => {
-    for (const call of [
-      'td.get_us_min(symbol="AAPL", time_zone=("10:00", "11:00"), market="us")',
-      'td.get_min_data(symbol="AAPL.NB", max_workers=5, market="us")',
-      'td.get_financial_statement("2024q1", "2024q4", ["AAPL"], ["date"], "us")',
-      'td.get_event_devidend(["AAPL"], "nb", [], "20260101", "20260201")',
-    ])
-      expect(() => validateStrategyCode(withDataCall(call), 'us')).not.toThrow()
-    for (const [call, message] of [
-      ['td.get_financial_statement("2024q1", "2024q4")', 'market'],
-      ['td.get_event_devidend(symbol="AAPL")', 'start_date'],
-      ['td.get_stock_detail(["AAPL.NB"], "ny")', 'market'],
-      ['td.get_tick_data("AAPL.NB", "us", symbol="AAPL.NB")', 'duplicate'],
-    ])
-      expect(expectValidationError(withDataCall(call!), 'us').issues[0]?.message).toContain(message)
-  })
-
-  it('matches all exported data-reader signatures in the pinned Qube wheel', () => {
+  it('retains the pinned native data-reader signatures independently of strategy imports', () => {
     const contract = JSON.parse(
       readFileSync(new URL('./fixtures/tqx-data-contract.json', import.meta.url), 'utf8'),
     ) as {
@@ -556,114 +534,51 @@ def handle_data(context, data):
     expect(error.issues[0]?.message).toContain('data.get')
   })
 
-  it('rejects enum violations on aliased data API calls', () => {
-    const error = expectValidationError(
-      `
-from tqx_data import get_us_daily as daily
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
-
-STRATEGY_PARAMS = {}
-
-def init_preheating_data(context):
-    context.history = daily(
-        symbol='AAPL.US',
-        start_date='2026-01-01',
-        end_date='2026-02-01',
-        market='sg',
-    )
-
-def initialize(context):
-    context.params = dict(STRATEGY_PARAMS)
-    init_preheating_data(context)
-
-def handle_data(context, data):
-    pass
-`,
-      'us',
-    )
-    expect(error.issues[0]?.message).toContain('market')
-  })
-
-  it('accepts the US market and minute frequency names the Qube runtime uses', () => {
-    const code = `
-import tqx_data
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
-
-STRATEGY_PARAMS = {}
-
-def init_preheating_data(context):
-    context.latest = tqx_data.get_tick_data(symbol=['XPEV.NB'], market='nb')
-    context.filings = tqx_data.get_filing_announcement(symbol=['XPEV.NB'], market='nb')
-    context.minutes = tqx_data.get_min_data(symbol=['XPEV.NB'], market='nb', frequency='10m')
-
-def initialize(context):
-    context.params = dict(STRATEGY_PARAMS)
-    init_preheating_data(context)
-
-def handle_data(context, data):
-    pass
-`
-    expect(() => validateStrategyCode(code, 'us')).not.toThrow()
-  })
-
-  it('accepts event, company, and consensus data in Qube strategies', () => {
-    const code = `
-import tqx_data
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
-
-STRATEGY_PARAMS = {}
-
-def init_preheating_data(context):
-    context.dividends = tqx_data.get_event_devidend(
-        symbol=['NIO.NB'], start_date='20260101', end_date='20261012', market='us',
-    )
-    context.investors = tqx_data.get_company_investor(symbol=['NIO.NB'], market='us', max_rank=10)
-    context.metrics = tqx_data.get_company_oper_metrics(
-        symbol=['NIO.NB'], start_year='2024', end_year='2026', market='us',
-    )
-    context.consensus = tqx_data.get_consensus_recommend(symbol=['NIO.NB'], market='us')
-
-def initialize(context):
-    context.params = dict(STRATEGY_PARAMS)
-    init_preheating_data(context)
-
-def handle_data(context, data):
-    pass
-`
-    expect(() => validateStrategyCode(code, 'us')).not.toThrow()
-  })
-
   it.each([
-    ["tqx_data.get_tick_data(symbol=['XPEV.NB'], market='ny')", 'market'],
-    ["tqx_data.get_filing_announcement(symbol=['XPEV.NB'], market='ny')", 'market'],
-    ["tqx_data.get_min_data(symbol=['XPEV.NB'], market='nb', frequency='15m')", 'frequency'],
-    [
-      "tqx_data.get_event_devidend(symbol=['XPEV.NB'], start_date='20260101', end_date='20261012', market='ny')",
-      'market',
-    ],
-    ['tqx_data.calculate_indicators(market_data={}, indicator_params={})', 'allowlist'],
-  ])('rejects runtime-invalid arguments in %s', (call, keyword) => {
-    const error = expectValidationError(
-      `
-import tqx_data
-from panda_backtest.api.api import *
-from panda_backtest.api.stock_us_api import *
+    'import tqx_data',
+    'import tqx_data as td',
+    'import math, tqx_data as td',
+    'import tqx_data as td, math',
+    'import tqx_data.reader as reader',
+    'from tqx_data import get_hk_daily',
+    'from tqx_data import get_us_daily as daily',
+    'from tqx_data import (get_hk_daily as daily, get_us_daily)',
+    'from tqx_data import *',
+    'from tqx_data.reader import get_hk_daily as daily',
+  ])('rejects unsupported native data imports: %s', (statement) => {
+    for (const market of ['hk', 'us', 'stock', 'future']) {
+      const error = expectValidationError(`${statement}\n${FUTURE_VALID}`, market)
+      expect(error.issues[0]?.message).toContain('UNSAFE_IMPORT')
+      expect(error.issues[0]?.message).toContain('tqx_data')
+      expect(error.issues[0]?.message).toContain('panda_backtest.api')
+    }
+  })
 
-def init_preheating_data(context):
-    context.result = ${call}
-
-def initialize(context):
-    init_preheating_data(context)
-
-def handle_data(context, data):
-    pass
-`,
-      'us',
+  it('rejects nested native data imports and explains the selected market API', () => {
+    for (const statement of [
+      'import tqx_data as td',
+      'from tqx_data import get_us_daily as daily',
+      'from tqx_data import *',
+    ]) {
+      const code = FUTURE_VALID.replace('    context.ready = True', `    ${statement}`)
+      expect(expectValidationError(code, 'us').issues[0]?.message).toContain('UNSAFE_IMPORT')
+    }
+    const error = expectValidationError(`import tqx_data\n${FUTURE_VALID}`, 'hk')
+    expect(error.issues[0]?.path).toEqual([{ key: 'code' }])
+    expect(() => validateStrategyCode(`import tqx_data\n${FUTURE_VALID}`, 'hk')).toThrow(
+      'Invalid strategy code',
     )
-    expect(error.issues[0]?.message).toContain(keyword)
+  })
+
+  it('does not confuse native data names in comments, strings, or import aliases', () => {
+    const code = FUTURE_VALID.replace(
+      'STRATEGY_PARAMS = {}',
+      `import math as tqx_data
+# import tqx_data
+EXAMPLE = "from tqx_data import get_us_daily"
+STRATEGY_PARAMS = {}`,
+    )
+    expect(() => validateStrategyCode(code, 'us')).not.toThrow()
   })
 
   it('rejects lifecycle and context-state violations', () => {
@@ -713,7 +628,7 @@ def handle_data(context, data):
     expect(fetch).not.toHaveBeenCalled()
   })
 
-  it('keeps the static data API catalog aligned with the market rules we rely on', () => {
+  it('keeps the native data API catalog separate from allowed strategy imports', () => {
     const usDaily = catalogForMarket('us').catalog.get_us_daily
     const hkIndexComponent = catalogForMarket('hk').catalog.get_index_component
     const stockMarketData = catalogForMarket('stock').catalog.get_market_data

@@ -56,25 +56,33 @@ def keyring_module():
         return None
 
 
+def decode_credentials(raw: str) -> tuple[str, str] | None:
+    try:
+        value = json.loads(raw)
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(value, dict):
+        return None
+    key = value.get("api_key")
+    base = value.get("base_url", "")
+    if not isinstance(key, str) or not isinstance(base, str) or not key.strip():
+        return None
+    return key.strip(), base.strip()
+
+
 def load() -> tuple[str, str] | None:
     kr = keyring_module()
     if kr:
         try:
-            raw = kr.get_password(SERVICE, ACCOUNT)
-            if raw:
-                value = json.loads(raw)
-                if isinstance(value, dict) and value.get("api_key"):
-                    return str(value["api_key"]), str(value.get("base_url", ""))
+            value = decode_credentials(kr.get_password(SERVICE, ACCOUNT))
+            if value:
+                return value
         except Exception:
             pass
-    path = credentials_file()
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        return decode_credentials(credentials_file().read_text(encoding="utf-8"))
+    except OSError:
         return None
-    if isinstance(value, dict) and value.get("api_key"):
-        return str(value["api_key"]), str(value.get("base_url", ""))
-    return None
 
 
 def save(api_key: str, base_url: str) -> str:
@@ -129,15 +137,7 @@ def setup(args: argparse.Namespace) -> int:
 
 
 def read_login() -> tuple[str, str] | None:
-    try:
-        value = json.loads(sys.stdin.read())
-    except ValueError:
-        return None
-    if not isinstance(value, dict):
-        return None
-    key = str(value.get("api_key", "")).strip()
-    base = str(value.get("base_url", "")).strip()
-    return (key, base) if key else None
+    return decode_credentials(sys.stdin.read())
 
 
 def ensure_env(args: list[str]) -> int | None:
@@ -149,51 +149,79 @@ def ensure_env(args: list[str]) -> int | None:
     return subprocess.call([str(target), str(Path(__file__).resolve()), *args])
 
 
-def main() -> int:
+def login(args: argparse.Namespace) -> int:
+    supplied = read_login()
+    if supplied is None:
+        return fail('pass {"api_key":"...","base_url":"..."} as JSON on stdin', 2)
+    key, base = supplied
+    store = save(key, base)
+    emit({"ok": True, "saved": True, "credential_store": store, "base_url": base or None})
+    return 0
+
+
+def status(args: argparse.Namespace) -> int:
+    value = load()
+    emit({"ok": True, "saved": value is not None, "base_url": value[1] if value else None})
+    return 0 if value else 3
+
+
+def logout(args: argparse.Namespace) -> int:
+    emit({"ok": True, "removed": remove()})
+    return 0
+
+
+def info(args: argparse.Namespace) -> int:
+    import tqx_data
+    version = getattr(tqx_data, "__version__", None)
+    store = "keychain" if keyring_module() else "file"
+    emit({"ok": True, "tqx_data_version": version, "home": str(home()), "credential_store": store})
+    return 0
+
+
+def execution_environment() -> dict[str, str] | None:
+    env = os.environ.copy()
+    if env.get("TQX_API_KEY", "").strip():
+        return env
+    value = load()
+    if value is None:
+        return None
+    key, base = value
+    env["TQX_API_KEY"] = key
+    if base and not env.get("TQX_API_BASE_URL"):
+        env["TQX_API_BASE_URL"] = base
+    return env
+
+
+def run(args: argparse.Namespace) -> int:
+    env = execution_environment()
+    if env is None:
+        return fail("no API key is configured", 3)
+    command = args.script_args or ["-"]
+    return subprocess.call([sys.executable, *command], env=env)
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("command", choices=["setup", "login", "status", "logout", "run", "info"])
-    parser.add_argument("script_args", nargs=argparse.REMAINDER)
-    parser.add_argument("--upgrade", action="store_true")
-    parser.add_argument("--recreate", action="store_true")
-    args = parser.parse_args()
+    commands = parser.add_subparsers(dest="command", required=True)
+    install = commands.add_parser("setup")
+    install.add_argument("--upgrade", action="store_true")
+    install.add_argument("--recreate", action="store_true")
+    for name in ("login", "status", "logout", "info"):
+        commands.add_parser(name)
+    execute = commands.add_parser("run")
+    execute.add_argument("script_args", nargs=argparse.REMAINDER)
+    return parser.parse_args(argv)
+
+
+def main() -> int:
+    args = parse_args(sys.argv[1:])
     if args.command == "setup":
         return setup(args)
     delegated = ensure_env(sys.argv[1:])
     if delegated is not None:
         return delegated
-    if args.command == "login":
-        supplied = read_login()
-        if supplied is None:
-            return fail('pass {"api_key":"...","base_url":"..."} as JSON on stdin', 2)
-        key, base = supplied
-        store = save(key, base)
-        emit({"ok": True, "saved": True, "credential_store": store, "base_url": base or None})
-        return 0
-    if args.command == "status":
-        value = load()
-        emit({"ok": True, "saved": value is not None, "base_url": value[1] if value else None})
-        return 0 if value else 3
-    if args.command == "logout":
-        emit({"ok": True, "removed": remove()})
-        return 0
-    if args.command == "info":
-        import tqx_data
-        emit({"ok": True, "tqx_data_version": getattr(tqx_data, "__version__", None), "home": str(home()), "credential_store": "keychain" if keyring_module() else "file"})
-        return 0
-    value = load()
-    if value is None:
-        return fail("no API key is saved", 3)
-    key, base = value
-    if args.command == "run":
-        env = os.environ.copy()
-        env["TQX_API_KEY"] = key
-        if base:
-            env["TQX_API_BASE_URL"] = base
-        command = args.script_args or ["-"]
-        if command[0] == "-":
-            return subprocess.call([sys.executable, "-"], env=env)
-        return subprocess.call([sys.executable, *command], env=env)
-    return fail("unsupported command")
+    handlers = {"login": login, "status": status, "logout": logout, "info": info, "run": run}
+    return handlers[args.command](args)
 
 
 if __name__ == "__main__":

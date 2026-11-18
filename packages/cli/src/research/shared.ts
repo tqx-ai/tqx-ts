@@ -2,7 +2,13 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'no
 import { homedir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 
-import type { Backtest, BacktestParameters, QubeMarket, QubePage } from '@tqx-ai/sdk'
+import {
+  getBacktestParameters,
+  type Backtest,
+  type BacktestParameters,
+  type QubeMarket,
+  type QubePage,
+} from '@tqx-ai/sdk'
 
 import { CliUsageError } from '../utils/errors'
 import { optionalFloat, optionalNumber } from '../utils/numbers'
@@ -34,6 +40,7 @@ export interface BacktestArgs {
   commissionRate?: string
   slippage?: string
   frequency?: string
+  standardSymbol?: string
 }
 
 export interface ListArgs {
@@ -76,6 +83,10 @@ export const backtestArgs = {
     description: 'Proportional slippage applied by backend to simulated fill price',
   },
   frequency: { type: 'enum' as const, options: ['1d', '1M'], description: 'Bar frequency' },
+  standardSymbol: {
+    type: 'string' as const,
+    description: 'Market benchmark (HK: HSI.HK/HSCE.HK/HSTECH.HK; US: SPX/IXIC/NDX/DJI)',
+  },
 }
 
 export const waitArgs = {
@@ -240,7 +251,7 @@ export function backtestParameters(
   defaults: boolean,
   savedParams?: unknown,
 ): BacktestParameters {
-  const saved = savedBacktestParameters(savedParams)
+  const saved = getBacktestParameters(savedParams)
   const periodStart = normalizeDate(args.startDate) ?? saved.periodStart
   const periodEnd = normalizeDate(args.endDate) ?? saved.periodEnd
   if (periodStart !== undefined && periodEnd !== undefined && periodStart > periodEnd) {
@@ -266,26 +277,13 @@ export function backtestParameters(
     initBalance,
     commissionRate,
     slippage,
+    standardSymbol:
+      (args.standardSymbol as BacktestParameters['standardSymbol']) ?? saved.standardSymbol,
+    marginRate: saved.marginRate,
     frequency:
       args.frequency === undefined
         ? (saved.frequency ?? (defaults ? '1d' : undefined))
         : (args.frequency as '1d' | '1M'),
-  }
-}
-
-function savedBacktestParameters(value: unknown): BacktestParameters {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
-  const params = value as Record<string, unknown>
-  const backtest = params.backtest
-  if (typeof backtest !== 'object' || backtest === null || Array.isArray(backtest)) return {}
-  const raw = backtest as Record<string, unknown>
-  return {
-    periodStart: typeof raw.period_start === 'string' ? raw.period_start : undefined,
-    periodEnd: typeof raw.period_end === 'string' ? raw.period_end : undefined,
-    initBalance: typeof raw.init_balance === 'number' ? raw.init_balance : undefined,
-    commissionRate: typeof raw.commission_rate === 'number' ? raw.commission_rate : undefined,
-    slippage: typeof raw.slippage === 'number' ? raw.slippage : undefined,
-    frequency: raw.frequency === '1d' || raw.frequency === '1M' ? raw.frequency : undefined,
   }
 }
 
@@ -297,6 +295,7 @@ export function hasBacktestInput(args: BacktestArgs): boolean {
     args.commissionRate,
     args.slippage,
     args.frequency,
+    args.standardSymbol,
   ].some((value) => value !== undefined)
 }
 

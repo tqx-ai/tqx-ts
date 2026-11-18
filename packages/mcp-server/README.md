@@ -268,9 +268,9 @@ Research tools are enabled separately as described below.
 ## Research tools
 
 Research implements the two-tool design in [the Research plan](docs/research-tools-plan.md),
-including all 43 P0/P1 actions for factors, analyses, strategies, backtests, versions
-and snapshots. It excludes tqx_data, market/financial data, standalone symbol
-klines, tuning, SSE subscriptions and trading accounts.
+including all 57 actions for factors, analyses, strategies, backtests, versions
+and snapshots, plus factor and strategy parameter tuning. It excludes tqx_data, market/financial data, standalone symbol
+klines, SSE subscriptions and trading accounts.
 
 Enable it with both runtime settings below plus the shared
 `TQX_MCP_EXCHANGE_CLIENT_ID` / `TQX_MCP_EXCHANGE_CLIENT_SECRET`. Omit both Research
@@ -317,8 +317,10 @@ action permissions use the existing HTTP scope challenge.
 Use `strategy.get` → `strategy.validate` → `strategy.backtest.submit` →
 `strategy.backtest.get` → `backtest.result.get` / `backtest.chart.get`.
 Pass source/config revisions from the resource read, keep the submit response's
-`id` as `runId`, and poll about every two seconds with rate-limit backoff. Only
-`succeeded` permits result reads. `valid=false` and remote `status=failed` are
+`id` as `runId`, and poll about every two seconds with rate-limit backoff. Backtest results and charts permit empty or partial reads while queued or running;
+`partial`, `availableFrom` and `availableTotal` describe availability.
+`LIVE_RESULT_UNAVAILABLE` is transient: retry the same read with backoff and retain
+the run ID. Factor analysis results still require `succeeded`. `valid=false` and remote `status=failed` are
 business results, not tool execution errors. Cancellation acknowledgements do
 not imply the run is already cancelled. An Agent poll timeout does not cancel
 the remote run.
@@ -331,7 +333,17 @@ that returned batch. `possiblyTruncated=true` signals a reached upstream cap;
 `hasMore` only describes further rows within the batch. Use search actions for
 complete analysis/version history; older snapshots have no further upstream
 pagination. Recent backtests similarly expose `possiblyTruncated` at the requested
-limit. Results and charts are read only after checking the actual run state.
+limit. Chart responses retain the optional benchmark curve and partial state.
+
+`factor.tuning` and `strategy.tuning` each provide submit/list/search/get/cancel/rerun/apply.
+Submit, cancel and rerun require `research:run`; apply requires `research:write`.
+Read the selected trial/candidate ID from get, and use current resource revisions
+when applying. Tuning lists are capped at 200 summaries; use search for history.
+`cancelling` is pending and `no_valid_candidates` is terminal.
+
+HK stock pools are `all`, `HSI.HK`, `HSCE.HK`, `HSTECH.HK`; US pools are
+`all`, `SPX`, `IXIC`, `NDX`, `DJI`. Backtest `standardSymbol` supports those
+indices without `all`. The backend validates market compatibility.
 
 Read token exchanges use the existing process-local cache. Every execution or
 write uses a fresh exchange and is never automatically replayed. Preserve

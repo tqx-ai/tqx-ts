@@ -15,6 +15,8 @@ const APIs = {
   RESEARCH_BACKTESTS: 'qube/api/strategy-backtests',
   RESEARCH_STRATEGY_VERSIONS: 'qube/api/strategy-versions',
   RESEARCH_FACTOR_VERSIONS: 'qube/api/factor-versions',
+  RESEARCH_FACTOR_TUNINGS: 'qube/api/factor-tunings',
+  RESEARCH_STRATEGY_TUNINGS: 'qube/api/strategy-tunings',
 
   // Bug Report API
   BUG_REPORTS: '/openapi/v1/bug-reports',

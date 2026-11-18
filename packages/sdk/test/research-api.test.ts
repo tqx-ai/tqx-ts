@@ -764,3 +764,71 @@ describe('Qube gateway error envelopes', () => {
     await expect(research.getFactorSource(ID)).resolves.toMatchObject({ code: 'COMMON_ERROR' })
   })
 })
+
+describe('Saved research configuration workflow', () => {
+  it.each(['factor', 'strategy'] as const)(
+    'runs %s with the saved receipt revisions and no overrides',
+    async (kind) => {
+      const parameters =
+        kind === 'factor' ? { stock_pool: 'SPX' } : { backtest: { standard_symbol: 'NDX' } }
+      const saved = {
+        ...(kind === 'factor' ? factor() : strategy()),
+        source_revision: 2,
+        config_revision: 4,
+        parameters,
+        parameters_draft: null,
+        parameter_validation: { status: 'valid', config_revision: 4 },
+      }
+      const { research, fetch } = setup(saved)
+      const receipt =
+        kind === 'factor'
+          ? await research.updateFactor(ID, {
+              baseConfigRevision: 3,
+              parameters: { stockPool: 'SPX' },
+            })
+          : await research.updateStrategy(ID, {
+              baseConfigRevision: 3,
+              backtest: { standardSymbol: 'NDX' },
+            })
+      expect(receipt).toMatchObject(saved)
+      fetch.mockResolvedValueOnce(
+        response(
+          kind === 'factor'
+            ? {
+                run_id: ID2,
+                factor_id: ID,
+                status: 'queued',
+                idempotent: false,
+                code_sha256: 'hash',
+                params: parameters,
+              }
+            : { ...run('strategy', 'queued'), parameters },
+        ),
+      )
+      const input = {
+        requestId: 'saved-settings-run',
+        expectedSourceRevision: receipt.source_revision,
+        expectedConfigRevision: receipt.config_revision,
+      }
+      const submitted =
+        kind === 'factor'
+          ? await research.createFactorAnalysis(ID, input)
+          : await research.runStrategyBacktest(ID, input)
+      expect(submitted).toMatchObject(kind === 'factor' ? { params: parameters } : { parameters })
+      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(requestAt(fetch, 0)).toMatchObject({
+        method: 'PATCH',
+        body: { base_config_revision: 3, parameters },
+      })
+      expect(requestAt(fetch, 1)).toMatchObject({
+        method: 'POST',
+        body: {
+          request_id: 'saved-settings-run',
+          expected_source_revision: 2,
+          expected_config_revision: 4,
+        },
+      })
+      expect(requestAt(fetch, 1).body).not.toHaveProperty('parameters')
+    },
+  )
+})

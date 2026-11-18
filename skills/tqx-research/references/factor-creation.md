@@ -1,127 +1,58 @@
-# Factor Creation Guide
+# Factor source requirements
 
-This document is the canonical entry point for creating TQX factors in this workspace.
-Read it together with:
+Generate Python factors by default. Read field codes and meanings from the shared [Hong Kong](data/index.md) or [US](data/index.md) catalog. Factor code receives framework-provided series through `calculate(self, factors)` and uses static access such as `factors["close"]`. A field's presence in a market catalog does not guarantee factor support. Use factor validation and server responses to confirm it. Do not call `tqx_data` from factor source or infer factor availability from an SDK method.
 
-- [Commands Reference](./commands.md)
-- [TQX data quick reference](./tqx_data_quick_reference.md)
-- [TQX data market matrix](./tqx_data_market_matrix.md)
-- [TQX data API](./tqx_data_usage.md)
-- [Factor Operators](./factor-operators.md)
+## Choose operators by calculation scope
 
-Use the data references to understand field meanings and shapes. A data API response field does not guarantee factor support: factor source only receives framework-provided series through `factors["field"]`. Confirm availability with server validation. Use [Factor Operators](./factor-operators.md) for platform operator signatures.
+Read the [platform operator reference](factor-operators.md) before writing or editing a factor. Check signatures, grouping, window lengths, and missing values. Call operators directly with positional arguments and align inputs by `(date, symbol)` before combining them.
 
-## Scope
+- Use `TS_MEAN(X,N)` or `MA(X,N)` for a rolling mean per symbol. `MEAN(A,B)` averages two inputs element by element. The second argument is a value in that average.
+- Use `TS_MIN(X,N)` or `TS_MAX(X,N)` for rolling extremes. `MIN(A,B)` and `MAX(A,B)` compare two inputs element by element. Use `SUM(X,N)` for rolling sums and `STD(X,N)` for rolling standard deviation.
+- Use `RANK(X)` to rank symbols on the same date. Use `TS_RANK(X,N)` to rank the current value within the same symbol's last `N` observations. Apply ranking only when the requested signal calls for it.
 
-- Factors are research signals only.
-- A factor is either Formula or Python.
-- Create one factor per source file when possible.
-- Prefer UTF-8 `.py` files and `--file` for multiline Python source only.
-- `--formula` is for single-expression factor formulas built from the market fields and operators listed in [Factor Operators](./factor-operators.md), such as `open`, `high`, `low`, `close`, `volume`, `amount`, `turnover`, and `market_cap`.
-- Python supports multi-step calculations over framework-provided fields. Neither Python nor Formula mode may fetch additional data. Do not call `tqx_data` or import `panda_backtest` in factor source; the server rejects these imports.
+## Source comments
 
-## Market And Data Contract
+Place each Python `#` comment immediately above the code it explains, at the same indentation as the first line and with no blank line between them. Cover each major step in a new factor and update affected comments when editing one.
 
-- Confirm the market is `hk` or `us` before writing source.
-- Use only fields that belong to the selected market contract.
-- If you need to reason about bar or financial field names, verify them in the `tqx_data_*.md` docs first.
-- Do not invent fields, helper functions, or gateway behavior.
+- Keep the opening overview short. Put the meaning and unit of each window, threshold, or multiplier above `FACTOR_PARAMS` or the corresponding key.
+- Inside `calculate`, explain fields, operators, and intermediate values above their steps. State the window boundaries above the rolling calculation and explain the comparison group above the ranking calculation.
+- Put short-history, missing-value, and zero-denominator explanations above the code that handles them. Explain how to read the value, its units, and its `(date, symbol)` alignment above the result.
 
-## Formula Mode
+Before saving, check that every comment sits directly above the lines it describes. Use one comment above a group of consecutive statements that do the same job.
 
-- Write one complete expression per non-empty line.
-- Use lowercase field names such as `close`, `high`, `low`, `open`, `volume`.
-- Use uppercase operator names as documented in the operator reference.
-- Do not use assignments, imports, control flow, attribute access, or Python-only syntax.
-- `FUTURE_RETURNS` is forbidden.
+For a formula factor, explain fields, windows, and result interpretation in the factor description and keep the source a single expression.
 
-Example:
+## Python
 
-```text
-RANK(close / DELAY(close, 20) - 1)
-```
+A Python factor defines exactly one class inheriting from `Factor`, implements `calculate(self, factors)`, and returns a sequence aligned to the input `(date, symbol)` index. Read fields with static `factors["field_code"]` access. Do not depend on another registered factor or override `Factor` or injected operator names.
 
-## Python Mode
+Prefer supported fields and platform operators, including reasonable compositions. Use NumPy, pandas, or SciPy's public numeric APIs only when platform capabilities are insufficient. Ordinary import aliases and imports from supported public submodules are allowed. Do not import other libraries, relative modules, or use star imports. Do not use dynamic execution, reflection, private attributes, file, network, process, or native-code APIs as non-computational entry points.
 
-- Define exactly one class that inherits from `Factor`.
-- Implement `calculate(self, factors)`.
-- Return a `Series` that preserves the original `symbol`/`date` MultiIndex.
-- Read source fields with direct string-literal access such as `factors["close"]` or `factors['close']`.
-- Do not mutate `factors`.
-- Do not use dynamic keys, such as `factors[field_name]`, for the field read that the quality gate must see.
-- Do not write back into `factors`, for example `factors["typical_price"] = ...`.
-- If you need derived values, compute them in local variables and return the final series.
-- Prefer `transform`, rolling windows, `pct_change`, and other index-preserving operations.
-- Avoid `groupby(...).apply(...)` when it changes the index shape.
-
-Example:
+Declare a literal `FACTOR_PARAMS` dictionary at the top of new Python source when numeric constants affect the signal and are useful for tuning. Declare it exactly once, use fixed string keys, and do not reassign or mutate it. Keep source defaults authoritative and include only parameters that change factor logic. Integer and float values can be tuned. Other valid literals may remain fixed. A factor lookback is independent of the analysis adjustment cycle. Factors without `FACTOR_PARAMS` can tune run parameters only.
 
 ```python
-class MomentumFactor(Factor):
-    def calculate(self, factors):
-        close = factors["close"]
-        return close.groupby(level="symbol").transform(lambda s: s / s.shift(20) - 1)
-```
+# Smooth the closing price in its original price units.
 
-## Parameters And Platform Operators
-
-For tunable Python factors, declare one module-level literal `FACTOR_PARAMS` dictionary before the
-class. Use unique static string keys and read values with `FACTOR_PARAMS["key"]`. Do not reassign,
-mutate, alias, or read the table with dynamic keys. Defaults are authoritative; only declared and
-referenced integer or float parameters can be overridden through tuning `factorParameters`.
-Booleans, strings, and string lists can remain fixed. Factors without a table can tune analysis
-parameters only. A lookback window is independent of the analysis adjustment cycle.
-
-`Factor` and platform operators are injected by the runtime; call them directly without imports.
-Prefer platform operators and pass arguments positionally. Use `TS_MEAN(X, N)` or `MA(X, N)` for
-per-symbol rolling means, `TS_MIN`/`TS_MAX` for rolling extremes, and `RANK(X)` for ranking symbols
-on the same date. `MEAN(A, B)`, `MIN(A, B)`, and `MAX(A, B)` combine two values elementwise; their
-second argument is not a window length.
-
-```python
+# Number of observations in the average.
 FACTOR_PARAMS = {"lookback": 5}
 
 class RollingMeanClose(Factor):
     def calculate(self, factors):
+        # Average each symbol's closes through the current observation.
+        # TS_MEAN preserves the input index and fills the initial incomplete window with zero.
         return TS_MEAN(factors["close"], FACTOR_PARAMS["lookback"])
 ```
 
-When platform operators are insufficient, use supported public numeric APIs from NumPy, pandas,
-or SciPy; the server remains the authority for each API. Do not use star or relative imports,
-file/network/process access, dynamic execution, reflection, or private attributes. Additional
-valuation fields such as `imed_pb_ttm` must be supplied and supported by the factor framework;
-calling a data SDK inside `calculate` does not make them available.
+## Formula
 
-## Create Workflow
+A formula is one expression without assignments or imports. `TS_MEAN(CLOSE, 5)` matches the Python example. Both calculate a rolling mean per symbol and fill the first four observations of each symbol with `0`.
 
-1. Decide whether the signal is Formula or Python.
-2. Check the market contract and supported fields.
-3. For Python, keep one `Factor` subclass and one `calculate(self, factors)` entry point.
-4. Save the Python source in a UTF-8 `.py` file when it spans multiple lines.
-5. Create the factor with `tqx research factor create --market=<hk|us> --file <python-path> ...` or `--code` for short inline source; use `--formula` for Formula mode.
-6. Keep the returned `factor_id` for later analysis or updates.
+## Calculation behavior
 
-## Windows Notes
+Static validation checks the factor API but does not import NumPy, pandas, or SciPy or execute source. Numeric calculations run in the existing consumer. Prefer vectorized calculations, reuse intermediate values, and avoid unnecessary copies. Preserve index alignment and handle missing values according to the signal definition. Static validation does not prove a successful analysis. Run an analysis only when it is within the user's requested scope.
 
-- Prefer `--file` for multiline Python source on Windows.
-- If you use `--code`, make sure shell escaping preserves the inner double quotes in `factors["field"]`.
+Never include credentials in source, parameters, or responses.
 
-## Common Rejection Patterns
+## Resource workflow
 
-- Missing `Factor` subclass.
-- More than one `Factor` subclass in the same source.
-- Missing `calculate(self, factors)`.
-- Python code that does not contain a direct `factors["field"]` or `factors['field']` read.
-- Formula expressions that use unsupported operators.
-- Field names that do not exist in the selected market contract.
-- Any attempt to reference future data.
-
-## Review Checklist
-
-- Market is explicit.
-- Source type is explicit.
-- Fields are market-valid.
-- Python code contains exactly one `Factor` subclass.
-- `calculate(self, factors)` returns the final signal series.
-- Derived values are local variables, not writes into `factors`.
-- Formula operators are taken from the local operator reference.
+Use the selected transport's resource interface to create a Python or formula factor; see [research workflow](workflow.md). Read [the main Skill](../SKILL.md) for the selected transport and its request reference. Preserve the create receipt and validation diagnostics. Saving source and submitting analysis are separate operations. An ordinary analysis uses the verified saved parameters; explicit temporary overrides do not change those parameters.

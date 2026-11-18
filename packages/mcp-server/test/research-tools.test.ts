@@ -116,7 +116,7 @@ describe('Research MCP tools over authenticated HTTP', () => {
     const { body } = await s.call('tqx_research_explore', {}, unrelatedToken)
     expect(body.result.isError).not.toBe(true)
     const catalog = body.result.structuredContent.actions
-    expect(catalog).toHaveLength(43)
+    expect(catalog).toHaveLength(57)
     expect(catalog.map((a: { action: string }) => a.action)).toEqual([...actions.keys()].toSorted())
     expect(catalog[0]).toEqual({ action: 'backtest.chart.get', description: expect.any(String) })
     const detail = await s.call(
@@ -165,6 +165,18 @@ describe('Research MCP tools over authenticated HTTP', () => {
         ['strategy.backtest.submit', {}, writeToken, 'research:run'],
         ['factor.delete', {}, readToken, 'research:write'],
         ['strategy.version.create', {}, readToken, 'research:write'],
+        ...(['factor', 'strategy'] as const).flatMap(
+          (kind) =>
+            [
+              [`${kind}.tuning.submit`, {}, readToken, 'research:run'],
+              [`${kind}.tuning.cancel`, {}, writeToken, 'research:run'],
+              [`${kind}.tuning.rerun`, {}, readToken, 'research:run'],
+              [`${kind}.tuning.apply`, {}, runToken, 'research:write'],
+              [`${kind}.tuning.get`, {}, runToken, 'research:read'],
+              [`${kind}.tuning.list`, {}, writeToken, 'research:read'],
+              [`${kind}.tuning.search`, {}, runToken, 'research:read'],
+            ] as const,
+        ),
       ] as const
       await Promise.all(
         cases.map(async ([action, input, bearer, scope]) => {

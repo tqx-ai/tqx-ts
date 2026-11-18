@@ -32,10 +32,15 @@
       "interface": {
         "displayName": "TQX",
         "shortDescription": "Invest and trade with TQX",
-        "longDescription": "Connect your TQX account to view balances, positions, orders, trades, and cash flows, and place, modify, or cancel orders when requested. Access Hong Kong and US market data through the included Python skill. Trading requires OAuth authorization; market data requires a TQX API key and a compatible local Python environment.",
+        "longDescription": "Connect your TQX account to view balances, positions, orders, trades, and cash flows, and execute trading instructions. Research Hong Kong and US factors and strategies through Qube analyses, backtests, versions and parameter tuning. Trading and research use client-managed OAuth with separate scopes; research does not require a trading Agent binding. Local market data uses the included Python skill and requires a TQX API key and compatible Python environment.",
         "developerName": "TQX Team",
         "category": "Productivity",
-        "capabilities": ["Market data", "Portfolio monitoring", "Order management"],
+        "capabilities": [
+          "Market data",
+          "Portfolio monitoring",
+          "Order management",
+          "Factor and strategy research"
+        ],
         "websiteURL": "https://www.tqx.ai",
         "supportURL": "https://docs.tqx.ai/more/contact-us",
         "privacyPolicyURL": "https://www.tqx.ai/auth/privacy-policy",
@@ -43,7 +48,8 @@
         "defaultPrompt": [
           "Show my TQX account balance and positions.",
           "List my active orders and recent trades.",
-          "Help me set up Hong Kong and US market data."
+          "Help me set up Hong Kong and US market data.",
+          "Create and backtest a US stock momentum strategy."
         ],
         "brandColor": "#A3A325",
         "brandColorDark": "#FFFF3A",

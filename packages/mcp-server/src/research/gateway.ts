@@ -84,7 +84,7 @@ export class ResearchGateway {
       throw new ResearchError('BUSY', 'Research gateway busy; retry later')
     // Only registry-built relative resource paths can reach the gateway.
     if (
-      !/^qube\/api\/(?:factors|strategies|factor-analyses|strategy-backtests|factor-versions|strategy-versions)(?:\/(?:[0-9a-f]{24}|source|validate|analyses|backtests|cancel|versions|restore|analysis-snapshots|result|chart))*$/.test(
+      !/^qube\/api\/(?:factors|strategies|factor-analyses|strategy-backtests|factor-versions|strategy-versions|factor-tunings|strategy-tunings)(?:\/(?:[0-9a-f]{24}|source|validate|analyses|backtests|cancel|versions|restore|analysis-snapshots|result|chart|tunings|rerun|apply))*$/.test(
         request.path,
       )
     )

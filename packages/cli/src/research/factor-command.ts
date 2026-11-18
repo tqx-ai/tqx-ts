@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { defineCommand } from 'citty'
+import type { FactorAnalysisParamsInput } from '@tqx-ai/sdk'
 import type { CommandRuntime } from '../runtime/command-runtime'
 import { CliUsageError } from '../utils/errors'
 import {
@@ -84,6 +85,10 @@ export function createFactorCommand(runtime: CommandRuntime) {
           adjustmentCycle: { type: 'string' },
           groupNumber: { type: 'string' },
           factorDirection: { type: 'string' },
+          stockPool: {
+            type: 'string',
+            description: 'Market stock pool or index; HK/US default to all',
+          },
         },
         run: ({ args }) =>
           runtime.research(async (client) => {
@@ -98,6 +103,7 @@ export function createFactorCommand(runtime: CommandRuntime) {
                 args.adjustmentCycle,
                 args.groupNumber,
                 args.factorDirection,
+                args.stockPool,
               ].some((value) => value !== undefined)
                 ? {
                     periodStart: normalizeDate(args.startDate),
@@ -113,6 +119,7 @@ export function createFactorCommand(runtime: CommandRuntime) {
                         ? allowedInteger(args.groupNumber, 'groupNumber', [3, 5, 10, 20] as const)
                         : undefined,
                     factorDirection: factorDirection(args.factorDirection),
+                    stockPool: args.stockPool as FactorAnalysisParamsInput['stockPool'],
                   }
                 : undefined,
             })
@@ -351,6 +358,10 @@ export function createFactorCommand(runtime: CommandRuntime) {
           adjustmentCycle: { type: 'string' },
           groupNumber: { type: 'string' },
           factorDirection: { type: 'string' },
+          stockPool: {
+            type: 'string',
+            description: 'Market stock pool or index; HK/US default to all',
+          },
           ...waitArgs,
         },
         run: ({ args }) =>
@@ -362,6 +373,7 @@ export function createFactorCommand(runtime: CommandRuntime) {
               args.adjustmentCycle,
               args.groupNumber,
               args.factorDirection,
+              args.stockPool,
             ].some((value) => value !== undefined)
             const submitted = await client.research.createFactorAnalysis(id, {
               requestId: randomUUID(),
@@ -388,6 +400,7 @@ export function createFactorCommand(runtime: CommandRuntime) {
                         ? undefined
                         : allowedInteger(args.groupNumber, 'groupNumber', [3, 5, 10, 20] as const),
                     factorDirection: factorDirection(args.factorDirection),
+                    stockPool: args.stockPool as FactorAnalysisParamsInput['stockPool'],
                   }
                 : undefined,
             })

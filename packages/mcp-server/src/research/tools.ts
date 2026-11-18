@@ -34,7 +34,7 @@ export function registerResearchTools(
     'tqx_research_explore',
     {
       description:
-        'Discover Qube Research actions for factors, strategies, analyses, backtests, versions and snapshots. Omit action for the catalog; pass an action for exact input/output schemas, usage examples, docs and composition guidance. Does not access research data. Execute through tqx_research_call.',
+        'Discover Qube Research actions for factors, strategies, analyses, backtests, versions, snapshots and parameter tuning. Omit action for the catalog; pass an action for exact input/output schemas, usage examples, docs and composition guidance. Does not access research data. Execute through tqx_research_call.',
       inputSchema: toolSchema(exploreInput),
       annotations: {
         readOnlyHint: true,

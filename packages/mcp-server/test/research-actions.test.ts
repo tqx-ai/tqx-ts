@@ -48,8 +48,8 @@ const snapshot = {
 }
 
 describe('Research action contracts and request mapping', () => {
-  it('publishes exactly 43 coherent action documents with validated examples', () => {
-    expect(actions.size).toBe(43)
+  it('publishes exactly 57 coherent action documents with validated examples', () => {
+    expect(actions.size).toBe(57)
     for (const action of actions.values()) {
       expect(v.safeParse(action.input, action.exampleInput).success, action.name).toBe(true)
       expect(v.safeParse(action.output, action.exampleOutput).success, action.name).toBe(true)
@@ -295,6 +295,82 @@ describe('Research action contracts and request mapping', () => {
     expect(JSON.stringify(output)).not.toContain('internal_path')
   })
 
+  it.each(['factor', 'strategy'] as const)(
+    'exposes %s drafts and submits saved revisions without implicit updates',
+    async (kind) => {
+      const s = setup()
+      const parameters =
+        kind === 'factor' ? { stock_pool: 'SPX' } : { backtest: { standard_symbol: 'NDX' } }
+      const ids = { [`${kind}Id`]: ID }
+      for (const draft of [undefined, null, { invalid_setting: true }]) {
+        s.fetch.mockResolvedValueOnce(envelope({ ...resource(kind), parameters_draft: draft }))
+        // Responses intentionally share one ordered mock transport.
+        // eslint-disable-next-line no-await-in-loop
+        const detail = await call(s, `${kind}.get`, ids)
+        if (draft === undefined) expect(detail).not.toHaveProperty('parametersDraft')
+        else expect(detail.parametersDraft).toEqual(draft)
+      }
+      s.fetch.mockResolvedValueOnce(envelope({ ...resource(kind), parameters_draft: [] }))
+      await expect(call(s, `${kind}.get`, ids)).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+      s.fetch.mockClear()
+      s.fetch.mockResolvedValueOnce(
+        envelope({
+          ...resource(kind),
+          config_revision: 3,
+          parameters,
+          parameters_draft: null,
+          parameter_validation: { status: 'valid', config_revision: 3 },
+        }),
+      )
+      const saved = await call(s, `${kind}.update`, {
+        ...ids,
+        baseConfigRevision: 2,
+        ...(kind === 'factor'
+          ? { parameters: { stockPool: 'SPX' } }
+          : { backtest: { standardSymbol: 'NDX' } }),
+      })
+      expect(saved).toMatchObject({
+        configRevision: 3,
+        parameters,
+        parametersDraft: null,
+        parameterValidation: { status: 'valid', config_revision: 3 },
+      })
+      s.fetch.mockResolvedValueOnce(
+        envelope(
+          kind === 'factor'
+            ? {
+                run_id: RUN,
+                factor_id: ID,
+                status: 'queued',
+                idempotent: false,
+                code_sha256: 'hash',
+                params: parameters,
+              }
+            : { ...run(kind, 'queued'), config_revision: 3, parameters },
+        ),
+      )
+      const submitted = await call(
+        s,
+        kind === 'factor' ? 'factor.analysis.submit' : 'strategy.backtest.submit',
+        {
+          ...ids,
+          requestId: 'saved-settings-run',
+          expectedSourceRevision: saved.sourceRevision,
+          expectedConfigRevision: saved.configRevision,
+        },
+      )
+      expect(submitted).toMatchObject({ id: RUN, parameters })
+      expect(s.fetch).toHaveBeenCalledTimes(2)
+      expect(s.fetch.mock.calls.map(([, init]) => init?.method)).toEqual(['PATCH', 'POST'])
+      expect(JSON.parse(String(s.fetch.mock.calls[0]?.[1]?.body)).parameters).toEqual(parameters)
+      expect(JSON.parse(String(s.fetch.mock.calls[1]?.[1]?.body))).toEqual({
+        request_id: 'saved-settings-run',
+        expected_source_revision: 3,
+        expected_config_revision: 3,
+      })
+    },
+  )
+
   it('maps parameter overrides, bindings, origin and source revisions explicitly', async () => {
     const s = setup()
     s.fetch.mockImplementation(async () => envelope(run('strategy', 'queued')))
@@ -419,8 +495,8 @@ describe('Research action contracts and request mapping', () => {
 
   it('maps result pagination and chart sampling without treating maxPoints as a trade limit', async () => {
     const s = setup()
-    s.fetch.mockImplementation(async (url) =>
-      envelope(String(url).includes('/result?') ? resultPage : run('strategy')),
+    s.fetch.mockResolvedValueOnce(
+      envelope({ ...resultPage, partial: true, available_from: 0, available_total: 1 }),
     )
     expect(
       await call(s, 'backtest.result.get', {
@@ -429,8 +505,16 @@ describe('Research action contracts and request mapping', () => {
         keyword: 'buy',
         symbol: 'AAPL.US',
       }),
-    ).toMatchObject({ runId: RUN, rows: resultPage.rows, total: 1, hasMore: false })
-    const resultUrl = new URL(String(s.fetch.mock.calls[1]?.[0]))
+    ).toMatchObject({
+      runId: RUN,
+      rows: resultPage.rows,
+      total: 1,
+      hasMore: false,
+      partial: true,
+      availableFrom: 0,
+      availableTotal: 1,
+    })
+    const resultUrl = new URL(String(s.fetch.mock.calls[0]?.[0]))
     expect(Object.fromEntries(resultUrl.searchParams)).toEqual({
       field: 'trades',
       offset: '0',
@@ -438,33 +522,87 @@ describe('Research action contracts and request mapping', () => {
       q: 'buy',
       symbol: 'AAPL.US',
     })
-    s.fetch.mockImplementation(async (url) =>
-      envelope(String(url).includes('/chart?') ? chart : run('strategy')),
+    s.fetch.mockResolvedValueOnce(
+      envelope({
+        ...chart,
+        partial: true,
+        benchmark: {
+          standard_symbol: 'SPX',
+          points: [{ ts: '2026-01-02', equity: 1001, break_before: true }],
+        },
+      }),
     )
-    const output = await call(s, 'backtest.chart.get', { runId: RUN, maxPoints: 2 })
-    expect(output).toMatchObject({
+    expect(await call(s, 'backtest.chart.get', { runId: RUN, maxPoints: 2 })).toMatchObject({
       runId: RUN,
       sampled: true,
       sourceCount: 50,
       totalCount: 100,
       complete: false,
+      partial: true,
       points: [{ ts: '2026-01-02', equity: 1000, breakBefore: true }],
       tradeDays: [{ buyCount: 1, trades: [{ symbol: 'AAPL.US' }] }],
+      benchmark: {
+        standardSymbol: 'SPX',
+        points: [{ ts: '2026-01-02', equity: 1001, breakBefore: true }],
+      },
     })
-    expect(new URL(String(s.fetch.mock.calls[3]?.[0])).searchParams.get('max_points')).toBe('2')
+    expect(new URL(String(s.fetch.mock.calls[1]?.[0])).searchParams.get('max_points')).toBe('2')
   })
 
-  it.each(['queued', 'running', 'failed', 'cancelled'])(
-    'rejects results for %s runs without fetching a result page',
-    async (state) => {
-      const s = setup()
-      s.fetch.mockImplementation(async () => envelope(run('strategy', state)))
-      await expect(
-        call(s, 'backtest.result.get', { runId: RUN, field: 'trades' }),
-      ).rejects.toMatchObject({ code: 'RUN_NOT_READY', details: { status: state } })
-      expect(s.fetch).toHaveBeenCalledTimes(1)
-    },
-  )
+  it('reads a queued empty partial page directly and preserves transient result errors', async () => {
+    const s = setup()
+    s.fetch.mockResolvedValueOnce(
+      envelope({
+        ...resultPage,
+        rows: [],
+        total: 0,
+        partial: true,
+        available_from: 0,
+        available_total: 0,
+      }),
+    )
+    expect(await call(s, 'backtest.result.get', { runId: RUN, field: 'trades' })).toMatchObject({
+      rows: [],
+      total: 0,
+      partial: true,
+      availableFrom: 0,
+      availableTotal: 0,
+    })
+    expect(s.fetch).toHaveBeenCalledTimes(1)
+    expect(new URL(String(s.fetch.mock.calls[0]?.[0])).pathname).toBe(
+      `/tqxApi/qube/api/strategy-backtests/${RUN}/result`,
+    )
+    s.fetch.mockResolvedValueOnce(
+      Response.json(
+        { detail: { code: 'LIVE_RESULT_UNAVAILABLE', message: 'private diagnostic' } },
+        { status: 503 },
+      ),
+    )
+    await expect(
+      call(s, 'backtest.result.get', { runId: RUN, field: 'trades' }),
+    ).rejects.toMatchObject({ code: 'LIVE_RESULT_UNAVAILABLE' })
+    expect(s.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('bounds benchmark points and validates result availability metadata', async () => {
+    const s = setup()
+    s.fetch.mockResolvedValueOnce(
+      envelope({
+        ...chart,
+        benchmark: {
+          standard_symbol: 'SPX',
+          points: Array.from({ length: 3 }, () => ({ ts: '2026-01-02', equity: 100 })),
+        },
+      }),
+    )
+    await expect(call(s, 'backtest.chart.get', { runId: RUN, maxPoints: 2 })).rejects.toMatchObject(
+      { code: 'INVALID_RESPONSE' },
+    )
+    s.fetch.mockResolvedValueOnce(envelope({ ...resultPage, available_from: -1 }))
+    await expect(
+      call(s, 'backtest.result.get', { runId: RUN, field: 'trades' }),
+    ).rejects.toMatchObject({ code: 'INVALID_RESPONSE' })
+  })
 
   it('keeps list pagination honest for offset slices and recent backtests', async () => {
     const s = setup()

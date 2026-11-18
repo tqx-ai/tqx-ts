@@ -8,9 +8,101 @@ import {
   BacktestParametersSchema,
   FactorAnalysisParamsInputSchema,
   ListResearchInputSchema,
+  FactorTuningInputSchema,
+  ResultPageSchema,
+  BacktestChartSchema,
+  FactorSchema,
+  StrategySchema,
 } from '../src/research/schemas'
+import * as v from 'valibot'
 
 describe('Qube Next research schemas', () => {
+  it.each([FactorSchema, StrategySchema])('preserves pending configuration drafts', (schema) => {
+    const base = {
+      id: '507f1f77bcf86cd799439011',
+      title: 'Saved settings',
+      market: 'us',
+      code_type: 'python',
+      source_revision: 2,
+      config_revision: 3,
+      parameters: {},
+    }
+    expect(v.parse(schema, base)).not.toHaveProperty('parameters_draft')
+    for (const draft of [null, {}, { backtest: { period_start: '2026-01-01' } }]) {
+      expect(v.parse(schema, { ...base, parameters_draft: draft }).parameters_draft).toEqual(draft)
+    }
+    for (const draft of [[], 'pending', false]) {
+      expect(v.safeParse(schema, { ...base, parameters_draft: draft }).success).toBe(false)
+    }
+  })
+
+  it.each(['HSI.HK', 'HSCE.HK', 'HSTECH.HK', 'SPX', 'IXIC', 'NDX', 'DJI'])(
+    'accepts the %s pool and benchmark',
+    (symbol) => {
+      expect(
+        parseResearchInput(FactorAnalysisParamsInputSchema, { stockPool: symbol }).stockPool,
+      ).toBe(symbol)
+      expect(
+        parseResearchInput(BacktestParametersSchema, { standardSymbol: symbol }).standardSymbol,
+      ).toBe(symbol)
+      expect(
+        parseResearchInput(FactorTuningInputSchema, {
+          requestId: 'tuning-1',
+          expectedSourceRevision: 1,
+          expectedConfigRevision: 1,
+          candidates: [{ baseline: true }, { parameters: { stockPool: symbol } }],
+          researchPeriod: { periodStart: '2026-01-01', periodEnd: '2026-02-01' },
+          warmupTradingDays: 0,
+        }).candidates[1]?.parameters?.stockPool,
+      ).toBe(symbol)
+    },
+  )
+  it('rejects unsupported pools, benchmarks and malformed partial metadata', () => {
+    expect(() =>
+      parseResearchInput(FactorAnalysisParamsInputSchema, { stockPool: 'unknown' }),
+    ).toThrow('Invalid SDK input')
+    expect(() => parseResearchInput(BacktestParametersSchema, { standardSymbol: 'all' })).toThrow(
+      'Invalid SDK input',
+    )
+    const page = {
+      rows: [],
+      total: 0,
+      offset: 0,
+      limit: 10,
+      has_more: false,
+      partial: true,
+      available_from: 3,
+      available_total: 8,
+    }
+    expect(v.parse(ResultPageSchema, page)).toEqual(page)
+    expect(v.safeParse(ResultPageSchema, { ...page, available_total: -1 }).success).toBe(false)
+    expect(v.safeParse(ResultPageSchema, { ...page, partial: 'true' }).success).toBe(false)
+  })
+  it('preserves and validates benchmark curves and partial chart state', () => {
+    const chart = {
+      run_id: '507f1f77bcf86cd799439011',
+      range: { from: null, to: null },
+      extent: { from: null, to: null },
+      points: [],
+      source_count: 0,
+      total_count: 0,
+      sampled: false,
+      trade_days: [],
+      partial: true,
+      complete: false,
+      benchmark: {
+        standard_symbol: 'NDX',
+        points: [{ ts: '2026-01-02T14:30:00Z', equity: null, break_before: true }],
+      },
+    }
+    expect(v.parse(BacktestChartSchema, chart)).toEqual(chart)
+    expect(
+      v.safeParse(BacktestChartSchema, {
+        ...chart,
+        benchmark: { standard_symbol: 'NDX', points: [{ ts: '2026-01-02', equity: '100' }] },
+      }).success,
+    ).toBe(false)
+  })
   it.each([
     ['2021-01-01', '2026-01-01'],
     ['2020-02-29', '2025-02-28'],

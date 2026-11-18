@@ -23,6 +23,7 @@ export type StrategyMessageKey =
   | 'data_get_forbidden'
   | 'forbidden_builtin'
   | 'forbidden_dependency'
+  | 'tqx_data_import_forbidden'
   | 'future_now_used_as_trade_date'
   | 'future_order_on_continuous_symbol'
   | 'future_order_call_outside_handle_data'
@@ -151,6 +152,11 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
       '代码出现了被禁用的依赖 `{forbidden}` —— 策略只能用 panda_backtest / panda_data / pandas / numpy，不能外发网络 / 读写 mongo / sleep',
     en: 'Forbidden dependency `{forbidden}` — strategies may only use panda_backtest / panda_data / pandas / numpy; no network / mongo / sleep',
   },
+  tqx_data_import_forbidden: {
+    'zh-CN':
+      'UNSAFE_IMPORT：策略源码不支持导入 tqx_data；请使用所选市场的公开 panda_backtest.api 接口。',
+    en: "UNSAFE_IMPORT: strategy source must not import tqx_data; use the selected market's public panda_backtest.api interfaces.",
+  },
   future_now_used_as_trade_date: {
     'zh-CN': '第 {lineno} 行把 `context.now` 当成交易日使用；请改用 `context.trade_date`。',
     en: 'Line {lineno}: uses `context.now` as the trading date; use `context.trade_date` instead.',
@@ -197,8 +203,8 @@ const MESSAGES: Record<StrategyMessageKey, Record<StrategyLocale, string>> = {
     en: '{market_label} strategies must not mix A-share .SH/.SZ symbols.',
   },
   hk_us_forbidden_panda_data: {
-    'zh-CN': '港美股策略禁止使用 panda_data，请用 stock_api_quotation / tqx_data。',
-    en: 'HK/US strategies must not use panda_data; use stock_api_quotation / tqx_data.',
+    'zh-CN': '港美股策略禁止使用 panda_data，请用所选市场的 stock_api_quotation。',
+    en: "HK/US strategies must not use panda_data; use the selected market's stock_api_quotation.",
   },
   hk_us_forbidden_stock_api_import: {
     'zh-CN':

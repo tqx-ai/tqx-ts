@@ -18,12 +18,21 @@ export const status = v.picklist([
   'failed',
   'cancelled',
 ])
+export const tuningStatus = v.picklist([
+  'queued',
+  'running',
+  'cancelling',
+  'succeeded',
+  'failed',
+  'cancelled',
+  'no_valid_candidates',
+])
 const codeType = v.picklist(['python', 'formula'])
 const code = v.pipe(
   v.string(),
   v.check((s) => new TextEncoder().encode(s).length <= 1_048_576, 'Code exceeds 1 MiB'),
 )
-const date = v.pipe(
+export const date = v.pipe(
   v.string(),
   v.regex(/^\d{4}-\d{2}-\d{2}$/),
   v.check((s) => {
@@ -56,7 +65,7 @@ const title = v.pipe(
   ),
 )
 const name = v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(120))
-const origin = v.strictObject({
+export const origin = v.strictObject({
   sessionId: v.pipe(text(128), v.minLength(1)),
   chatRunId: v.pipe(text(128), v.minLength(1)),
 })
@@ -94,7 +103,22 @@ export const analysisParameters = v.pipe(
     adjustmentCycle: v.optional(v.picklist([1, 3, 5, 10, 20, 30])),
     groupNumber: v.optional(v.picklist([3, 5, 10, 20])),
     factorDirection: v.optional(v.picklist([1, -1])),
-    stockPool: v.optional(v.picklist(['沪深全A', '沪深300', '中证500', '中证1000'])),
+    stockPool: v.optional(
+      v.picklist([
+        '沪深全A',
+        '沪深300',
+        '中证500',
+        '中证1000',
+        'all',
+        'HSI.HK',
+        'HSCE.HK',
+        'HSTECH.HK',
+        'SPX',
+        'IXIC',
+        'NDX',
+        'DJI',
+      ]),
+    ),
     marketType: v.optional(v.literal('主力')),
   }),
   v.check(
@@ -110,7 +134,21 @@ export const backtestParameters = v.pipe(
     commissionRate: v.optional(v.pipe(finite, v.minValue(0))),
     slippage: v.optional(v.pipe(finite, v.minValue(0))),
     frequency: v.optional(v.picklist(['1d', '1M'])),
-    standardSymbol: v.optional(v.picklist(['sse_composite', 'csi300', 'csi500', 'csi1000'])),
+    standardSymbol: v.optional(
+      v.picklist([
+        'sse_composite',
+        'csi300',
+        'csi500',
+        'csi1000',
+        'HSI.HK',
+        'HSCE.HK',
+        'HSTECH.HK',
+        'SPX',
+        'IXIC',
+        'NDX',
+        'DJI',
+      ]),
+    ),
     marginRate: v.optional(revision),
   }),
   v.check(
@@ -132,8 +170,10 @@ const filterTime = (s: string, end: boolean) =>
 export function validRange(s: { from?: string; to?: string }) {
   return !s.from || !s.to || filterTime(s.from, false) < filterTime(s.to, true)
 }
-export function searchInput(kind: 'factor' | 'strategy', versions = false) {
-  const statusEntries: v.ObjectEntries = versions ? {} : { status: v.optional(status) }
+export function searchInput(kind: 'factor' | 'strategy', versions = false, tuning = false) {
+  const statusEntries: v.ObjectEntries = versions
+    ? {}
+    : { status: v.optional(tuning ? tuningStatus : status) }
   return v.pipe(
     v.strictObject({
       ...searchEntries,
@@ -350,6 +390,15 @@ export function resourceOutput(kind: 'factor' | 'strategy', detail = false, sour
   const detailEntries: v.ObjectEntries = detail
     ? {
         parameters: jsonObject,
+        parametersDraft: v.optional(
+          v.nullable(
+            v.pipe(
+              v.unknown(),
+              v.check((value) => !Array.isArray(value), 'Expected a parameter draft object'),
+              jsonObject,
+            ),
+          ),
+        ),
         validation: optionalObject,
         parameterValidation: optionalObject,
         codeSha256: v.optional(v.nullable(v.string())),
@@ -429,6 +478,13 @@ export const recentOutput = v.object({
   possiblyTruncated: v.boolean(),
 })
 export function resultOutput(factor: boolean) {
+  const completeness: v.ObjectEntries = factor
+    ? {}
+    : {
+        partial: v.optional(v.boolean()),
+        availableFrom: v.optional(integer),
+        availableTotal: v.optional(integer),
+      }
   return v.object({
     [factor ? 'analysisId' : 'runId']: id,
     field: factor ? factorResultField : resultField,
@@ -438,6 +494,7 @@ export function resultOutput(factor: boolean) {
     limit: v.pipe(revision, v.maxValue(500)),
     hasMore: v.boolean(),
     nextOffset: v.optional(integer),
+    ...completeness,
   })
 }
 const range = v.object({ from: v.nullable(v.string()), to: v.nullable(v.string()) })
@@ -465,6 +522,19 @@ export const chartOutput = v.object({
   ),
   dateAnchors: v.optional(v.array(v.object({ day: v.string(), from: v.string(), to: v.string() }))),
   complete: v.optional(v.nullable(v.boolean())),
+  partial: v.optional(v.boolean()),
+  benchmark: v.optional(
+    v.object({
+      standardSymbol: v.string(),
+      points: v.array(
+        v.object({
+          ts: v.string(),
+          equity: v.nullable(finite),
+          breakBefore: v.optional(v.boolean()),
+        }),
+      ),
+    }),
+  ),
 })
 export function versionOutput(kind: 'factor' | 'strategy', detail = false) {
   const detailEntries: v.ObjectEntries = detail

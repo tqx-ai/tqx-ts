@@ -2,7 +2,7 @@
 
 Command: `tqx`. Releases: `https://github.com/tqx-ai/tqx-ts/releases` (standalone binaries plus
 `SHA256SUMS`). npm fallback package: `@tqx-ai/cli` (needs Node.js 22.18+). API keys:
-`https://www.tqx.ai/user-center?tab=ai-accounts`.
+`https://www.tqx.ai/user-center?tab=dev-settings`.
 
 This file is the single source for installing, updating, verifying, and repairing the TQX CLI and
 the four TQX Skills. It is
@@ -298,9 +298,12 @@ tqx status --json
 do not need it again. Use the process variable `TQX_API_KEY` instead only for a one-off isolated task
 or when the user does not want the key stored. Never repeat the full key in replies.
 
-If there is no key, ask the user to sign in at `https://www.tqx.ai/user-center?tab=ai-accounts`, create a
-competition instance there, and paste the generated API key
-into the conversation.
+If there is no key, ask the user to create one at
+`https://www.tqx.ai/user-center?tab=dev-settings` with permissions for the requested task.
+Qube research uses Research permissions and needs no trading Agent binding or competition
+instance. Trading keys must be linked to the intended trading Agent; for a competition request,
+follow the trading Skill's competition onboarding. Receive the key through the conversation or
+protected secret input and keep it out of replies and logs.
 
 ## Step 7: First connection check
 

@@ -65,3 +65,13 @@ for await (const event of client.research.streamBacktest(runId, { signal: contro
   console.log(event.seq, event.value.status)
 }
 ```
+
+## Saved configuration and temporary runs
+
+For ordinary runs, use `updateFactor(id, {baseConfigRevision, parameters})` or `updateStrategy(id, {baseConfigRevision, backtest})` to persist requested settings. Inspect returned `parameters`, `parameter_validation` and `parameters_draft`; validation must be valid for the returned `config_revision` with no draft. Use `getFactor`/`getStrategy` when necessary evidence is missing. Submit with the returned source/configuration revisions and omit analysis `parameters` or strategy `backtest`. Explicit temporary overrides remain supported and do not save settings. See [the workflow](workflow.md).
+
+Factor analysis `stockPool` accepts `all` and the market's index identifiers. Backtest `standardSymbol` accepts same-market benchmarks: HK `HSI.HK`, `HSCE.HK`, `HSTECH.HK`; US `SPX`, `IXIC`, `NDX`, `DJI`. Saved/server parameter fields remain snake_case.
+
+Backtest result pages retain optional `partial`, `available_from`, `available_total`; charts retain `partial`, `complete` and optional `benchmark: {standard_symbol, points}`. These fields can describe running or empty artifacts. A missing benchmark is not a zero return. Preserve status, pagination and snapshot metadata when interpreting results.
+
+Factor and strategy resource schemas explicitly retain optional nullable `parameters_draft`. Source and parameter validation are separate; static validity does not establish successful execution. The optional local source validator rejects direct `tqx_data` imports to match current Qube; select `panda_backtest` public APIs for strategy history.

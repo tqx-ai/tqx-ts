@@ -1,94 +1,36 @@
 ---
 name: tqx-research
-description: Use TQX Qube's Hong Kong and US stock investment research infrastructure, including CLI installation and API-key onboarding, @tqx-ai/cli, @tqx-ai/sdk, factors, factor analysis, strategies, backtesting, panda_backtest market API, tqx_data in Qube strategy source, time-series strategies, cross-sectional strategies, and Qube simulation or agent decision-support environments. Use when users mention Qube, TQX Agent Quant, tqx research, Research API, factor analysis, strategy backtesting, Hong Kong or US stock strategies, tqx_data in a strategy, or Qube Python strategy code. Do not use for trading balances, positions, orders, fills, PAPER/LIVE trading accounts, the local tqx-data Python package or a TQX data account (use tqx-data), mainland China stocks, futures, or the old QuantFlow workflow.
+description: Use when the user wants HK/US Qube factors, analyses, Python strategy source, backtests, versions, or parameter tuning through the TQX CLI/SDK. Local Python market data belongs to tqx-data; PAPER/LIVE accounts and orders belong to tqx-trading.
 ---
 
 # TQX Research
 
-## System boundary
-
-Treat Qube as TQX's research system, not its trading system. Qube supports investment research, strategy development, and research-side decision support for a local agent. Do not use Qube commands to query trading balances, positions, orders, or fills, or to place, modify, or cancel orders.
-
-If Qube provides a simulation environment, treat it as research and decision support for a local agent. Do not describe it as a trading account or as executing real trades. Keep it distinct from the trading system's `PAPER` simulated account and `LIVE` real-money account; route those account-based workflows to [`tqx-trading`](../tqx-trading/SKILL.md).
-
-## Tool and credential handling
-
-- Default to non-browser tools for Qube/TQX endpoints, API documentation, and links in this Skill: use `@tqx-ai/cli` or `@tqx-ai/sdk`, and when a direct HTTP request is required, use `curl`, `Invoke-RestMethod`, or another non-browser fetch client. Do not reach for a browser or browser-use capability on your own. Exceptions: when the user explicitly asks to view something in a browser, or as a last resort for a human-only documentation page that has no machine-readable equivalent obtainable by non-browser means.
-- Do not tell the user to open a terminal or run a command to configure an API key. Ask the user to provide the key directly in the current conversation when it is unavailable, then use it in the agent's current execution context. Acknowledge receipt without quoting it.
-- Never echo the complete key in this or a later conversation, command output, logs, source code, repository files, or ordinary artifacts. Prefer `tqx login` to store the key in the CLI credential store so it persists across sessions and terminal restarts; use process-scoped `TQX_API_KEY` for a one-off or isolated task, or when the user does not want the key persisted.
-
-## Get an API key
-
-When the user does not have an API key, tell them to complete these steps in the TQX web app:
-
-1. [Open AI accounts](https://www.tqx.ai/user-center?tab=ai-accounts). TQX currently supports live accounts from Huatai, Panda Securities, and Tiger, along with TQX simulation accounts.
-2. Create a competition instance from the AI accounts page.
-
-After the competition instance is created, ask the user to provide the generated API key directly in the current conversation. Do not ask them to paste it into source code, public logs, or a repository.
-
-TQX Research has two well-defined layers:
-
-- **Resource management and execution**: Use `@tqx-ai/cli` or `@tqx-ai/sdk` published by `tqx-ts` to access the `/tqxApi` gateway with an API key. Do not use the Python `tqx-cli`, account/password login, session tokens, or `workflow_*`.
-- **Strategy runtime and data research**: `panda_backtest` and `tqx_data` remain available in Qube Python strategy source. They are not replacements for the TypeScript Research client; they are domain infrastructure that must be verified when generating, reviewing, and running strategies.
-
-## Install, update, or repair the CLI
-
-Before a CLI task, and whenever `tqx` is missing, outdated, or failing before it returns API JSON, open [`references/install.md`](references/install.md) and follow it from Step 1. It has the copy-paste install commands for every platform (the standalone binary needs no Node.js), the `tqx self-update` path, installing the four TQX Skills, authentication, and a symptom-to-fix troubleshooting table. Do not assemble installation steps from other files or from memory. When this Skill was fetched from a URL, read the same protocol at `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md`.
+Use `tqx research` or `TqxClient.research` for Qube resources. API-key requests use a gateway ending in `/tqxApi`. Python source runs inside Qube using the selected market's `panda_backtest` APIs. Native data references describe underlying fields; current strategy validation rejects direct `tqx_data` imports. Qube simulation is research, separate from PAPER/LIVE trading accounts.
 
 ## Read by task
 
-- Installing, updating, or troubleshooting the CLI: read [Install protocol](references/install.md).
-- All CLI operations, authentication, parameters, status and output: read [Commands Reference](references/commands.md).
-- Writing Node.js/TypeScript integrations, confirming SDK types, or polling: read [SDK reference](references/sdk.md).
-- Generate or modify factor source code: first read [Factor Creation Guide](references/factor-creation.md), then read the local [Factor Operators](references/factor-operators.md) and the data/code docs from the authoritative factor references.
-- Generate or modify strategy source code: first read [Strategy Templates](references/strategy_templates.md), then read the corresponding [Hong Kong Stock API](references/stock_hk_api.md) or [US Stock API](references/stock_us_api.md) corresponding to the market.
-- Generate time-series strategies: also read [Time-Series Strategies](references/time_series_strategies.md).
-- Generate cross-sectional strategies, dynamic stock universes, or fundamental filters: also read [Cross-Sectional Strategies](references/cross_sectional_strategies.md).
-- When strategy code calls `tqx_data` directly, read [Quick Reference](references/tqx_data_quick_reference.md), [Market Matrix](references/tqx_data_market_matrix.md), and the complete [Data API](references/tqx_data_usage.md) in that order. The full API reference is the sole authority for fields, parameters, and market restrictions. Qube strategies may call only the methods that the Quick Reference lists as available; for data outside that list, use [`tqx-data`](../tqx-data/SKILL.md) locally instead of adding the call to strategy source.
-- To confirm the CLI's local source inspection boundaries, read [Strategy Source Constraints](references/strategy-source.md).
+Start with the matching task. Read additional references only when its task requires them; do not preload the reference directory or both market frameworks.
 
-## How to work
+- Install, update, or repair the CLI: [Install protocol](references/install.md).
+- API key or first connection: [Authentication](references/authentication.md).
+- List, read, edit, run, or restore through the CLI: Relevant section of [commands](references/commands.md); [workflow](references/workflow.md) for mutations or runs.
+- TypeScript integration: [SDK](references/sdk.md); workflow for mutations or runs.
+- Generate a factor: [Factor creation](references/factor-creation.md), then only needed [operators](references/factor-operators.md) and field definitions.
+- Generate a strategy: [Template guide](references/strategy_templates.md), [quality](references/strategy-quality.md), and either [HK](references/stock_hk_api.md) or [US](references/stock_us_api.md).
+- Change engine settings or bind a factor: [Backtest parameters](references/backtest-parameters.md) or [factor timing](references/factor-driven.md).
+- Add time-series or cross-sectional logic: [Time-series](references/time_series_strategies.md) or [cross-sectional](references/cross_sectional_strategies.md).
+- Resolve a data field, symbol or coverage question: [Data index](references/tqx_data_usage.md), then the exact method section.
 
-1. Confirm the market is `hk` or `us`, and distinguish between factor definition, factor analysis, strategy definition, strategy backtesting and local source code generation. Resource IDs are lowercase 24-character Mongo ObjectIds.
-2. When only generating source code, research designs or command drafts, no authentication, no remote resources creation, no analysis or backtesting are performed.
-3. `create`, `update`, `run`, `stop`, and `delete` all have remote side effects. Run them only when explicitly requested by the user; deletion requires `--yes`.
-4. Before a remote operation, confirm that an API key is available and that the Research gateway's `TQX_BASE_URL` (or build-time default) ends with `/tqxApi`. Use a key supplied in the current conversation directly from the agent context; never output API keys, persistent credentials, or environment variable values.
-5. Keep the `factor_id` / `strategy_id` in the create response and the `analysis_id` / `run_id` in the run response. `SUBMITTED`, `PENDING`, `RUNNING`, `FAILED`, `CANCELLED`, `TIMEOUT` are not completed successfully; only `SUCCESS` of CLI corresponds to server `succeeded`.
-6. Use `--json` for machine-readable stdout; error JSON is written to stderr. List commands omit source code by default; use `--includeContent` to request it.
+The template guide links complete source examples when needed. [Local validator boundaries](references/strategy-source.md) apply only when inspecting source locally. For local Python queries outside Qube, use [tqx-data](../tqx-data/SKILL.md); trading operations use [tqx-trading](../tqx-trading/SKILL.md).
 
-## Research Quality Boundary
+## Work and verify
 
-- The CLI and SDK validate only client input, transport, and some source constraints. They cannot prove that a strategy is executable, that the data is correct, that it is free of look-ahead bias, or that a backtest is tradable.
-- Historical research using `tqx_data` must follow point-in-time visibility, announcement dates, and market-parameter constraints; it is not a Python CLI or an authentication mechanism.
-- For analysis or backtest conclusions, report the actual inputs, resource/run IDs, terminal states, service response data, time range, cost assumptions, and unvalidated risks. Do not present backtest results as investment advice.
+Infer `hk` or `us` from the request, asking only if unresolved. Source/design-only requests need no credentials or remote resources. Perform mutations only within the requested task; deletion requires `--yes`. Prefer CLI/SDK and non-browser HTTP clients. Use available credentials without exposing them in replies, logs, source or ordinary files; read authentication guidance when setup is needed.
 
-## Bug reporting
+For ordinary analyses/backtests, save requested settings first, verify saved values, matching valid source/configuration validation and no `parameters_draft`, then submit with the returned revisions and no run overrides. Explicit temporary overrides do not persist. Follow the workflow for conflicts, retries, versions and tuning.
 
-When a reproducible TQX/Qube product defect is found during a coding-agent task, use the bug-report interface to proactively send a complete diagnostic report when the user has asked to investigate, fix, or report the defect. If the task does not authorize an external report, prepare the report and ask for confirmation before submitting it.
+Keep returned IDs, revisions and request receipts. Poll the same run to a terminal state; timeout, empty partial results or a missing benchmark do not justify a fresh submission or a zero-return claim. CLI `SUCCESS` corresponds to server `succeeded`; other states are not successful completion. Use `--json`, including JSON errors on stderr.
 
-```text
-tqx bug report --title="Short title" --desc="Steps to reproduce, environment, complete response, and request_id" --json
-```
+Report the highest evidence reached: source supplied, resource saved, run submitted, completed, or results reviewed. For findings, inspect actual parameters, dates, source snapshots, costs and data coverage. Validation does not prove execution or freedom from look-ahead bias. Do not claim a Qube workbench opened.
 
-The command accepts a title and Markdown description. Do not add undocumented flags or fields.
-
-Make the description as detailed as possible so developers can reproduce and fix the issue quickly. Include the complete input parameters and complete response result, preserving the original field names and values, along with the reproduction steps and environment.
-
-## Remote file
-
-When the user provides only a remote `SKILL.md`, continue by reading the raw reference files from the same revision. Keep the following paths stable:
-
-- `references/install.md`
-- `references/commands.md`
-- `references/strategy_templates.md`
-- `references/stock_us_api.md`
-- `references/stock_hk_api.md`
-- `references/tqx_data_usage.md`
-- `references/time_series_strategies.md`
-- `references/cross_sectional_strategies.md`
-- `references/tqx_data_quick_reference.md`
-- `references/tqx_data_market_matrix.md`
-- `references/sdk.md`
-- `references/strategy-source.md`
-
-If a reference required for the task cannot be read, stop and explain what is missing. Do not guess CLI parameters, SDK methods, Python runtime APIs, or data fields.
+When loaded remotely, resolve referenced files from the same revision. If a required contract is unavailable, explain the missing dependency before dependent generation or execution.

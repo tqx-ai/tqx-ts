@@ -1,6 +1,6 @@
 ---
 name: tqx-setup
-description: Use when the user needs to connect, authorize, diagnose, or verify the TQX MCP server, or when the user's request is ambiguous and they need help determining whether it belongs to setup, trading, market data, research, or another TQX capability. Covers Streamable HTTP, OAuth discovery, Auto/CIMD/DCR registration, client metadata failures, post-auth verification, tqx_submit_bug_report, and the prepare_bug_report prompt. Do not use this Skill for CLI or SDK development, or for clearly scoped tqx-data or trading operations.
+description: Use when the user needs to connect, authorize, diagnose, or verify the TQX MCP server, or when the user's request is ambiguous and they need help determining whether it belongs to setup, trading, market data, research, or another TQX capability. Covers Streamable HTTP, OAuth discovery, Auto/CIMD/DCR registration, client metadata failures, post-auth verification, tqx_submit_bug_report, and the prepare_bug_report prompt. Do not use this Skill for CLI or SDK development, or for clearly scoped tqx-data, research or trading operations.
 ---
 
 # TQX MCP Setup
@@ -111,9 +111,9 @@ time, request ID, and the exact title and Markdown description that were sent.
   `tqx-trading`.
 - Historical and reference market data through the local Python package: use the
   separate `tqx-data` Skill. It is not an MCP capability.
-- Investment research, factor analysis, strategy creation, or backtesting: report
-  that this plugin currently does not provide that capability. Do not invent an
-  MCP tool or route the request to trading tools.
+- Investment research, factor analysis, strategy creation, backtesting or parameter tuning:
+  use [tqx-research](../tqx-research/SKILL.md). Research scopes are independent of
+  trading Agent binding; do not require trading account selection for research-only use.
 - CLI, SDK, or local package development: outside this plugin Skill.
 
 ## Response Format

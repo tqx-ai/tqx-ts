@@ -8,7 +8,7 @@ Use the TypeScript Qube client for remote resources and the documented Qube Pyth
 
 1. Read `SKILL.md` and every task-routed reference before generating strategy code or constructing a CLI/SDK request.
 2. Use `tqx` from `@tqx-ai/cli` or `TqxClient` from `@tqx-ai/sdk` for authentication and Qube factor, strategy, analysis, and backtest resources. Do not use Python `tqx-cli`, legacy workflow commands, session files, tokens, or password login.
-3. Treat `panda_backtest` and `tqx_data` as documented Qube runtime/data dependencies, not as replacements for the TypeScript resource client. Verify all runtime APIs and data fields in their reference before use.
+3. Use the selected market's public `panda_backtest` API in strategy source. Native `tqx_data` documentation is a data/field reference; latest Qube source validation rejects direct `tqx_data` imports. Verify runtime APIs and fields before use.
 4. Require explicit user intent for create, update, run, stop, or delete. Require `--yes` for a CLI delete.
 5. Keep API keys secret. Resolve them through `TQX_API_KEY` or the CLI credential store; do not print or persist them in generated artifacts.
 6. Default to non-browser tools for TQX/Qube endpoints or links: use the CLI, SDK, `curl`, `Invoke-RestMethod`, or another non-browser fetch client, and do not reach for a browser or browser-use capability on your own. Exceptions: when the user explicitly asks for a browser, or as a last resort for a human-only documentation page with no machine-readable equivalent obtainable by non-browser means.

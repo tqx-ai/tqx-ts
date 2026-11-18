@@ -1,95 +1,28 @@
 ---
 name: tqx-data
-description: Use when the user needs Hong Kong or US market, reference, company, event, financial-statement, daily-bar, or tick data from the local Python tqx-data package, including API-key setup and typed errors. Do not use for the TQX CLI, Qube runtime, trading MCP tools, or undocumented methods.
+description: Use when the user needs Hong Kong or US market data through the local Python tqx-data package, including setup, daily prices, fundamentals, financial statements and tick streams. Qube research and trading accounts use their separate Skills.
 ---
 
 # TQX Data
 
-## Scope and boundaries
+Use the local PyPI package `tqx-data`. Its supported contract differs from Qube's embedded module and from trading tools. Route Qube factors, strategy source and backtests to [tqx-research](../tqx-research/SKILL.md), and accounts or orders to [tqx-trading](../tqx-trading/SKILL.md). Route MCP connection problems to [tqx-setup](../tqx-setup/SKILL.md).
 
-Use the local Python package `tqx-data` for Hong Kong and US daily, reference,
-calendar, event, company, consensus, financial-statement, and
-`TickStreamClient` data.
+## Load the contract needed for the request
 
-It is separate from `@tqx-ai/cli`, Qube's `tqx_data`, and trading MCP tools.
-Route accounts, positions, orders, fills, cash flows, and controls to
-`tqx-trading`; route MCP connection or OAuth problems to `tqx-setup`. Research
-MCP is not provided by this plugin.
+- Setup, API key, environment, helper `setup`/`login`/`run`: [authentication](references/authentication.md). Resolve `scripts/tqx_data_auth.py` relative to this Skill's directory; use its absolute path when the working directory is elsewhere.
+- A data request: read the matching [local API section](references/api-reference.md); check the installed `tqx_data.md` for version-specific fields and limits. Do not load unrelated method catalogs.
+- Historical analysis, event adjustments or ambiguous snapshots: [data quality](references/data-quality.md).
+- Typed API failures: [errors](references/errors.md).
+- Confusion with Qube: [local versus Qube](references/qube-vs-local.md).
 
-## Onboarding
+Confirm the requested market, symbols, period and fields from the task. Local methods normally use `market="hk"`/`"us"`, HK codes such as `0700.HK`, bare US codes such as `AAPL`, and `YYYYMMDD` dates. `TickStreamClient` uses uppercase `HK`/`US`. Do not import Qube-only methods or apply Qube engine symbol suffixes to local queries.
 
-The user needs a TQX Dev Settings API key with the `data` permission:
+Use available credentials in the agent context; never expose keys in replies, logs, command arguments or source. Request a key only when none is configured. Prefer process-scoped credentials for one-off work; use the helper when persistent setup is requested.
 
-`https://www.tqx.ai/user-center?tab=dev-settings`
+## Query and report
 
-Install in the user's Python environment and initialize explicitly or with
-environment variables. Use the base URL provided for the user's TQX environment:
+Request only the needed symbols and fields. Tabular methods return `pandas.DataFrame`; check symbols, dates, coverage, ordering, duplicates and nulls before calculations. `alt_close` equals `close` in this package and is not an adjusted price. Use corporate events explicitly for adjusted returns. Historical fundamentals require announcement-time visibility; undated snapshots are not historical observations.
 
-```bash
-python3 -m pip install --upgrade tqx-data
-export TQX_API_KEY="<api-key>"
-export TQX_API_BASE_URL="https://tqxdata.tqx.ai"
-```
+Handle `ApiKeyInvalidError`, `InsufficientScopeError`, `RateLimitError` and `ServiceError` as documented by the package. A missing method or unsupported market is not permission to switch interfaces. Report the method, non-secret parameters, package version, row count and limitations; preserve request IDs for failures without exposing raw authentication material.
 
-```python
-import tqx_data
-
-tqx_data.init(api_key="<api-key>", base_url="https://tqxdata.tqx.ai")
-```
-
-Never print, echo, commit, or include an API key in responses, command output,
-logs, source, or generated files. Ask only when the package reports no key is
-configured, and use it only in the current agent context. For persistent setup,
-the helper creates an isolated virtual environment, installs `tqx-data`, and
-stores credentials in the OS keychain when available, otherwise a `0600` file.
-
-```bash
-python3 scripts/tqx_data_auth.py setup
-python3 scripts/tqx_data_auth.py status
-python3 scripts/tqx_data_auth.py login <<'EOF'
-{"api_key":"<api-key>","base_url":"https://tqxdata.tqx.ai"}
-EOF
-python3 scripts/tqx_data_auth.py run analysis.py
-python3 scripts/tqx_data_auth.py info
-python3 scripts/tqx_data_auth.py logout
-```
-
-## Contract and query rules
-
-Read the installed `tqx_data.md` before requests. Use
-[api-reference](references/api-reference.md) for local methods,
-[qube-vs-local](references/qube-vs-local.md) for environment differences, and
-[api-comparison](references/api-comparison.md) for complete signatures. Do not
-invent undocumented methods, fields, defaults, or response shapes. Tabular
-methods return `pandas.DataFrame`; preserve columns and dtypes unless the user
-requests a presentation-only transformation.
-
-Before a request, confirm market, symbols, dates, fields, and current versus
-historical intent. Local methods use `market="hk"` or `"us"`, `.HK` symbols for
-Hong Kong, bare US symbols, and `YYYYMMDD` dates unless `tqx_data.md` says
-otherwise. `TickStreamClient` requires uppercase `HK` or `US`; use `us` in new
-requests and reserve `nb` for legacy compatibility.
-Use the narrowest method and field set that answers the question. Do not apply
-Qube's `.NB` symbol convention to local requests.
-
-After a request, verify symbols, dates, ordering, required fields, empty or
-duplicate rows, missing values, and stale snapshots. Apply
-[data-quality](references/data-quality.md), including point-in-time filters and
-event adjustments. For analysis, report the method, complete non-secret parameters,
-package version, row count, relevant columns, and limitations.
-
-## Errors and routing
-
-Classify typed failures with [errors](references/errors.md). Preserve the method,
-non-secret parameters, package version, HTTP status, and request ID; never expose
-raw bodies, API keys, or stack traces.
-
-For data defects, record the method, complete non-secret parameters, version
-from `info`, a complete bounded response sample, and the expected result. Use the
-user's language while preserving API fields, identifiers, code, logs, and values.
-
-For remote loading, fetch helper, references, and assets from the same revision;
-never substitute another branch or Qube-only research references. Qube runtime,
-factors, strategy source, strategy definitions, and backtests are outside this
-Skill. Report unsupported methods as outside the package contract instead of
-falling back to another TQX surface.
+For remote loading, fetch the helper and required references from the same revision. Source-only methods absent from `tqx_data.md` are outside the supported local contract.

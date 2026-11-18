@@ -146,7 +146,7 @@ look up the relevant signal or order before taking another action.
 
 - Setup or OAuth problems: use `tqx-setup`.
 - Historical/reference data: use `tqx-data`.
-- Investment research, factor analysis, strategy creation, or backtesting: not
-  provided by this plugin's current MCP surface.
+- Investment research, factor analysis, strategy creation or backtesting: use
+  [tqx-research](../tqx-research/SKILL.md).
 - Account, position, order, trade, cash-flow, and activity operations: use this
   Skill.

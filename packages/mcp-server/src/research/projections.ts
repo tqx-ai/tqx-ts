@@ -34,6 +34,7 @@ export function resource(raw: Input, kind: ResourceKind, includeSource = false):
       source_revision: 'sourceRevision',
       config_revision: 'configRevision',
       parameters: 'parameters',
+      parameters_draft: 'parametersDraft',
       validation: 'validation',
       parameter_validation: 'parameterValidation',
       code_sha256: 'codeSha256',
@@ -54,7 +55,7 @@ export function resource(raw: Input, kind: ResourceKind, includeSource = false):
       : {}),
   }
 }
-function publicRunError(value: unknown) {
+export function publicRunError(value: unknown) {
   if (value === null || value === undefined) return value
   const code = typeof value === 'object' && !Array.isArray(value) ? object(value).code : undefined
   return {
@@ -271,6 +272,11 @@ export function backtestResults(raw: Input, input: Input) {
     limit: raw.limit,
     hasMore: raw.has_more,
     ...(raw.has_more ? { nextOffset: Number(raw.offset) + rows.length } : {}),
+    ...fields(raw, {
+      partial: 'partial',
+      available_from: 'availableFrom',
+      available_total: 'availableTotal',
+    }),
   }
 }
 export function chart(raw: Input) {
@@ -283,11 +289,22 @@ export function chart(raw: Input) {
       total_count: 'totalCount',
       sampled: 'sampled',
       complete: 'complete',
+      partial: 'partial',
       date_anchors: 'dateAnchors',
     }),
     points: array(raw.points).map((row) =>
       fields(object(row), { ts: 'ts', equity: 'equity', break_before: 'breakBefore' }),
     ),
+    ...(raw.benchmark === undefined
+      ? {}
+      : {
+          benchmark: {
+            standardSymbol: object(raw.benchmark).standard_symbol,
+            points: array(object(raw.benchmark).points).map((row) =>
+              fields(object(row), { ts: 'ts', equity: 'equity', break_before: 'breakBefore' }),
+            ),
+          },
+        }),
     tradeDays: array(raw.trade_days).map((row) =>
       fields(object(row), {
         day: 'day',

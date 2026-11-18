@@ -12,6 +12,7 @@ import {
 } from './gateway'
 import * as p from './projections'
 import * as s from './schemas'
+import { tuningActions } from './tunings'
 
 export interface Action {
   name: string
@@ -74,11 +75,11 @@ const versionExample = (kind: p.ResourceKind) => ({
 const sourceNote =
   '默认不返回源码；get_source 或 includeSource=true 返回源码。market 仅限 hk/us。parameters 保留引擎字段，不能作为任意更新输入。'
 const runNote =
-  'queued/preparing/running 尚未完成。约每 2 秒 get 一次，限流时退避；仅 succeeded 后读取结果。failed/cancelled 时停止后续步骤。等待超时保留 ID，不自动取消远端任务。'
+  'queued/preparing/running 尚未完成。约每 2 秒 get 一次，限流时退避；因子结果仅 succeeded 后读取；回测结果/曲线允许读取空或部分产物，保留 partial 与可用范围。LIVE_RESULT_UNAVAILABLE 时退避重读同一 runId，不重新提交。failed/cancelled 时停止依赖成功的步骤。等待超时保留 ID，不自动取消远端任务。'
 const revisionNote =
   '先 get 当前 sourceRevision/configRevision，再提交。复用 requestId 仅重试完全相同的意图和输入；网络超时可能已经生效，先核实远端状态。revision 冲突时重新 get 后再决定，不自动覆盖。'
 const paramsNote =
-  '未传参数沿用上游保存配置与默认值。分析日期严格递增、最长五年；回测日频最长十年，1M 表示分钟频率、最长一年。stockPool/marketType/standardSymbol 是历史兼容枚举，不代表港美股专属池或基准；适用性由上游校验，不擅自替换。'
+  '未传参数沿用上游保存配置与默认值。分析日期严格递增、最长五年；回测日频最长十年，1M 表示分钟频率、最长一年。港股 stockPool 可用 all/HSI.HK/HSCE.HK/HSTECH.HK，美股可用 all/SPX/IXIC/NDX/DJI；默认 all。standardSymbol 使用对应市场的指数（不含 all），跨市场参数由上游拒绝。'
 function expectIdentity(raw: p.Input, key: string, expected: unknown) {
   if (raw[key] !== expected)
     throw new ResearchError('INVALID_RESPONSE', 'Research response identity mismatch')
@@ -237,7 +238,7 @@ for (const kind of ['factor', 'strategy'] as const) {
       `${kind}.${child}.get`,
       kind === 'factor' ? 'factor.analysis.result.get' : 'backtest.result.get',
     ],
-    notes: `${revisionNote} ${paramsNote} ${runNote} 响应 id 作为后续 ${runKey}，幂等重放可能直接返回终态。`,
+    notes: `${revisionNote} ${paramsNote} 普通运行先用 ${kind}.update 保存用户指定参数，核对 parameters、parameterValidation.status=valid 且 revision 对齐，确认没有 parametersDraft，再省略 ${kind === 'factor' ? 'parameters' : 'backtest'} 提交。只有明确临时试跑时才传单次覆盖；覆盖不会保存配置。${runNote} 响应 id 作为后续 ${runKey}，幂等重放可能直接返回终态。`,
     execute: async (request, input) => {
       const raw = await request({
         path: `${path(input)}/${children}`,
@@ -391,7 +392,7 @@ for (const kind of ['factor', 'strategy'] as const) {
       configRevision: 3,
     },
     related: [`${kind}.get`, `${kind}.${child}.submit`],
-    notes: `${revisionNote} ${paramsNote} 至少传一项变更；不修改源码。策略解除绑定传 factorBinding=null。`,
+    notes: `${revisionNote} ${paramsNote} 至少传一项变更；不修改源码。核对返回 parameters 与用户设置一致、parameterValidation.status=valid 且配置 revision 对齐，并确认没有 parametersDraft。保存失败或仍有草稿时先修正，不继续提交运行。策略解除绑定传 factorBinding=null。`,
     execute: async (request, input) => {
       const raw = await request({
         path: path(input),
@@ -428,7 +429,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     },
     exampleOutput: { ...resourceExample(kind), sourceRevision: 4 },
     related: [`${kind}.get_source`, `${kind}.validate`],
-    notes: `${revisionNote} 保存不自动校验或运行；继续 validate，再 submit。`,
+    notes: `${revisionNote} 保存不自动运行；检查回执 validation，缺失或不匹配当前 source revision/hash 时先 validate，再按保存配置 submit。`,
     execute: async (request, input) => {
       const raw = await request({
         path: `${path(input)}/source`,
@@ -672,15 +673,8 @@ add({
   },
   related: ['strategy.backtest.get', 'backtest.chart.get'],
   notes:
-    '先通过 strategy.backtest.get 确认 succeeded，再读取结果。keyword 可搜索结果行，symbol 仅用于 trades。hasMore=true 时使用 nextOffset。引擎行字段保持原值；account_summary 的 rows 为空或含一个对象，logs 保留日志行。数据属于回测产物，不是真实交易账户。',
+    '支持上游提供的阶段性结果。partial=true 表示尚不完整，availableFrom/availableTotal 描述当前可读窗口；空页不代表运行完成。LIVE_RESULT_UNAVAILABLE 时保留 runId 并退避重试读取。keyword 可搜索结果行，symbol 仅用于 trades。hasMore=true 时使用 nextOffset。引擎行字段保持原值；account_summary 的 rows 为空或含一个对象，logs 保留日志行。数据属于回测产物，不是真实交易账户。',
   execute: async (request, input) => {
-    const state = await request({ path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}` })
-    expectIdentity(state, 'id', input.runId)
-    const projected = p.run(state, 'strategy')
-    if (projected.status !== 'succeeded')
-      throw new ResearchError('RUN_NOT_READY', 'Backtest results require a successful run', {
-        status: projected.status,
-      })
     return p.backtestResults(
       await request({
         path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}/result`,
@@ -715,21 +709,18 @@ add({
   },
   related: ['strategy.backtest.get', 'backtest.result.get'],
   notes:
-    '先确认回测 succeeded。maxPoints 只限制净值 points，不限制 tradeDays/trades；响应超限时收窄 from/to。保留 sampled/sourceCount/totalCount/complete，不将抽样结果称为完整结果。不提供标的 K 线。',
+    '支持排队中、运行中及终态的可用曲线；partial=true 或 complete=false 时不得当作完整结果。LIVE_RESULT_UNAVAILABLE 时保留 runId 并退避重试读取。benchmark 保留基准指数和曲线。maxPoints 只限制净值 points，不限制 tradeDays/trades；响应超限时收窄 from/to。保留 sampled/sourceCount/totalCount/complete/partial，不将抽样结果称为完整结果。不提供标的 K 线。',
   execute: async (request, input) => {
-    const state = await request({ path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}` })
-    expectIdentity(state, 'id', input.runId)
-    const projected = p.run(state, 'strategy')
-    if (projected.status !== 'succeeded')
-      throw new ResearchError('RUN_NOT_READY', 'Backtest chart requires a successful run', {
-        status: projected.status,
-      })
     const raw = await request({
       path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}/chart`,
       query: { from: input.from, to: input.to, max_points: input.maxPoints },
     })
     expectIdentity(raw, 'run_id', input.runId)
-    if (array(raw.points).length > Number(input.maxPoints))
+    if (
+      array(raw.points).length > Number(input.maxPoints) ||
+      (raw.benchmark !== undefined &&
+        array(object(raw.benchmark).points).length > Number(input.maxPoints))
+    )
       throw new ResearchError('INVALID_RESPONSE', 'Chart exceeds maxPoints')
     return p.chart(raw)
   },
@@ -766,6 +757,8 @@ for (const create of [false, true])
           )
     },
   })
+
+for (const action of tuningActions) add(action)
 
 export const actions: ReadonlyMap<string, Action> = registry
 

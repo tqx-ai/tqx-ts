@@ -1,171 +1,100 @@
-# Factor Operators
+# Platform operators
 
-This page is the local authority for factor formula operators in this workspace.
-Use lowercase field names such as `close` and `volume`, and uppercase operator names.
+This reference covers 42 platform operators for Hong Kong and US equity factors. Python and formulas call operators by name with positional arguments. Python reads field series from `factors`, and formulas use uppercase field names.
 
-<Warning>
-`FUTURE_RETURNS(X, N)` is forbidden in factor formulas because it introduces look-ahead bias.
-</Warning>
+Keep the `(date, symbol)` index on inputs and the final result. Time windows count observations per symbol. Use positive integers for window lengths. Rolling windows include the current observation. Grouped operations can reorder rows by symbol, so align series by index before combining them.
 
-## Math operators
+## Cross-sectional ranking
 
-| Operator | Expression | Description |
-|---|---|---|
-| `ABS` | `ABS(X)` | Absolute value |
-| `LOG` | `LOG(X)` | Natural logarithm |
-| `EXP` | `EXP(X)` | Natural exponential |
-| `LOGABS` | `LOGABS(X)` | Natural logarithm of `abs(X)` |
-| `AS_FLOAT` | `AS_FLOAT(X)` | Convert a boolean series to `0.0` or `1.0` |
-| `RD` | `RD(X, N)` | Round to `N` decimals |
-| `SIGN` | `SIGN(X)` | Sign: `-1`, `0`, or `1` |
-| `SIN` | `SIN(X)` | Sine |
-| `COS` | `COS(X)` | Cosine |
-| `TAN` | `TAN(X)` | Tangent |
-| `ARCSIN` | `ARCSIN(X)` | Inverse sine |
-| `ARCCOS` | `ARCCOS(X)` | Inverse cosine |
-| `ARCTAN` | `ARCTAN(X)` | Inverse tangent |
-| `POWER` | `POWER(X, N)` | Raise `X` to a power |
-| `SIGNEDPOWER` | `SIGNEDPOWER(X, N)` | Signed power |
+| Operator  | Calculation and edge behavior                                                                                                                                                                                                                                                          |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RANK(X)` | Computes ascending percentile ranks across symbols on each date when the index has a `date` level. Ties receive average ranks, and missing ranks become `0`. Without a `date` level, ranks the whole input sequence. Use when cross-sectional ranking is part of the requested signal. |
 
-## Cross-sectional operators
+## Lags and returns
 
-| Operator | Expression | Description |
-|---|---|---|
-| `RANK` | `RANK(X)` | Cross-sectional percentile rank |
-| `SCALE` | `SCALE(X)` | Scale a cross-section to `[-1, 1]` |
-| `ZSCORE` | `ZSCORE(X)` | Cross-sectional z-score |
+| Operator                 | Calculation and edge behavior                                                                                                                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DELAY(X,N)`, `REF(X,N)` | Returns the value `N` observations earlier for the same symbol. Shifted missing values, including the initial history and missing source values, become `0`. The two operators currently behave alike. A positive `N` looks backward. |
+| `RETURNS(X,N)`           | Computes `X / DELAY(X,N) - 1`. The result can be infinite or missing when history is unavailable or the delayed value is zero.                                                                                                        |
+| `PCT_CHANGE(X,N)`        | Runs pandas `pct_change(N)` for each symbol and fills missing results with `0`. A zero denominator can still produce infinity.                                                                                                        |
+| `DIFF(X,N=1)`            | Computes the current value minus the value `N` observations earlier for the same symbol. Missing history remains missing.                                                                                                             |
 
-## Time-series operators
+Use `RETURNS` only as a call in a TQX formula, for example `RETURNS(CLOSE, 5)`.
 
-| Operator | Expression | Description |
-|---|---|---|
-| `CONST` | `CONST(X)` | Repeat the last value |
-| `BARSLAST` | `BARSLAST(X)` | Bars since last true |
-| `BARSLASTCOUNT` | `BARSLASTCOUNT(X)` | Consecutive true bars |
-| `REF` | `REF(X, N)` | Value `N` periods ago |
-| `DELAY` | `DELAY(X, N)` | Alias of `REF` |
-| `DIFF` | `DIFF(X, N)` | Difference from `N` periods ago |
-| `DELTA` | `DELTA(X, N)` | Alias of `DIFF` |
-| `MA` | `MA(X, N)` | Simple moving average |
-| `TS_MEAN` | `TS_MEAN(X, N)` | Alias of `MA` |
-| `SUM` | `SUM(X, N)` | Rolling sum |
-| `PRODUCT` | `PRODUCT(X, N)` | Rolling product |
-| `ROC` | `ROC(X, N)` | Percentage change from `N` periods ago |
-| `PCT_CHANGE` | `PCT_CHANGE(X, N)` | Alias of `ROC` |
-| `STD` | `STD(X, N)` | Rolling standard deviation |
-| `STDDEV` | `STDDEV(X, N)` | Alias of `STD` |
-| `VAR` | `VAR(X, N)` | Rolling variance |
-| `TS_MAX` | `TS_MAX(X, N)` | Rolling maximum |
-| `TS_MIN` | `TS_MIN(X, N)` | Rolling minimum |
-| `TS_MIDDLE` | `TS_MIDDLE(X, N)` | Midpoint of rolling max/min |
-| `TS_MAD` | `TS_MAD(X, N)` | Rolling mean absolute deviation |
-| `TS_RANK` | `TS_RANK(X, N)` | Percentile rank in window |
-| `TS_ARGMAX` | `TS_ARGMAX(X, N)` | Position of rolling max |
-| `TS_ARGMIN` | `TS_ARGMIN(X, N)` | Position of rolling min |
-| `HHV` | `HHV(X, N)` | Alias of `TS_MAX` |
-| `LLV` | `LLV(X, N)` | Alias of `TS_MIN` |
-| `HHVBARS` | `HHVBARS(X, N)` | Bars since rolling max |
-| `LLVBARS` | `LLVBARS(X, N)` | Bars since rolling min |
-| `COUNT` | `COUNT(X, N)` | Count true values |
-| `EVERY` | `EVERY(X, N)` | All values in window are true |
-| `EXIST` | `EXIST(X, N)` | Any value in window is true |
-| `BARSSINCEN` | `BARSSINCEN(X, N)` | Bars since first true in window |
-| `SLOPE` | `SLOPE(X, N)` | Rolling regression slope |
-| `ANGLE` | `ANGLE(X, N)` | Rolling regression angle |
-| `INTERCEPT` | `INTERCEPT(X, N)` | Rolling regression intercept |
-| `FORCAST` | `FORCAST(X, N)` | Rolling regression forecast |
-| `DECAYLINEAR` | `DECAYLINEAR(X, N)` | Linearly weighted average |
-| `TS_ZSCORE` | `TS_ZSCORE(X, N)` | Rolling z-score |
-| `TS_SKEW` | `TS_SKEW(X, N)` | Rolling skewness |
-| `TS_KURT` | `TS_KURT(X, N)` | Rolling kurtosis |
-| `TS_MEDIAN` | `TS_MEDIAN(X, N)` | Rolling median |
-| `AVEDEV` | `AVEDEV(X, N)` | Rolling mean absolute deviation |
-| `EMA` | `EMA(X, N)` | Exponential moving average |
-| `DMA` | `DMA(X, A)` | Dynamic moving average |
-| `WMA` | `WMA(X, N)` | Weighted moving average |
-| `RETURNS` | `RETURNS(X, N)` | Historical return from `N` periods ago |
-| `SHARPE` | `SHARPE(X, N)` | Rolling mean divided by rolling std |
-| `SUM_ABS_PRICE_CHANGE` | `SUM_ABS_PRICE_CHANGE(X, N)` | Rolling sum of absolute price changes |
-| `MEAN_ABS_PRICE_CHANGE` | `MEAN_ABS_PRICE_CHANGE(X, N)` | Rolling mean of absolute price changes |
-| `SMA` | `SMA(X, N, M)` | Chinese-style weighted moving average |
+Use positive integer lags to look back. Negative lags in `DELAY` or `REF` access future observations. For positive closing prices, `RETURNS(CLOSE, 5)` divides by zero at the first five observations per symbol, while `PCT_CHANGE(CLOSE, 5)` fills those results with `0`. Handle missing history and zero denominators according to the signal definition.
 
-## Comparison and conditional operators
+## Rolling time-series operators
 
-| Operator | Expression | Description |
-|---|---|---|
-| `MAX` | `MAX(A, B)` | Element-wise maximum |
-| `MIN` | `MIN(A, B)` | Element-wise minimum |
-| `MEAN` | `MEAN(A, B)` | Element-wise mean |
-| `EQUAL` | `EQUAL(A, B)` | Element-wise equality |
-| `VALUEWHEN` | `VALUEWHEN(A, B)` | Value of `B` when `A` is true |
-| `CROSS` | `CROSS(X, Y)` | `X` crosses above `Y` |
-| `LONGCROSS` | `LONGCROSS(A, B, N)` | Crosses above `B` after staying below |
-| `LAST` | `LAST(X, N, M)` | `X` stays true from `N` through `M` |
-| `IF` | `IF(X, A, B)` | Choose `A` or `B` by condition |
+| Operator                           | Calculation and edge behavior                                                                                                                                                                                                                               |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MA(X,N)`, `TS_MEAN(X,N)`          | Computes the `N`-observation rolling mean for each symbol. Both use the same implementation. Incomplete windows and windows whose mean cannot be computed become `0`.                                                                                       |
+| `SUM(X,N)`                         | Computes the `N`-observation rolling sum for each symbol. Incomplete windows and windows whose sum cannot be computed become `0`.                                                                                                                           |
+| `TS_MIN(X,N)`, `TS_MAX(X,N)`       | Computes the rolling minimum or maximum for each symbol. An incomplete window returns missing.                                                                                                                                                              |
+| `STD(X,N)`, `STDDEV(X,N)`          | Computes the rolling sample standard deviation with divisor `N-1`. Both operators use the same implementation. An incomplete window or `N=1` returns missing. A complete constant window of at least two observations returns `0`.                          |
+| `VAR(X,N)`                         | Computes the rolling sample variance with divisor `N-1`. An incomplete window returns missing.                                                                                                                                                              |
+| `TS_SKEW(X,N)`, `TS_KURT(X,N)`     | Computes rolling skewness and excess kurtosis for each symbol using pandas' rolling statistics. Skewness requires at least 3 valid observations and kurtosis at least 4. Incomplete windows return missing.                                                 |
+| `TS_RANK(X,N)`                     | Returns the current value's ascending percentile rank within that symbol's last `N` observations. The window includes the current value, ties receive average ranks, and incomplete windows return missing.                                                 |
+| `TS_ARGMAX(X,N)`, `TS_ARGMIN(X,N)` | Returns the position of the maximum or minimum within that symbol's last `N` observations. Positions run from `0` for the oldest observation to `N-1` for the current one. Ties use the last occurrence. Incomplete windows return missing.                 |
+| `TS_ZSCORE(X,N)`                   | Computes `(X - TS_MEAN(X,N)) / STD(X,N)`. Incomplete windows yield `NaN`. A zero standard deviation can yield `NaN` or infinity.                                                                                                                            |
+| `SLOPE(X,N)`                       | Returns the linear-regression slope of the `N` observations, using window positions `0` through `N-1` as the independent variable. Incomplete windows and windows with fewer than two observations yield `NaN`.                                             |
+| `COUNT(X,N)`                       | Counts true values among the same symbol's last `N` observations using `SUM`. Incomplete windows return `0`.                                                                                                                                                |
+| `EVERY(X,N)`                       | Returns true when every value in the same symbol's last `N` observations is true. Otherwise returns false. Incomplete windows return false.                                                                                                                 |
+| `EXIST(X,N)`                       | Returns true when at least one value in the same symbol's last `N` observations is true. Otherwise returns false. Incomplete windows return false.                                                                                                          |
+| `LAST(X,N,M)`                      | Checks whether every value from `N` observations ago through `M` observations ago is true, including both endpoints. Requires `N > M >= 0`. A symbol with fewer than `N` prior observations returns false. Keep the `symbol` level on the condition series. |
+| `EMA(X,N)`                         | Computes an exponential moving average per symbol using pandas `ewm(span=N, adjust=False)`. Smoothing starts at the first valid observation.                                                                                                                |
+| `SMA(X,N,M=1)`                     | Uses the recurrence `current × α + previous average × (1-α)`, where `α = M/N`. Choose values with `0 < M <= N` to keep `α` within `(0,1]`. Recursion starts at the first observation.                                                                       |
+| `WMA(X,N)`                         | Computes a linear weighted average over the last `N` observations with weights `1, 2, …, N` from oldest to newest, divided by the sum of the weights. An incomplete or missing-value window returns missing.                                                |
 
-## Statistical and relationship operators
+### Spread between the 5-period and 20-period moving averages
 
-| Operator | Expression | Description |
-|---|---|---|
-| `CORR` | `CORR(A, B, N)` | Rolling correlation |
-| `CORRELATION` | `CORRELATION(A, B, N)` | Alias of `CORR` |
-| `COV` | `COV(A, B, N)` | Rolling covariance |
-| `COVARIANCE` | `COVARIANCE(A, B, N)` | Alias of `COV` |
-| `TS_REGRESSION` | `TS_REGRESSION(A, B, N)` | Rolling regression slope |
-| `SUMIF` | `SUMIF(A, B, N)` | Rolling sum of `B` where `A` is true |
-
-## Restricted operators
-
-| Operator | Expression | Status |
-|---|---|---|
-| `FUTURE_RETURNS` | `FUTURE_RETURNS(X, N)` | Not allowed |
-
-## Technical indicators
-
-
-Technical indicator arguments use lowercase field names; operator names remain uppercase.
-
-| Indicator | Expression |
-|---|---|
-| Average volume | `ADV(volume, N)` |
-| MACD | `MACD_DIF(close, short, long, M)`, `MACD_DEA(close, short, long, M)`, `MACD(close, short, long, M)` |
-| KDJ | `KDJ_K(close, high, low, N, M1, M2)`, `KDJ_D(close, high, low, N, M1, M2)`, `KDJ_J(close, high, low, N, M1, M2)` |
-| RSI / Williams %R | `RSI(X, N)`, `WR(X, N)` |
-| Bollinger bands | `BOLL_UPPER(close, N, P)`, `BOLL_MID(close, N, P)`, `BOLL_LOWER(close, N, P)`, `BOLL_WIDTH(X, N)` |
-| Donchian channels | `TAQ_UPPER(high, low, N)`, `TAQ_MID(high, low, N)`, `TAQ_LOWER(high, low, N)` |
-| Bias / PSY / CCI | `BIAS(close, N)`, `PSY(close, N)`, `PSYMA(close, N, M)`, `CCI(X, N)` |
-| ATR | `ATR(X, N)` |
-| BBI | `BBI(close, M1, M2, M3, M4)` |
-| DMI | `DMI_PDI(close, high, low, M1, M2)`, `DMI_MDI(close, high, low, M1, M2)`, `DMI_ADX(close, high, low, M1, M2)`, `DMI_ADXR(close, high, low, M1, M2)` |
-| Advanced moving averages | `DEMA(X, N)`, `TEMA(close, N)`, `KAMA(X, N)`, `T3(X, N)` |
-| Oscillators | `PPO(A, B)`, `AROONOSC(X, N)`, `ADXR(X, N)`, `CMO(X, N)`, `STOCHASTIC(X, N)` |
-| Volume indicators | `OBV(close, volume)`, `VR(close, volume, M1)`, `MFI(close, high, low, volume, N)` |
-| EMV | `EMV(high, low, volume, N, M)`, `EMVMA(high, low, volume, N, M)` |
-| TRIX | `TRIX(close, M1, M2)`, `TRIMA(close, M1, M2)` |
-| DPO | `DPO(close, M1, M2, M3)`, `DPOMA(close, M1, M2, M3)` |
-| BRAR | `BRAR(open, close, high, low, M1)`, `ARBR(open, close, high, low, M1)` |
-| Momentum | `MTM(close, N, M)`, `MTMMA(close, N, M)`, `ROCMA(close, N, M)` |
-| MASS | `MASS(high, low, N1, N2, M)`, `MASSMA(high, low, N1, N2, M)` |
-| EXPMA | `EXPMA(close, N1, N2)`, `EXPMA2(close, N1, N2)` |
-| ASI | `ASI(open, close, high, low, M1, M2)`, `ASIT(open, close, high, low, M1, M2)` |
-| DIF | `DIF(close, N1, N2, M)`, `DFMA(close, N1, N2, M)` |
-| Bollinger difference | `BOLLINGERDIFF(A, B)` |
-
-## Market compatibility
-
-The operator set is shared across markets, but the available fields depend on the market contract.
-
-| Market | Common fields |
-|---|---|
-| Hong Kong | `open`, `close`, `high`, `low`, `volume`, `amount`, `turnover`, `market_cap` |
-| US | `open`, `close`, `high`, `low`, `volume`, `amount`, `turnover`, `market_cap` |
-
-## Examples
+A common mistake is `MEAN(CLOSE, 5) - MEAN(CLOSE, 20)`. The closing price cancels out, leaving `-7.5` for every valid price. This expression can pass static validation. Calculate the spread by subtracting the two rolling means.
 
 ```text
-RANK(close / DELAY(close, 20) - 1)
+TS_MEAN(CLOSE, 5) - TS_MEAN(CLOSE, 20)
 ```
 
-```text
-CORR(close, volume, 10)
+```python
+FACTOR_PARAMS = {"short_window": 5, "long_window": 20}
+
+class MovingAverageSpread(Factor):
+    def calculate(self, factors):
+        close = factors["close"]
+        short_ma = TS_MEAN(close, FACTOR_PARAMS["short_window"])
+        long_ma = TS_MEAN(close, FACTOR_PARAMS["long_window"])
+        return short_ma - long_ma
 ```
+
+Each moving average fills incomplete windows with `0`. If the signal requires both windows to be complete, mask incomplete results per symbol.
+
+## Two-series and conditional operators
+
+| Operator                            | Calculation and edge behavior                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CORR(A,B,N)`, `CORRELATION(A,B,N)` | Computes the rolling Pearson correlation over `N` observations for the same symbol. Both operators use the same calculation. Results are missing before a full window and when either input is constant within the window.                                                                                                                                                  |
+| `COVARIANCE(A,B,N)`                 | Computes the rolling sample covariance over `N` observations for the same symbol. Results are missing before a full window.                                                                                                                                                                                                                                                 |
+| `CROSS(X,Y)`                        | Returns true when the current `X > Y` and the previous `X <= Y`. Supports a constant on either side. Previous values use `REF` and are grouped by symbol, with initial missing history set to `0`. The first observation for a symbol can therefore be marked as a cross. If the signal requires an observed crossover, exclude positions without valid prior observations. |
+| `IF(X,A,B)`                         | Selects `A` where condition `X` is true, and `B` otherwise. Either branch can be a constant. Align series branches to the index and order of `X` before calling. The operator selects by position and keeps `X`'s index.                                                                                                                                                    |
+
+`CORR`, `CORRELATION`, and `COVARIANCE` take two series with the same `(date, symbol)` index. For a single symbol, the current implementation can return a one-row DataFrame. Check the shape before returning a factor, which requires a one-dimensional result.
+
+## Element-wise operators
+
+| Operator                                | Calculation and edge behavior                                                                                                                                                                                                                                                                |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ABS(X)`, `SIGN(X)`, `EXP(X)`, `LOG(X)` | Computes absolute value, sign, natural exponential, or natural logarithm element by element. `LOG` requires positive values. Zero and negative inputs produce infinity or missing results.                                                                                                   |
+| `POWER(X,N)`                            | Computes `X` raised to power `N` element by element.                                                                                                                                                                                                                                         |
+| `MIN(A,B)`, `MAX(A,B)`                  | Returns the element-wise minimum or maximum. Either argument can be a constant. For example, `MAX(CLOSE, 20)` sets a floor of 20 on each closing price. Use `TS_MAX(CLOSE, 20)` for a 20-period rolling maximum. A missing value in either input produces a missing result at that position. |
+| `MEAN(A,B)`                             | Computes `(A+B)/2` element by element. `MEAN(CLOSE, 5)` computes `(CLOSE+5)/2` for each observation. Use `TS_MEAN(CLOSE, 5)` or `MA(CLOSE, 5)` for a 5-period rolling mean.                                                                                                                  |
+| `EQUAL(A,B)`                            | Compares values element by element and returns a Boolean sequence.                                                                                                                                                                                                                           |
+
+## Names without a runtime operator
+
+These are examples of names accepted by static validation without a matching runtime function. Choose a supported call or field below.
+
+| Name               | Available callable or field                                                                                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `DECAY_LINEAR`     | Use `WMA(X,N)` for a linear weighted mean with increasing weights from oldest to newest.                   |
+| `SMA_CN`, `EMA_CN` | Choose `SMA(X,N,M=1)` or `EMA(X,N)` according to the required smoothing weight.                            |
+| `RET`              | Use `RETURNS(X,N)` or `PCT_CHANGE(X,N)` and account for their different missing-value behavior.            |
+| `FMIN`, `FMAX`     | `MIN(A,B)` and `MAX(A,B)` compute element-wise extrema and propagate missing inputs.                       |
+| `VWAP(...)`        | When the selected market supplies VWAP, read `factors["vwap"]` in Python or the field `VWAP` in a formula. |

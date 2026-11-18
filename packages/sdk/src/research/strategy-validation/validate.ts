@@ -334,6 +334,9 @@ function detectImportContract(
   for (const node of walkNodes(root)) {
     if (node.name !== 'ImportStatement') continue
     const text = compactText(nodeText(source, node))
+    if (importsModule(node, source, 'tqx_data')) {
+      return makeFinding(frame, node, t('tqx_data_import_forbidden', locale))
+    }
     if (node.parent !== root && text.includes('import *')) {
       return makeFinding(frame, node, t('nested_star_import', locale))
     }
@@ -380,6 +383,24 @@ function detectImportContract(
   }
 
   return undefined
+}
+
+function importsModule(node: SyntaxNode, source: string, moduleName: string): boolean {
+  const children = directChildren(node)
+  if (children[0]?.name === 'from') {
+    const importIndex = children.findIndex((child) => child.name === 'import')
+    const imported = readQualifiedName(children, source, 1, importIndex)
+    return imported === moduleName || imported?.startsWith(`${moduleName}.`) === true
+  }
+  if (children[0]?.name !== 'import') return false
+  let start = 1
+  for (let index = start; index <= children.length; index += 1) {
+    if (index !== children.length && children[index]?.name !== ',') continue
+    const imported = readQualifiedName(children, source, start, index)
+    if (imported === moduleName || imported?.startsWith(`${moduleName}.`)) return true
+    start = index + 1
+  }
+  return false
 }
 
 function detectBarMapMembershipRules(

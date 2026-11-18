@@ -399,6 +399,101 @@ describe('Qube Next research CLI', () => {
     expect(JSON.parse(ctx.stdout.value).factor.config_revision).toBe(4)
   })
 
+  it.each(['HSI.HK', 'HSCE.HK', 'HSTECH.HK', 'SPX', 'IXIC', 'NDX', 'DJI'])(
+    'maps stockPool=%s as the only factor update',
+    async (stockPool) => {
+      const ctx = setup()
+      ctx.fetch.mockResolvedValueOnce(gatewayResponse(factor()))
+      await runCli(
+        [
+          'research',
+          'factor',
+          'update',
+          FACTOR_ID,
+          '--baseConfigRevision=3',
+          `--stockPool=${stockPool}`,
+          '--json',
+        ],
+        ctx.dependencies,
+      )
+      expect(bodyOf(ctx.fetch)).toEqual({
+        base_config_revision: 3,
+        parameters: { stock_pool: stockPool },
+      })
+      expect(JSON.parse(ctx.stdout.value).success).toBe(true)
+    },
+  )
+
+  it('maps stockPool into an analysis submission without fetching HEAD', async () => {
+    const ctx = setup()
+    ctx.fetch.mockResolvedValueOnce(gatewayResponse(analysisReceipt(), { status: 202 }))
+    await runCli(
+      [
+        'research',
+        'factor',
+        'run',
+        FACTOR_ID,
+        '--expectedSourceRevision=2',
+        '--expectedConfigRevision=3',
+        '--stockPool=HSI.HK',
+        '--noWait',
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(ctx.fetch).toHaveBeenCalledTimes(1)
+    expect(bodyOf(ctx.fetch)).toMatchObject({ parameters: { stock_pool: 'HSI.HK' } })
+    expect(JSON.parse(ctx.stdout.value).status).toBe('SUBMITTED')
+  })
+
+  it.each(['create', 'update', 'run'] as const)(
+    'maps standardSymbol as the only strategy %s override',
+    async (operation) => {
+      const ctx = setup()
+      ctx.fetch.mockResolvedValueOnce(
+        gatewayResponse(operation === 'run' ? backtest({ status: 'queued' }) : strategy()),
+      )
+      const args =
+        operation === 'create'
+          ? ['--market=us', `--code=${US_DAILY_MOVING_AVERAGE_FIXTURE}`]
+          : operation === 'update'
+            ? [STRATEGY_ID, '--baseConfigRevision=3']
+            : [STRATEGY_ID, '--expectedSourceRevision=2', '--expectedConfigRevision=3', '--noWait']
+      await runCli(
+        ['research', 'strategy', operation, ...args, '--standardSymbol=NDX', '--json'],
+        ctx.dependencies,
+      )
+      expect(bodyOf(ctx.fetch)).toMatchObject({
+        parameters: { backtest: { standard_symbol: 'NDX' } },
+      })
+      expect(ctx.fetch).toHaveBeenCalledTimes(1)
+      expect(JSON.parse(ctx.stdout.value).success).toBe(true)
+    },
+  )
+
+  it.each([
+    ['factor', '--stockPool=unknown'],
+    ['strategy', '--standardSymbol=all'],
+  ])('rejects invalid %s pool/benchmark with JSON exit status', async (kind, flag) => {
+    const ctx = setup()
+    await runCli(
+      [
+        'research',
+        kind!,
+        'update',
+        kind === 'factor' ? FACTOR_ID : STRATEGY_ID,
+        '--baseConfigRevision=3',
+        flag!,
+        '--json',
+      ],
+      ctx.dependencies,
+    )
+    expect(process.exitCode).toBe(2)
+    expect(JSON.parse(ctx.stderr.value).error.message).toBeTypeOf('string')
+    expect(ctx.stdout.value).toBe('')
+    expect(ctx.fetch).not.toHaveBeenCalled()
+  })
+
   it('updates strategy metadata without rewriting source or backtest configuration', async () => {
     const ctx = setup()
     ctx.fetch.mockResolvedValueOnce(

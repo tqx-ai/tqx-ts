@@ -25,7 +25,9 @@ tqx research factor delete <factor-id>... --yes
 ```
 
 `analysis-options`: `--startDate`, `--endDate`, `--adjustmentCycle=1|3|5|10|20|30`,
-`--groupNumber=3|5|10|20`, `--factorDirection=Positive|Negative|1|-1`.
+`--groupNumber=3|5|10|20`, `--factorDirection=Positive|Negative|1|-1`,
+`--stockPool=all|HSI.HK|HSCE.HK|HSTECH.HK|SPX|IXIC|NDX|DJI`.
+Use a pool in the factor's market.
 Omitted analysis options reuse the factor's saved parameters. Dates accept `YYYYMMDD` or `YYYY-MM-DD`.
 The analysis interval must increase and not exceed five calendar years (the exact five-year boundary is included).
 
@@ -51,10 +53,10 @@ tqx research backtest result <run-id> --field=equity|trades|logs|symbol_performa
 ```
 
 `backtest-options`: `--startDate`, `--endDate`, `--startCapital`, `--commissionRate`, `--slippage`,
-`--frequency=1d|1M`. When no backtest options are supplied during strategy creation, the server applies
+`--frequency=1d|1M`, `--standardSymbol=HSI.HK|HSCE.HK|HSTECH.HK|SPX|IXIC|NDX|DJI`.
+Use a benchmark in the strategy's market. When no backtest options are supplied during strategy creation, the server applies
 its market-specific defaults. Explicit options are passed through as overrides.
-The commission value passes through unchanged; slippage is proportional. Run and update submit only
-specified overrides; the server merges them with saved configuration. Daily intervals allow up to ten
+The commission value passes through unchanged; slippage is proportional. Update persists specified fields merged with saved configuration. For an ordinary run, update first, verify the returned saved settings and validation, and run without backtest flags. Run flags are for explicitly temporary overrides and do not persist. Daily intervals allow up to ten
 years and minute intervals up to one year. Single-day backtests are allowed; the end date must not precede the start date.
 The result page's symbol filter applies only to trades.
 
@@ -123,3 +125,9 @@ Strategy tuning uses `candidates: [{"strategyParameters":{"window":20}}]` and a 
 Server run states are `preparing`, `queued`, `running`, `succeeded`, `failed`, and `cancelled`.
 CLI execution output maps `succeeded` to `SUCCESS`. `SUBMITTED`, `PENDING`, `RUNNING`, `FAILED`,
 `CANCELLED`, and `TIMEOUT` do not mean a successful completed analysis/backtest.
+
+## Saved settings and result availability
+
+Follow [the resource workflow](workflow.md): verify saved parameters, matching valid source/configuration validation, and no `parameters_draft`. Read `info` when receipts omit needed fields. Submit ordinary runs with those revisions and no run overrides. For example, after a requested factor-pool change, use `factor update` with `--stockPool` and then `factor run` with the returned revisions and no `--stockPool`. Do not guess new revisions.
+
+Backtest pages and charts may be empty or partial while running. Preserve `partial`, `available_from`, `available_total`, `complete` and benchmark information from JSON. A successful HTTP read is not completed execution. Poll the same run; never resubmit because a partial result is empty. Tuning additionally has terminal `no_valid_candidates` and nonterminal `cancelling`.

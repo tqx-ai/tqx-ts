@@ -1,0 +1,11 @@
+# Cross-sectional and dynamic-universe strategies
+
+Read the [market framework and source guide](strategy_templates.md). Define the requested universe, ranking signal and rebalance schedule explicitly. The compact moving-average examples illustrate lifecycle and order handling; they are not cross-sectional templates and do not establish historical universe membership.
+
+Construct an as-of panel keyed by `(date, symbol)`. At each decision time, rank only securities eligible and observable then. Deduplicate keys, align price and fundamental dates, and define missing-data and minimum-history rules before ranking. Distinguish an absent observation from zero. Avoid using today's survivors or latest membership across the full historical window.
+
+For historical index membership, read the [dated constituents contract](data/index.md#historical-quotes-and-indices). `get_index_component` is an undated interface; it cannot establish historical membership. These native methods describe data contracts, not directly callable strategy APIs. Current Qube rejects `tqx_data` imports in strategy source; use supported market engine APIs or explicitly available prepared inputs, and explain when the requested dated universe cannot be obtained through them. Financial reports must be visible by their announcement/publication date at the decision time, not merely by report quarter. See [financial statement visibility](data/index.md#financial-statements-and-visibility); an accepted quarterly signature does not guarantee single-quarter coverage.
+
+Cache batched, bounded history during [preheating](strategy-quality.md#history-preheating), then filter at each callback. Explain rebalance timing, target weights, turnover, liquidity, costs, lot sizes and sellable quantity. Track actual order and fill callbacks instead of assuming target weights were executed. A full-range bound `context.df_factor` has no as-of barrier: follow [factor timing](factor-driven.md).
+
+Use market defaults or saved engine settings for unspecified configuration; do not invent a prior-quarter run or capital allocation. Submit only within the requested scope and follow [the workflow](workflow.md). Static validation alone cannot prove the universe is historically valid or the backtest is tradable.

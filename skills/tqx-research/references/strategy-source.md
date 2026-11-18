@@ -1,6 +1,6 @@
 # Qube Strategy Source Constraints
 
-The TypeScript CLI uploads Python source as opaque text. The server validates source against the Qube runtime: read `strategy_templates.md` and the market-specific API reference before generating source, and read the `tqx_data` references before using data APIs.
+The TypeScript CLI uploads Python source as opaque text. The server validates source against the Qube runtime: read `strategy_templates.md` and the market-specific API reference before generating source, and read the native data references for field and symbol conventions. Direct `tqx_data` imports are rejected by current Qube strategy validation; use market engine APIs.
 
 ## Confirm before generation
 
@@ -24,8 +24,7 @@ Without that material, draft a research specification or explain the missing con
 The local strategy check accepts named imports and safe `try/except`. It checks one literal
 `STRATEGY_PARAMS` table before lifecycle functions, exactly one copy to `context.params` in
 `initialize`, and reads through declared literal string keys. It also checks parameter mutations,
-HK/US historical preheating through `init_preheating_data(context)`, and known `tqx_data` call
-signatures. Refreshes reachable only from `before_trading(context)` do not require a preheater.
+HK/US historical preheating through `init_preheating_data(context)`, and approved imports. Refreshes reachable only from `before_trading(context)` do not require a preheater.
 It does not execute Python or replace server validation.
 
 Client input checks validate IDs, dates, revisions, and request structure. Server source validation

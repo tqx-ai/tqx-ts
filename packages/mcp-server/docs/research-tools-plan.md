@@ -1,6 +1,6 @@
 # Qube Research MCP Tools 规划
 
-**调研基线：2026-11-12；方案简化与实现：2026-11-13；状态：P0/P1 已实现，部署环境的 Research audience 与网关鉴权仍需集成验证。**
+**接口核对：2026-11-18；状态：57 个 action 已实现，部署环境的 Research audience 与网关鉴权仍需集成验证。**
 
 ## 1. 范围与结论
 
@@ -11,13 +11,13 @@
 
 查询通过 call 的读取 action 完成。同步操作直接返回业务数据；异步分析和回测提交返回上游运行 ID，Agent 随后调用状态与结果 action。不新增独立查询工具、query ref、签名 handle 或本地任务存储。
 
-本期覆盖因子、因子分析、策略、回测结果、版本和分析快照。只支持 hk / us，保持 Research 与交易账户体系独立。
+本期覆盖因子、因子分析、策略、回测结果、版本、分析快照及因子/策略参数调优。只支持 hk / us，保持 Research 与交易账户体系独立。
 
 明确排除：
 
 - tqx_data / tqx-data 数据工具、数据函数目录、市场行情和财务数据查询。
 - 独立标的 K 线查询；现有 BacktestApi 的 symbol-klines 也是数据读取，本期不暴露。
-- 调优、ML 因子创建、转换、Research SSE watch，以及交易账户、持仓和下单。
+- ML 因子创建、转换、Research SSE watch，以及交易账户、持仓和下单。
 - 任意 URL、HTTP method、Python 执行或任意 JSON 转发。
 
 固定的工具层和逐步展开的 action 层：
@@ -39,22 +39,22 @@ call({ action: "backtest.result.get", input: { runId, field: "trades" } })
 
 已核对仓库内的资源客户端与 schema：
 
-| 来源                                      | 已有能力                                                            | 本方案处理                                        |
-| ----------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------- |
-| packages/sdk/src/research/factor-api.ts   | 28 个方法，包含因子、分析、版本、快照、调优和轮询                   | 保留普通因子研究；轮询由 Agent 重复 get；调优排除 |
-| packages/sdk/src/research/strategy-api.ts | 29 个方法，包含策略、回测、版本、因子版本绑定、调优、本地校验和轮询 | 保留普通策略研究；全局因子版本搜索统一命名        |
-| packages/sdk/src/research/backtest-api.ts | 结果页、曲线、标的 K 线，共 3 个方法                                | 保留前两个结果读取 action；K 线排除               |
-| packages/sdk/src/research/events.ts       | 4 个流式订阅入口                                                    | 本期不实现                                        |
-| packages/sdk/src/research/schemas.ts      | 输入校验、资源/运行/结果响应 schema                                 | 以此核对字段、ID、revision、日期和分页限制        |
-| packages/sdk/src/config/APIs.ts           | 相对 qube/api 路径                                                  | 作为公开 gateway 路径基线                         |
-| skills/tqx-research/references/sdk.md     | SDK 用法和 Research 状态语义                                        | action 说明书的关联文档                           |
-| packages/mcp-server/AGENTS.md             | 独立 gateway、无数据库、token exchange、Valibot                     | 实现必须遵循                                      |
+| 来源                                      | 已有能力                                                            | 本方案处理                                               |
+| ----------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
+| packages/sdk/src/research/factor-api.ts   | 28 个方法，包含因子、分析、版本、快照、调优和轮询                   | 保留普通因子研究；轮询由 Agent 重复 get；增加调优 action |
+| packages/sdk/src/research/strategy-api.ts | 29 个方法，包含策略、回测、版本、因子版本绑定、调优、本地校验和轮询 | 保留普通策略研究；全局因子版本搜索统一命名               |
+| packages/sdk/src/research/backtest-api.ts | 结果页、曲线、标的 K 线，共 3 个方法                                | 保留前两个结果读取 action；K 线排除                      |
+| packages/sdk/src/research/events.ts       | 4 个流式订阅入口                                                    | 本期不实现                                               |
+| packages/sdk/src/research/schemas.ts      | 输入校验、资源/运行/结果响应 schema                                 | 以此核对字段、ID、revision、日期和分页限制               |
+| packages/sdk/src/config/APIs.ts           | 相对 qube/api 路径                                                  | 作为公开 gateway 路径基线                                |
+| skills/tqx-research/references/sdk.md     | SDK 用法和 Research 状态语义                                        | action 说明书的关联文档                                  |
+| packages/mcp-server/AGENTS.md             | 独立 gateway、无数据库、token exchange、Valibot                     | 实现必须遵循                                             |
 
 以下是**拟新增 MCP action 合同**，并不表示同名 SDK 方法或上游 endpoint 已经存在。MCP 输入和稳定输出使用 camelCase；gateway 负责与上游 snake_case 映射。引擎生成的指标、图表与结果行内部键保持原值，不递归改名或重新计算指标。
 
 MCP server 不导入 @tqx-ai/sdk 或 @tqx-ai/cli，包括类型和相对源文件导入。在自身包内实现 gateway 和 schemas。Research base URL 以 /tqxApi 结尾，路径保持相对 qube/api，不能因根路径拼接丢失 /tqxApi。
 
-本期共有 **43 个内部 action：P0 21 个、P1 22 个**。action 数量不等于 tools/list 的公开工具数量；后者固定增加 2 个。合并原先重复的 strategy.factor_versions.search / factor.version.search，只保留 factor.version.search；补齐独立的因子分析结果读取和策略版本全局搜索。
+本期共有 **57 个内部 action：原 P0/P1 共 43 个，调优 14 个**。action 数量不等于 tools/list 的公开工具数量；后者固定增加 2 个。合并原先重复的 strategy.factor_versions.search / factor.version.search，只保留 factor.version.search；补齐独立的因子分析结果读取和策略版本全局搜索。
 
 ## 3. 两个工具的用法
 
@@ -139,7 +139,7 @@ type ActionError = {
 
 MCP 的 structuredContent / content 是标准工具结果结构；这里移除的是额外的业务包装。成功时 structuredContent 就是该 action 的业务对象，content 提供同一 JSON 的文本表示；错误时返回 ActionError 并设置 isError=true。
 
-公开工具的 outputSchema 是可选项。首期 call 不声明覆盖全部 action 的公开 outputSchema，handler 按 registry 中对应的输出 schema 校验业务对象；精确 schema 由 explore({ action }) 按需返回。explore 也按自身目录/详情 schema 校验结果。不需要聚合 43 个 action 的输出或另定义一层 envelope。
+公开工具的 outputSchema 是可选项。首期 call 不声明覆盖全部 action 的公开 outputSchema，handler 按 registry 中对应的输出 schema 校验业务对象；精确 schema 由 explore({ action }) 按需返回。explore 也按自身目录/详情 schema 校验结果。不需要聚合 57 个 action 的输出或另定义一层 envelope。
 
 call 的公开 inputSchema 只描述 action、input、confirm，handler 再按 action 校验具体 input。requestId 只放在相关 action 的 input 中。无需记录 Agent 是否先调用过 explore；熟悉合同的调用方可以直接 call。
 
@@ -205,7 +205,7 @@ type FactorAnalysisParameters = {
   adjustmentCycle?: 1 | 3 | 5 | 10 | 20 | 30
   groupNumber?: 3 | 5 | 10 | 20
   factorDirection?: 1 | -1
-  stockPool?: '沪深全A' | '沪深300' | '中证500' | '中证1000'
+  stockPool?: 'all' | 'HSI.HK' | 'HSCE.HK' | 'HSTECH.HK' | 'SPX' | 'IXIC' | 'NDX' | 'DJI'
   marketType?: '主力'
 }
 type BacktestParameters = {
@@ -215,7 +215,18 @@ type BacktestParameters = {
   commissionRate?: number // >= 0
   slippage?: number // >= 0
   frequency?: '1d' | '1M'
-  standardSymbol?: 'sse_composite' | 'csi300' | 'csi500' | 'csi1000'
+  standardSymbol?:
+    | 'sse_composite'
+    | 'csi300'
+    | 'csi500'
+    | 'csi1000'
+    | 'HSI.HK'
+    | 'HSCE.HK'
+    | 'HSTECH.HK'
+    | 'SPX'
+    | 'IXIC'
+    | 'NDX'
+    | 'DJI'
   marginRate?: number // integer >= 1
 }
 type FactorBinding = { factorId: ResourceId; factorVersionId: ResourceId }
@@ -324,7 +335,7 @@ factor.analysis.result.get 是对现有分析详情的受控投影，不假定�
 | backtest.result.get       | P0 / R       | { runId: ResourceId; field: ResultField; keyword?: Keyword; symbol?: string } & OffsetPageInput，symbol=1..64 字符   | BacktestResultPage      |
 | backtest.chart.get        | P0 / R       | { runId: ResourceId; from?: TimeFilter; to?: TimeFilter; maxPoints?: number }，maxPoints=2..5000，默认 1000          | BacktestChart           |
 
-symbol 只允许用于 field=trades。chart 的 from 不晚于 to。结果 action 在远端 succeeded 后使用；未完成返回 RUN_NOT_READY，error.details.status 保留当前状态，调用方按文档继续 get。失败/取消时保留真实终态，不把空结果当作成功。
+symbol 只允许用于 field=trades。chart 的 from 不晚于 to。因子结果仍要求 succeeded。回测结果/曲线直接读取上游，允许 queued/running 的空结果和部分产物；保留 partial 和可用范围。LIVE_RESULT_UNAVAILABLE 时退避重读同一 runId，不重跑。空或部分结果不代表任务成功。
 
 ### 5.5 因子与策略版本：10 个 action
 
@@ -553,6 +564,9 @@ field 对应的数据和解释：
 
 ```ts
 type BacktestResultPage = {
+  partial?: boolean
+  availableFrom?: number
+  availableTotal?: number
   runId: ResourceId
   field: ResultField
   rows: Json[]
@@ -582,6 +596,11 @@ type BacktestChart = {
   }>
   dateAnchors?: Array<{ day: string; from: string; to: string }>
   complete?: boolean | null
+  partial?: boolean
+  benchmark?: {
+    standardSymbol: string
+    points: Array<{ ts: string; equity: number | null; breakBefore?: boolean }>
+  }
 }
 ```
 
@@ -595,7 +614,7 @@ type BacktestChart = {
 
 keyword 沿用上游结果行搜索能力；symbol 筛选仅适用于 trades。这些是回测产物，不查询真实交易账户。SDK 对结果 rows 是开放结构，不能在规划中伪造稳定的成交字段；MCP 稳定承诺外层分页与 field，内部引擎字段为受大小/深度约束的 JSON，详情案例使用验证过的固定 fixture 展示。
 
-chart 的 maxPoints 约束净值 points，不能宣称它也限制 tradeDays / trades。对完整图表设置单独响应预算，必要时提示收窄 from/to。保留 sampled / sourceCount / totalCount / complete；不把抽样曲线标为完整原始结果。
+chart 的 maxPoints 约束净值及基准 points，不能宣称它也限制 tradeDays / trades。对完整图表设置单独响应预算，必要时提示收窄 from/to。保留 sampled / sourceCount / totalCount / complete；不把抽样曲线标为完整原始结果。
 
 ## 7. 使用案例与组合用法
 
@@ -676,7 +695,7 @@ chart 的 maxPoints 约束净值 points，不能宣称它也限制 tradeDays / t
 }
 ```
 
-非终态时以合理间隔继续 get，遇到限流退避。仅在响应 status=succeeded 后读取结果：
+非终态时以合理间隔继续 get，遇到限流退避。因子结果在 status=succeeded 后读取；回测结果和曲线可在运行中读取部分产物，保留真实状态：
 
 ```json
 {
@@ -776,3 +795,11 @@ src/research/
 - 不暴露 tqx_data / tqx-data、行情、财务、K 线或交易能力；不改 CLI / SDK。
 - 实现时测试关键请求映射、权限、输入输出校验、分页、异步终态、revision 冲突和幂等重试；不为 Markdown 工作流另建解释器或测试框架。
 - 文档执行 bun fmt 并审阅差异；交付前通过 bun run format:check、bun run docs:check 和 bun run test。
+
+## 参数调优 action
+
+`factor.tuning` 和 `strategy.tuning` 各包含 submit、list、search、get、cancel、rerun、apply，共 14 个 action。精确字段以 explore 返回的执行 schema 为准。submit/cancel/rerun 要求 research:run，apply 要求 research:write，其余要求 research:read。
+
+因子 submit 使用完整 researchPeriod、warmupTradingDays、恰好一个 baseline 候选及最多 32 个候选；objective 为 rank_ic_mean，holdoutEnabled 固定 false。策略 submit 使用严格递增 tradingDates、numeric strategyParameters、objective（total_return/sharpe/max_drawdown）及 validationEnabled；上游加入 baseline 并去重，最多 32 次运行。参数名保持原样。
+
+get 保留候选、验证、进度、指标及经过白名单过滤的 apply 状态；不返回冻结源码、内部路径或错误堆栈。cancelling 未结束，no_valid_candidates 为终态。list 返回最多 200 个摘要并标记 possiblyTruncated，完整历史使用 search 的上游 cursor。apply 使用 get 返回的 trialId（因子）或 candidate id（策略），并携带资源的当前双 revision 和 requestId。rerun 返回新 tuningId，超时后核实状态，不能换 requestId 自动重试。

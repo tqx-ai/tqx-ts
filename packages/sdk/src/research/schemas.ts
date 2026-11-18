@@ -78,7 +78,21 @@ const backtestEntries = {
   commissionRate: v.optional(nonNegativeNumber),
   slippage: v.optional(nonNegativeNumber),
   frequency: v.optional(BacktestFrequencySchema),
-  standardSymbol: v.optional(v.picklist(['sse_composite', 'csi300', 'csi500', 'csi1000'])),
+  standardSymbol: v.optional(
+    v.picklist([
+      'sse_composite',
+      'csi300',
+      'csi500',
+      'csi1000',
+      'HSI.HK',
+      'HSCE.HK',
+      'HSTECH.HK',
+      'SPX',
+      'IXIC',
+      'NDX',
+      'DJI',
+    ]),
+  ),
   marginRate: v.optional(positiveInteger),
 }
 export const BacktestParametersSchema = v.pipe(
@@ -95,7 +109,22 @@ const analysisEntries = {
   adjustmentCycle: v.optional(v.picklist([1, 3, 5, 10, 20, 30])),
   groupNumber: v.optional(v.picklist([3, 5, 10, 20])),
   factorDirection: v.optional(v.picklist([1, -1])),
-  stockPool: v.optional(v.picklist(['沪深全A', '沪深300', '中证500', '中证1000'])),
+  stockPool: v.optional(
+    v.picklist([
+      '沪深全A',
+      '沪深300',
+      '中证500',
+      '中证1000',
+      'all',
+      'HSI.HK',
+      'HSCE.HK',
+      'HSTECH.HK',
+      'SPX',
+      'IXIC',
+      'NDX',
+      'DJI',
+    ]),
+  ),
   marketType: v.optional(v.literal('主力')),
 }
 export const FactorAnalysisParamsInputSchema = v.pipe(
@@ -302,6 +331,9 @@ const assetEntries = {
   source_revision: positiveInteger,
   config_revision: positiveInteger,
   parameters: record,
+  parameters_draft: v.optional(
+    v.nullable(v.pipe(v.unknown(), v.check(isRecord, 'Expected a parameter draft object'), record)),
+  ),
   code: v.optional(v.string()),
   validation: optionalRecord,
   parameter_validation: optionalRecord,
@@ -380,6 +412,9 @@ export const ResultPageSchema = v.looseObject({
   offset: nonNegativeInteger,
   limit: positiveInteger,
   has_more: v.boolean(),
+  partial: v.optional(v.boolean()),
+  available_from: v.optional(nonNegativeInteger),
+  available_total: v.optional(nonNegativeInteger),
 })
 export const ChartInputSchema = v.pipe(
   v.strictObject({
@@ -427,6 +462,19 @@ export const BacktestChartSchema = v.looseObject({
     v.array(v.looseObject({ day: v.string(), from: v.string(), to: v.string() })),
   ),
   complete: v.optional(v.nullable(v.boolean())),
+  partial: v.optional(v.boolean()),
+  benchmark: v.optional(
+    v.looseObject({
+      standard_symbol: v.string(),
+      points: v.array(
+        v.looseObject({
+          ts: v.string(),
+          equity: v.nullable(finiteNumber),
+          break_before: v.optional(v.boolean()),
+        }),
+      ),
+    }),
+  ),
 })
 export const BacktestSymbolKlinesSchema = v.looseObject({
   market: QubeMarketSchema,
@@ -451,7 +499,22 @@ const tuningCandidateParameters = v.strictObject({
   adjustmentCycle: analysisEntries.adjustmentCycle,
   groupNumber: analysisEntries.groupNumber,
   factorDirection: analysisEntries.factorDirection,
-  stockPool: v.optional(v.picklist(['沪深全A', '沪深300', '中证500', '中证1000'])),
+  stockPool: v.optional(
+    v.picklist([
+      '沪深全A',
+      '沪深300',
+      '中证500',
+      '中证1000',
+      'all',
+      'HSI.HK',
+      'HSCE.HK',
+      'HSTECH.HK',
+      'SPX',
+      'IXIC',
+      'NDX',
+      'DJI',
+    ]),
+  ),
   marketType: v.optional(v.literal('主力')),
 })
 const parameterName = v.pipe(v.string(), v.regex(/^[A-Za-z][A-Za-z0-9_]{0,127}$/))

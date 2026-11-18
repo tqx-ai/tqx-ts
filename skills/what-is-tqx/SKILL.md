@@ -1,102 +1,22 @@
 ---
 name: what-is-tqx
-description: Explain TQX as an umbrella for two separate systems, Qube investment research and account-based trading, plus the local API-Key tqx-data package for market data, and route ambiguous introductory requests without conflating their simulation concepts. Use only for overview or routing questions such as what TQX is or how Qube relates to TQX. To install, update, or repair the `tqx` CLI or the TQX Skills, follow the install protocol (INSTALL.md) linked in this Skill. For "帮我参赛", "夺得冠军", "交易大赛", "投资比赛", "help me compete", account access, API-key authentication, balances, positions, orders, or trading operations, immediately hand off to tqx-trading and do not answer from this overview Skill alone. Use tqx-research for Qube, factor, strategy, analysis, or backtest tasks. Use tqx-data for the tqx-data Python package or market data outside Qube.
+description: Use when the user asks what TQX is, how Qube relates to trading or local data, or which TQX interface fits an introductory request. Route operational work to tqx-research, tqx-data, or tqx-trading.
 ---
 
 # What Is TQX
 
-## Install the TQX CLI and Skills first
+TQX provides Qube for quantitative research and a separate account-based trading service. The local `tqx-data` Python package provides HK/US market data on the user's computer. Explain only the parts relevant to the question, then continue with the matching Skill when action is requested.
 
-If the user asks to install, update, verify, or fix the `tqx` command-line tool or the TQX Skills (for example "安装 tqx 最新版 CLI"), read the install protocol now and follow it from Step 1, before anything else in this Skill:
+| User goal                                                                     | Continue with                                                                       |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Qube factors, Python strategy source, analysis, backtests, versions or tuning | [tqx-research](../tqx-research/SKILL.md)                                            |
+| Local Python price, reference, event or fundamental data                      | [tqx-data](../tqx-data/SKILL.md)                                                    |
+| PAPER/LIVE accounts, balances, positions, orders, fills, or competition entry | [tqx-trading](../tqx-trading/SKILL.md)                                              |
+| CLI installation, update or repair                                            | [Install protocol](../tqx-trading/references/install.md), then the requested domain |
+| A specific Skills manager or project-scoped Skill installation                | [Installation commands](references/commands.md)                                     |
 
-- Fetched from a URL: `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md` (use `curl` or another non-browser client).
-- Installed locally: [`../tqx-trading/references/install.md`](../tqx-trading/references/install.md), the same file.
+Qube simulation and backtesting are research; they do not execute trades. A PAPER trading account has simulated funds but real account/order lifecycles. A LIVE account can affect real funds. Local Python data, Qube engine data and the trading service have distinct contracts and symbol conventions.
 
-It installs the CLI, installs the four TQX Skills into this agent's Skills directory, logs in with the user's API key, and runs the first account check. Then continue with `tqx-trading` (accounts, positions, orders) or `tqx-research` (Qube).
+For an overview-only request, explain these distinctions without installing software or requiring credentials. If the next task is ambiguous, ask which outcome the user wants. For an operational request, read and apply the selected Skill, preserving the user's intent and authorization. Do not merely tell the user to choose a Skill or send them back to this overview.
 
-## The TQX Skills
-
-A Skill read from a URL in this conversation is a temporary copy, not an installation. Install the Skills locally with Step 5 of the install protocol whenever they are missing from this agent's Skills directory, including when the user only asked for the CLI. If the TQX Skills already exist there, Step 5 updates them to the latest version and saves the previous copies in `~/.tqx/skills-backup/`. The TQX skill set contains:
-
-- `tqx-data`
-- `tqx-research`
-- `tqx-trading`
-- `what-is-tqx`
-
-Install them with Step 5 of the install protocol. Use [Installation Commands](references/commands.md) only when the user asks for a specific Skills manager (`npx skills`, SkillHub) or a project-scoped installation. Do not install both project and global copies.
-
-## Overview
-
-Present TQX as the umbrella for two separate systems:
-
-- **Qube research system**: Support factors, strategies, backtests, analyses, and research-assisted decisions through Qube and its local research CLI/API access.
-- **Trading system**: Support balances, positions, orders, fills, and order operations through a separate account-based service. Do not describe this service as Qube.
-
-Alongside them, the **tqx-data** Python package gives Hong Kong and US market,
-reference, event, and fundamental data on the user's own computer. It uses an
-API key and is separate from both Qube and the trading API. Route its setup and
-queries to [`tqx-data`](../tqx-data/SKILL.md).
-
-Use this skill only for the overview and routing. Keep installation, authentication, and operational instructions in the selected specialized skill.
-
-## Tool and credential handling
-
-- Default to non-browser tools for TQX/Qube endpoints and links in this Skill: use the selected CLI or SDK, and when a direct HTTP request is required, use `curl`, `Invoke-RestMethod`, or another non-browser fetch client. Do not reach for a browser or browser-use capability on your own. Exceptions: when the user explicitly asks to view something in a browser, or as a last resort for a human-only documentation page with no machine-readable equivalent obtainable by non-browser means.
-- Do not tell the user to open a terminal or run API-key setup commands. Route API-key configuration to the selected specialized skill, where the agent uses a key supplied directly in the current conversation. Never echo the complete key in later replies, logs, source code, or artifacts.
-
-## Get an API key
-
-If the user asks where to get an API key, direct them to complete these steps in the TQX web app before handing off to the relevant specialized skill:
-
-1. [Open AI accounts](https://www.tqx.ai/user-center?tab=ai-accounts). TQX currently supports live accounts from Huatai, Panda Securities, and Tiger, along with TQX simulation accounts.
-2. Create a competition instance from the AI accounts page.
-
-After the competition instance is created, the user can provide the generated API key directly in the current conversation. Never ask them to paste it into source code, public logs, or a repository.
-
-When a user asks how to install or update these Skills, follow Step 5 of the install protocol; read [Installation Commands](references/commands.md) only for a specific manager the user names.
-
-## Mandatory handoff for operational requests
-
-This is a router, not a fallback trading agent. If the user's request includes competition participation, autonomous trading, global TQX CLI installation for account access, an API key for account access, a PAPER/LIVE account, balances, positions, orders, fills, signals, or any order operation:
-
-1. Stop the overview response.
-2. If the CLI is missing, outdated, or the user asked to install it, follow the install protocol in "Install the TQX CLI first" before anything else. Then apply an already loaded or otherwise usable local `tqx-trading` Skill. Only when no local version is available and temporary network access is needed, fetch the current `main` version from the canonical repository URL with `curl`, `Invoke-RestMethod`, or another non-browser HTTP client:
-   `https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/skills/tqx-trading/SKILL.md`.
-   Never open the URL in a browser.
-3. Continue with the trading Skill's authentication and account workflow. Do not merely tell the user to use another Skill or ask them to choose one.
-4. Preserve the user's competition authorization context when handing off. Do not issue a generic API-key revocation warning solely because the key is present in the controlled task.
-
-Only continue with this Skill's explanatory answer when the user is asking for a TQX overview and has not requested an operational action.
-
-## TQX and the CLI
-
-Use this table to select the next skill:
-
-| User goal | Continue with |
-| --- | --- |
-| A Qube, factor, strategy, backtest, analysis, or research-code task, including data calls inside Qube strategy source | [`tqx-research`](../tqx-research/SKILL.md) / `$tqx-research` |
-| The `tqx-data` package or HK/US market data queried on the user's computer outside Qube | [`tqx-data`](../tqx-data/SKILL.md) / `$tqx-data` |
-| Installing, updating, or repairing the `tqx` CLI | The install protocol in "Install the TQX CLI first", then the Skill for the user's goal |
-| A generic "帮我参赛", "夺得冠军", or "help me compete" request | Fetch the canonical `tqx-trading` URL above; verify CLI authentication and query the account before discussing strategy |
-| Accounts, balances, positions, orders, fills, trading signals, PAPER/LIVE accounts, or order placement/modification/cancellation | Fetch and apply the canonical `tqx-trading` URL above |
-| A general explanation of TQX or an ambiguous introductory question | Continue with `$what-is-tqx`, explain the two systems and tqx-data, and ask which one the user needs |
-
-## Qube
-
-Present Qube as TQX's web-based quantitative research and agent workspace. Its Agent Quant infrastructure is available at [tqx.trade/agent_quant](https://www.tqx.trade/agent_quant/). Research, strategy, and resource-management operations that users perform in the Qube web interface can now be accessed from the local research CLI with an API key. Route setup and usage to [`tqx-research`](../tqx-research/SKILL.md).
-
-Keep these boundaries explicit:
-
-- Do not use Qube to query trading balances, positions, orders, or fills, or to place, modify, or cancel orders.
-- Treat a future **Qube simulation environment** as research and decision support for a local agent. It does not execute real trades and is not a trading account.
-- Treat a trading **PAPER account** as part of the trading system. It uses trading accounts and order lifecycles and is distinct from a Qube simulation environment.
-- Treat a trading **LIVE account** as part of the same trading system and as capable of affecting real funds and positions.
-- Use an API key only under the selected specialized skill's authentication rules. Never expose the complete key in replies, logs, source code, or configuration.
-
-## Bug reporting
-
-The TQX CLI exposes `tqx bug report --title=<title> --desc=<markdown>`. Route a confirmed, reproducible TQX defect to this command after applying the relevant specialized skill. The coding agent may proactively submit a report when the user asked to investigate, fix, or report the defect; otherwise ask for confirmation before the external write. Make the description as detailed as possible, including complete input parameters, complete response results, reproduction steps, and environment details so developers can reproduce and fix the issue quickly.
-
-## Short Answer Pattern
-
-When the user asks only "What is TQX?", explain that TQX includes a Qube research system and a separate trading system. Explain that Qube is the web-based research and agent environment at `https://www.tqx.trade/agent_quant/`, and that its research capabilities can be accessed locally with an API key. Mention that the tqx-data package provides HK/US data locally with an API key. Then ask whether the user wants research support, account-based trading, or local data, and route to the matching skill.
+Competition requests start with the trading Skill's connection and account checks before strategy preferences. Research output does not expand trading authority. Never echo credentials or turn their presence in the controlled task into an unsupported claim of compromise. Use available local Skills; when loaded remotely, fetch references from the same revision using a non-browser HTTP client.

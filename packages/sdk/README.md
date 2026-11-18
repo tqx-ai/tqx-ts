@@ -35,6 +35,14 @@ The User API provides `client.user.verify()`, `client.user.getStatus()`, and
 The public request and response schemas are exported as Valibot schemas alongside their inferred
 TypeScript types.
 
+Research uses a gateway base ending in `/tqxApi`. Factor analysis and tuning `stockPool`
+support HK (`all`, `HSI.HK`, `HSCE.HK`, `HSTECH.HK`) and US (`all`, `SPX`, `IXIC`, `NDX`,
+`DJI`) pools. Backtest `standardSymbol` supports those indices without `all`; the backend
+checks market compatibility. Backtest results preserve `partial`, `available_from` and
+`available_total`; charts preserve the optional `benchmark` curve and `partial` state.
+Queued/running reads can return empty or partial data. For `LIVE_RESULT_UNAVAILABLE`, retry
+the same read with backoff and retain the run ID.
+
 ## License
 
 GNU General Public License v3.0.
