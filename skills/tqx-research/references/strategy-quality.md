@@ -1,6 +1,6 @@
 # Strategy source quality
 
-Read the [Hong Kong framework](stock_hk_api.md) or [US framework](stock_us_api.md). Create/save receipts and explicit server validation report diagnostics for the saved source. Use diagnostic codes, messages, lines and columns for that exact revision. The optional local TypeScript validator is a static aid; the server remains authoritative.
+Read the [Hong Kong framework](stock_hk_api.md) or [US framework](stock_us_api.md). Create/save receipts and explicit server validation report diagnostics for the saved source. Use diagnostic codes, messages, lines and columns for that exact revision. The server remains authoritative.
 
 ## Source comments
 

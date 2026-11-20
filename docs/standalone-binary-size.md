@@ -404,3 +404,12 @@ Acceptance criteria: the differential e2e suite passes completely (especially
 `research strategy create` and the exit-code cases), and it also passes on Linux and Windows. Keep
 Bun until then. At that point, also implement credential reads compatible with `Bun.secrets` (see
 the table above) so logged-in users keep their login after upgrading.
+
+## Follow-up: local strategy validator removal (2026-11-20)
+
+The SDK's local strategy source validator and its `@lezer/python` dependency have since been
+removed. The measurements and compatibility findings above describe the historical builds tested
+on the research dates, including the v0.5.0 release assets; they have been preserved unchanged.
+Perry has not been retested after this removal. The previously observed URL handling,
+`process.exitCode`, and JSON key-ordering issues remain unresolved by this change; the old 48/80
+result does not establish compatibility for the updated CLI.

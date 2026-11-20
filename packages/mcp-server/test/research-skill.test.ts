@@ -5,7 +5,6 @@ import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 
 import { actions } from '../src/research/actions'
-import { validateStrategyCode } from '../../sdk/src/index'
 
 const root = resolve(import.meta.dirname, '../../..')
 function files(directory: string): string[] {
@@ -55,16 +54,6 @@ describe('Research Skill contracts', () => {
       expect(v.safeParse(action!.input, example.input).success, example.action).toBe(true)
     }
   })
-
-  const examples = readFileSync(resolve(research, 'references/strategy-examples.md'), 'utf8')
-  for (const market of ['hk', 'us']) {
-    it(`validates the embedded ${market} strategy example`, () => {
-      const section = examples.split(`## ${market.toUpperCase()}`)[1]!
-      const code = /```python\n([\s\S]*?)\n```/.exec(section)?.[1]
-      expect(code).toBeDefined()
-      expect(() => validateStrategyCode(code!, market)).not.toThrow()
-    })
-  }
 
   it.each([research, resolve(plugin, 'skills/tqx-research')])(
     'keeps the research Skill in English without executable scripts at %s',

@@ -22,8 +22,8 @@ root-relative OpenAPI paths and trading base URL.
 Read current revisions with `info` before modifying or running a resource. On a revision conflict,
 read current state and reconcile changes. Source save, run, version, restore, and tuning requests
 carry request IDs. The CLI generates IDs, while tuning JSON and SDK callers supply them explicitly.
-Source code is validated by the backend. The SDK's optional local `validateStrategyCode` helper
-remains available as an explicit static check.
+Source code is validated by the backend. Use the SDK's explicit `validateStrategy` call when a
+separate validation receipt is needed before running.
 
 ## Supported operations
 

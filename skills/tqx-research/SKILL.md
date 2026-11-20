@@ -21,7 +21,7 @@ Start with the matching task. Read additional references only when its task requ
 - Add time-series or cross-sectional logic: [Time-series](references/time_series_strategies.md) or [cross-sectional](references/cross_sectional_strategies.md).
 - Resolve a data field, symbol or coverage question: [Data index](references/tqx_data_usage.md), then the exact method section.
 
-The template guide links complete source examples when needed. [Local validator boundaries](references/strategy-source.md) apply only when inspecting source locally. For local Python queries outside Qube, use [tqx-data](../tqx-data/SKILL.md); trading operations use [tqx-trading](../tqx-trading/SKILL.md).
+The template guide links complete source examples when needed. Read [source constraints and server validation](references/strategy-source.md) before generating or uploading source. For local Python queries outside Qube, use [tqx-data](../tqx-data/SKILL.md); trading operations use [tqx-trading](../tqx-trading/SKILL.md).
 
 ## Work and verify
 
