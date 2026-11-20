@@ -139,9 +139,6 @@ export class ResearchApiClient implements ResearchApi {
   validateStrategy(...args: Parameters<StrategyApi['validateStrategy']>) {
     return this.#strategies.validateStrategy(...args)
   }
-  validateStrategyCode(...args: Parameters<StrategyApi['validateStrategyCode']>) {
-    return this.#strategies.validateStrategyCode(...args)
-  }
   runStrategyBacktest(...args: Parameters<StrategyApi['runStrategyBacktest']>) {
     return this.#strategies.runStrategyBacktest(...args)
   }

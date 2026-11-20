@@ -29,7 +29,6 @@ import {
   StrategyTuningApplyInputSchema,
   TuningRerunInputSchema,
   type ListQubeResourcesInput,
-  type QubeMarket,
   type Backtest,
   type CreateStrategyInput,
   type CreateVersionInput,
@@ -61,22 +60,10 @@ import {
   type ResearchRequest,
 } from './shared'
 
-import {
-  validateStrategyCode,
-  type StrategyValidationOptions,
-} from './strategy-validation/validate'
-
 export class StrategyApi {
   readonly #request: ResearchRequest
   constructor(request: ResearchRequest) {
     this.#request = request
-  }
-  async validateStrategyCode(
-    code: string,
-    market: QubeMarket | string,
-    options?: StrategyValidationOptions,
-  ): Promise<void> {
-    validateStrategyCode(code, market, options)
   }
   async createStrategy(input: CreateStrategyInput): Promise<Strategy> {
     const parsed = parseResearchInput(CreateStrategyInputSchema, input)

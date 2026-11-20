@@ -74,4 +74,4 @@ Factor analysis and tuning `stockPool` currently accept only `all` (full market)
 
 Backtest result pages retain optional `partial`, `available_from`, `available_total`; charts retain `partial`, `complete` and optional `benchmark: {standard_symbol, points}`. These fields can describe running or empty artifacts. A missing benchmark is not a zero return. Preserve status, pagination and snapshot metadata when interpreting results.
 
-Factor and strategy resource schemas explicitly retain optional nullable `parameters_draft`. Source and parameter validation are separate; static validity does not establish successful execution. The optional local source validator rejects direct `tqx_data` imports to match current Qube; select `panda_backtest` public APIs for strategy history.
+Factor and strategy resource schemas explicitly retain optional nullable `parameters_draft`. Source and parameter validation are separate; static validity does not establish successful execution. Current Qube server strategy validation rejects direct `tqx_data` imports, including aliases and from-imports; select `panda_backtest` public APIs for strategy history.

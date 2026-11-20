@@ -39,16 +39,16 @@ call({ action: "backtest.result.get", input: { runId, field: "trades" } })
 
 已核对仓库内的资源客户端与 schema：
 
-| 来源                                      | 已有能力                                                            | 本方案处理                                               |
-| ----------------------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
-| packages/sdk/src/research/factor-api.ts   | 28 个方法，包含因子、分析、版本、快照、调优和轮询                   | 保留普通因子研究；轮询由 Agent 重复 get；增加调优 action |
-| packages/sdk/src/research/strategy-api.ts | 29 个方法，包含策略、回测、版本、因子版本绑定、调优、本地校验和轮询 | 保留普通策略研究；全局因子版本搜索统一命名               |
-| packages/sdk/src/research/backtest-api.ts | 结果页、曲线、标的 K 线，共 3 个方法                                | 保留前两个结果读取 action；K 线排除                      |
-| packages/sdk/src/research/events.ts       | 4 个流式订阅入口                                                    | 本期不实现                                               |
-| packages/sdk/src/research/schemas.ts      | 输入校验、资源/运行/结果响应 schema                                 | 以此核对字段、ID、revision、日期和分页限制               |
-| packages/sdk/src/config/APIs.ts           | 相对 qube/api 路径                                                  | 作为公开 gateway 路径基线                                |
-| skills/tqx-research/references/sdk.md     | SDK 用法和 Research 状态语义                                        | action 说明书的关联文档                                  |
-| packages/mcp-server/AGENTS.md             | 独立 gateway、无数据库、token exchange、Valibot                     | 实现必须遵循                                             |
+| 来源                                      | 已有能力                                                              | 本方案处理                                               |
+| ----------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------- |
+| packages/sdk/src/research/factor-api.ts   | 28 个方法，包含因子、分析、版本、快照、调优和轮询                     | 保留普通因子研究；轮询由 Agent 重复 get；增加调优 action |
+| packages/sdk/src/research/strategy-api.ts | 28 个方法，包含策略、回测、版本、因子版本绑定、调优、服务端校验和轮询 | 保留普通策略研究；全局因子版本搜索统一命名               |
+| packages/sdk/src/research/backtest-api.ts | 结果页、曲线、标的 K 线，共 3 个方法                                  | 保留前两个结果读取 action；K 线排除                      |
+| packages/sdk/src/research/events.ts       | 4 个流式订阅入口                                                      | 本期不实现                                               |
+| packages/sdk/src/research/schemas.ts      | 输入校验、资源/运行/结果响应 schema                                   | 以此核对字段、ID、revision、日期和分页限制               |
+| packages/sdk/src/config/APIs.ts           | 相对 qube/api 路径                                                    | 作为公开 gateway 路径基线                                |
+| skills/tqx-research/references/sdk.md     | SDK 用法和 Research 状态语义                                          | action 说明书的关联文档                                  |
+| packages/mcp-server/AGENTS.md             | 独立 gateway、无数据库、token exchange、Valibot                       | 实现必须遵循                                             |
 
 以下是**拟新增 MCP action 合同**，并不表示同名 SDK 方法或上游 endpoint 已经存在。MCP 输入和稳定输出使用 camelCase；gateway 负责与上游 snake_case 映射。引擎生成的指标、图表与结果行内部键保持原值，不递归改名或重新计算指标。
 
