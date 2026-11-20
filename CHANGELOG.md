@@ -4,6 +4,61 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.8.0 - 2026-11-20
+
+This stable release includes the changes previewed in 0.8.0-beta.1 through 0.8.0-beta.3.
+Qube research integrations must migrate from the 0.7.x contract before upgrading.
+See [the Qube Next migration guide](QUBE_NEXT_MIGRATION.md) for the new workflow and commands.
+
+### BREAKING CHANGES - Qube research
+
+- Research endpoints move from `agent_quant/api/...` to `qube/api/...`, including
+  `strategy-backtests` in place of `backtests`. Configure the research gateway base with
+  `/tqxApi` instead of the legacy `/pandaApi` base.
+- Resource, analysis, backtest, version, and tuning IDs are lowercase 24-character Mongo ObjectIds;
+  integer IDs are no longer accepted. Resources use `title` and CLI `--title` instead of `name`
+  and `--name`; named versions still use `name`.
+- Source saves and configuration updates are separate operations. Use `updateFactorSource` or
+  `updateStrategySource` with `requestId` and `baseSourceRevision`; configuration updates require
+  `baseConfigRevision`. Runs and restores require `expectedSourceRevision` and
+  `expectedConfigRevision`. Read current revisions before writing and reconcile conflicts before
+  retrying. The CLI generates request IDs for individual mutations; SDK callers and tuning JSON
+  must supply them explicitly.
+- Replace the legacy save/revert, backtest-parameter, version-backtest, and factor-to-strategy
+  convenience methods with source/config updates, named version creation and restore, and
+  `createStrategy` with `factorBinding`. Public research schemas and method signatures now follow
+  the Qube Next contracts.
+- Resource libraries use `limit` and opaque `cursor` pagination instead of offsets. SDK library
+  pages expose `items`, `hasMore`, `nextCursor`, and market counts. Summary lists allow at most
+  10 entries; backtest result fields use separate pages of at most 500 rows. Update consumers of
+  CLI JSON/plain output for the new fields and result shapes.
+- Successful runs use `succeeded` instead of `done` or `completed`. Handle `preparing`, `queued`,
+  `running`, `failed`, and `cancelled`, and preserve partial-result and availability metadata.
+  Empty or partial result reads do not establish successful execution.
+- Factor analysis and tuning `stockPool` accept only `all`. Explicitly update historical index
+  pools to `all`; omitting the field preserves saved settings. Backtest benchmarks use
+  `HSI.HK`, `HSCE.HK`, or `HSTECH.HK` for HK and `SPX`, `IXIC`, `NDX`, or `DJI` for US.
+- Remove local `validateStrategyCode` and strategy-validation exports. Python source is submitted
+  as opaque text and validated by the backend; use `validateFactor` or `validateStrategy` for an
+  explicit server validation receipt. Current Qube strategies must use the market engine APIs
+  instead of direct `tqx_data` imports.
+
+### Added
+
+- Ship the TQX Agent Plugin, shared setup/data/research/trading skills, and a native Claude plugin
+  ZIP with MCP connection configuration and updated TQX artwork.
+- Add the hosted MCP server with client authentication and Qube research tools.
+- Add Qube factor/strategy source and config updates, server validation, cursor libraries,
+  analysis/backtest lifecycle operations, named versions/restores, factor snapshots, parameter
+  tuning, paged backtest results, charts, symbol daily bars, and SDK SSE snapshot streams.
+- Add research data contracts, examples, saved-parameter workflows, and migration guidance across
+  the SDK, CLI, MCP server, and bundled skills.
+
+### Changed
+
+- Publish the SDK and CLI on npm's `latest` channel and announce v0.8.0 as a stable GitHub Release.
+- Allow bug reports without a scope and refresh bundled reporting guidance.
+
 ## 0.8.0-beta.3 - 2026-11-18
 
 ### Added

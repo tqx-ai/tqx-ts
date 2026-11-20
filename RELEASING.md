@@ -3,7 +3,7 @@
 `@tqx-ai/cli` bundles the `@tqx-ai/sdk` source into its build output and declares the SDK only as a
 dev dependency, so installing the CLI never installs the SDK.
 
-The release being prepared is npm version `0.8.0-beta.3` with planned Git tag `v0.8.0-beta.3`.
+The release being prepared is npm version `0.8.0` with planned Git tag `v0.8.0`.
 
 Use Bun to pack packages. Bun rewrites `workspace:*` specifiers, including the CLI's SDK dev
 dependency, to the workspace package version, so no published manifest contains the workspace
@@ -38,10 +38,11 @@ Review the version changes and ensure these values match:
 - `lerna.json`
 - `packages/sdk/package.json`
 - `packages/cli/package.json`
+- `packages/mcp-server/package.json`
 - `plugins/agent-plugin/plugin.json`
 - `README.md`, `packages/sdk/README.md`, and `packages/cli/README.md`
-- `../skills/tqx-trading/SKILL.md`
-- `../skills/tqx-trading/references/commands.md`
+- `skills/tqx-trading/SKILL.md`
+- `skills/tqx-trading/references/commands.md`
 
 Run the complete release gate:
 
@@ -87,6 +88,9 @@ published until every standalone binary has passed verification. The `publish` j
 3. publishes the draft GitHub Release last, because it is what announces the update to users and
    npm-installed CLIs update from npm.
 
+The workflow embeds the matching `CHANGELOG.md` release section in the GitHub Release notes,
+including any breaking changes and a migration guide link.
+
 Every `publish` step is safe to rerun: an already published npm version is skipped and an
 unpublished draft from an earlier attempt is replaced. If the job fails, fix the cause and rerun the
 failed job for the same tag. Do not run the local `publish:sdk` or `publish:cli` scripts for a normal
@@ -94,7 +98,10 @@ release.
 
 ```bash
 git add package.json lerna.json packages/sdk/package.json packages/cli/package.json \
-  CHANGELOG.md README.md packages/sdk/README.md packages/cli/README.md RELEASING.md
+  packages/mcp-server/package.json plugins/agent-plugin/plugin.json bun.lock \
+  CHANGELOG.md README.md packages/sdk/README.md packages/cli/README.md RELEASING.md \
+  packages/cli/test/runtime/command-runtime.test.ts packages/cli/test/update.test.ts \
+  .github/workflows/release.yml
 git commit -m "Release v<version>"
 git push origin main
 git tag -a v<version> -m "Release v<version>"

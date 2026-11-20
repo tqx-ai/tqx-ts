@@ -422,6 +422,19 @@ jobs:
             -e "s|__CLAUDE_PLUGIN_URL__|$claude_plugin_url|g" \
             release-notes.md
 
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs'
+          const changelog = readFileSync('CHANGELOG.md', 'utf8')
+          const heading = `## ${process.env.VERSION} - `
+          const start = changelog.indexOf(heading)
+          if (start === -1) throw new Error(`Missing changelog section for ${process.env.VERSION}`)
+          const end = changelog.indexOf('\n## ', start + heading.length)
+          const section = changelog.slice(start, end === -1 ? undefined : end).trim()
+            .replaceAll('(QUBE_NEXT_MIGRATION.md)', `(https://github.com/${process.env.GITHUB_REPOSITORY}/blob/${process.env.NOTES_REF}/QUBE_NEXT_MIGRATION.md)`)
+          const notes = readFileSync('release-notes.md', 'utf8')
+          writeFileSync('release-notes.md', notes.replace('### Claude plugin', `${section}\n\n### Claude plugin`))
+          NODE
+
           if grep -Eq '__TAG__|__VERSION__|__CHANGELOG_URL__|__CLAUDE_PLUGIN_URL__|\$\{(tag|version|changelog_url|claude_plugin_url)\}' release-notes.md; then
             echo 'Release notes still contain unresolved placeholders' >&2
             exit 1

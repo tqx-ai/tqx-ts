@@ -158,7 +158,7 @@ describe('CLI updates', () => {
 
     expect(JSON.parse(stdout.value)).toMatchObject({
       updated: false,
-      current_version: '0.8.0-beta.3',
+      current_version: '0.8.0',
       latest_version: '0.8.1',
       update_available: true,
       method: null,
