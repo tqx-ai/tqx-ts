@@ -135,6 +135,8 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
         result: {
           supportedVersions: [protocolVersion],
           capabilities: { tools: {} },
+          ttlMs: 5 * 60 * 1000,
+          cacheScope: 'public',
           _meta: { 'io.modelcontextprotocol/serverInfo': serverInfo },
         },
       })
@@ -144,7 +146,8 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
   it('advertises tqx_ping with a required string name', async () => {
     const response = await call('tools/list')
 
-    expect(await readResponse(response, protocolVersion)).toMatchObject({
+    const body = await readResponse(response, protocolVersion)
+    expect(body).toMatchObject({
       result: {
         tools: [
           {
@@ -158,6 +161,12 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
         ],
       },
     })
+    if (protocolVersion === '2026-07-28') {
+      expect(body.result).toMatchObject({ ttlMs: 5 * 60 * 1000, cacheScope: 'public' })
+    } else {
+      expect(body.result).not.toHaveProperty('ttlMs')
+      expect(body.result).not.toHaveProperty('cacheScope')
+    }
   })
 
   it('returns pong for each concurrent caller', async () => {

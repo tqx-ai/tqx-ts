@@ -14,6 +14,8 @@ import type { TradingGateway } from './trading/gateway'
 import type { ResearchGateway } from './research/gateway'
 import { registerResearchTools } from './research/tools'
 
+const CACHE_TTL_MS = 5 * 60 * 1000
+
 export function createServer(
   context?: McpRequestContext,
   options: {
@@ -23,7 +25,16 @@ export function createServer(
     demoPing?: boolean
   } = {},
 ) {
-  const server = new McpServer({ name: '@tqx-ai/mcp-server', version })
+  const server = new McpServer(
+    { name: '@tqx-ai/mcp-server', version },
+    {
+      cacheHints: {
+        'server/discover': { ttlMs: CACHE_TTL_MS, cacheScope: 'public' },
+        'tools/list': { ttlMs: CACHE_TTL_MS, cacheScope: 'public' },
+        'prompts/list': { ttlMs: CACHE_TTL_MS, cacheScope: 'public' },
+      },
+    },
+  )
 
   if (options.demoPing !== false) registerPingTool(server)
   if (options.researchGateway)
