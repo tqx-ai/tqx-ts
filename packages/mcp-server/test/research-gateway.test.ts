@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { loadResearchConfig } from '../src/research/config'
 import { loadTradingConfig } from '../src/trading/config'
-import { actions, callAction } from '../src/research/actions'
+import { actions, callAction } from '../src/research/tools/actions'
 import { createResearchRuntime } from '../src/research/runtime'
 import {
   envelope,

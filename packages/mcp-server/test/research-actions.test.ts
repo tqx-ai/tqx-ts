@@ -1,8 +1,14 @@
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
+
 import { afterEach, describe, expect, it } from 'vitest'
 import * as v from 'valibot'
 
-import { actions, callAction } from '../src/research/actions'
-import { describeAction } from '../src/research/documentation'
+import { actions, callAction } from '../src/research/tools/actions'
+import { describeAction } from '../src/research/tools/documentation'
+
+const repoRoot = resolve(import.meta.dirname, '../../..')
+const githubBlobPrefix = 'https://github.com/tqx-ai/tqx-ts/blob/main/'
 import {
   chart,
   envelope,
@@ -57,8 +63,24 @@ describe('Research action contracts and request mapping', () => {
       expect(doc.inputSchema).toHaveProperty('$schema')
       expect(doc.outputSchema.type).toBe('object')
       expect(doc.documentation).toContain('tqx_research_call')
-      expect(doc.documentation).toContain('https://github.com/tqx-ai/tqx-ts/')
+      expect(doc.documentation).toContain(githubBlobPrefix)
       expect(doc.documentation).not.toContain('/Users/')
+      expect(doc.documentation).not.toContain('sdk.md')
+      expect(doc.documentation).not.toContain('commands.md')
+      expect(doc.description).not.toMatch(/[\u3400-\u9fff]/u)
+      expect(doc.documentation).not.toMatch(/[\u3400-\u9fff]/u)
+      const repoLinks = [
+        ...doc.documentation.matchAll(
+          /https:\/\/github\.com\/tqx-ai\/tqx-ts\/blob\/main\/([^\s)]+)/g,
+        ),
+      ]
+      expect(repoLinks.length).toBeGreaterThanOrEqual(3)
+      for (const [, relativePath] of repoLinks) {
+        expect(
+          existsSync(resolve(repoRoot, relativePath!)),
+          `${action.name}: ${relativePath}`,
+        ).toBe(true)
+      }
       for (const related of action.related) expect(actions.has(related), related).toBe(true)
     }
   })

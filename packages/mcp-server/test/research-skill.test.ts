@@ -4,7 +4,7 @@ import { dirname, relative, resolve } from 'node:path'
 import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 
-import { actions } from '../src/research/actions'
+import { actions } from '../src/research/tools/actions'
 
 const root = resolve(import.meta.dirname, '../../..')
 function files(directory: string): string[] {

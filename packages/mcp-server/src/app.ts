@@ -79,6 +79,7 @@ export function createApp(options: AppOptions = {}) {
       createServer(context, {
         gateway: runtime?.gateway,
         researchGateway: researchRuntime?.gateway,
+        researchStrategyCache: researchRuntime?.strategyCache,
         now: options.now,
         demoPing:
           options.demoPing ??

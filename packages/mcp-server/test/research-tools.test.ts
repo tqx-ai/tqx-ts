@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../src/app'
-import { actions } from '../src/research/actions'
+import { actions } from '../src/research/tools/actions'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
 import { envelope, ID, researchConfig, resource, run, RUN, validation } from './helpers/research'
 
@@ -155,7 +155,7 @@ describe('Research MCP tools over authenticated HTTP', () => {
           : doc.inputSchema.properties.parameters
       expect(schema.properties.stockPool).toMatchObject({ const: 'all' })
       expect(schema.required ?? []).not.toContain('stockPool')
-      expect(doc.documentation).toContain('stockPool 当前仅支持 all（全市场）')
+      expect(doc.documentation).toContain('stockPool currently supports only all (full market)')
       expect(s.exchange).not.toHaveBeenCalled()
       expect(s.fetch).not.toHaveBeenCalled()
     },

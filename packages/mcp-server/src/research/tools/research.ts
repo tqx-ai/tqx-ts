@@ -2,12 +2,12 @@ import { requireScopes } from '@modelcontextprotocol/server'
 import type { AuthInfo, CallToolResult, McpServer } from '@modelcontextprotocol/server'
 import * as v from 'valibot'
 
-import { toolSchema } from '../utils/tool-schema'
+import { toolSchema } from '../../utils/tool-schema'
+import { ResearchError, researchError } from '../errors'
+import type { ResearchGateway } from '../gateway'
+import { catalogOutput, detailOutput, exploreInput, callInput } from '../schemas'
 import { actions, callAction } from './actions'
 import { describeAction } from './documentation'
-import { ResearchError, researchError } from './errors'
-import type { ResearchGateway } from './gateway'
-import { catalogOutput, detailOutput, exploreInput, callInput } from './schemas'
 
 function result(output: Record<string, unknown>, isError = false): CallToolResult {
   return {

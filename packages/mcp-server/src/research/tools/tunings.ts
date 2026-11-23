@@ -1,11 +1,11 @@
 import * as v from 'valibot'
 
-import APIs from '../config/APIs'
+import APIs from '../../config/APIs'
 import type { Action } from './actions'
-import { ResearchError } from './errors'
-import { array, object } from './gateway'
-import * as p from './projections'
-import * as s from './schemas'
+import { ResearchError } from '../errors'
+import { array, object } from '../gateway'
+import * as p from '../projections'
+import * as s from '../schemas'
 
 const parameterName = v.pipe(v.string(), v.regex(/^[A-Za-z][A-Za-z0-9_]{0,127}$/))
 const numericParameters = v.record(parameterName, s.finite)
@@ -277,7 +277,7 @@ const revisionExample = {
   expectedConfigRevision: 2,
 }
 const notes =
-  '调优为异步任务，约每 2 秒 get 一次并在限流时退避。queued/running/cancelling 尚未结束；no_valid_candidates 也是终态。保留 requestId 和 tuningId，超时后先核实远端状态，不自动重复提交。apply 使用当前资源的 sourceRevision/configRevision，并会修改资源源码或配置。因子使用 trialId，策略使用 candidateId；从 get 响应候选读取，不从序号推测。'
+  'Tuning is an asynchronous job; poll get about every 2 seconds and back off on rate limits. queued, running, and cancelling are non-terminal; no_valid_candidates is terminal. Keep requestId and tuningId, and check remote state after a timeout instead of resubmitting automatically. apply uses the resource current sourceRevision and configRevision and modifies its source or configuration. Factors select trialId while strategies select candidateId; read these IDs from get candidates rather than inferring them from indices.'
 export const tuningActions: Action[] = []
 for (const kind of ['factor', 'strategy'] as const) {
   const resourceKey = `${kind}Id`,
@@ -296,14 +296,14 @@ for (const kind of ['factor', 'strategy'] as const) {
   const common = {
     notes:
       kind === 'factor'
-        ? `${notes} 候选参数 stockPool 当前仅支持 all（全市场）；未传时沿用保存配置与默认值，历史指数股票池需显式更新为 all。`
+        ? `${notes} Candidate parameter stockPool currently supports only all (full market); omitted fields inherit saved settings and defaults, and legacy index pools must be explicitly updated to all.`
         : notes,
     related: [`${kind}.get`, `${prefix}.get`, `${prefix}.apply`],
   }
   tuningActions.push({
     ...common,
     name: `${prefix}.submit`,
-    description: `提交${kind === 'factor' ? '因子' : '策略'}参数调优`,
+    description: `Submit a ${kind} parameter tuning job`,
     scope: 'research:run',
     input: kind === 'factor' ? factorSubmit : strategySubmit,
     output: schema,
@@ -335,13 +335,13 @@ for (const kind of ['factor', 'strategy'] as const) {
   tuningActions.push({
     ...common,
     name: `${prefix}.list`,
-    description: '列出资源最近的参数调优摘要',
+    description: `List recent parameter tuning summaries for a ${kind}`,
     scope: 'research:read',
     input: v.strictObject({ [resourceKey]: s.id, ...s.offsetEntries }),
     output: s.pageOutput(schema),
     exampleInput: { [resourceKey]: ID },
     exampleOutput: { items: [], hasMore: false, nextCursor: null, possiblyTruncated: false },
-    notes: `${notes} 上游最多返回最近 200 条且省略候选；offset/limit 只在这批数据内分页。达到上限时 possiblyTruncated=true，完整历史用 search。`,
+    notes: `${notes} Upstream returns at most the 200 most recent tunings and omits candidates; offset/limit paginates only within that batch. When possiblyTruncated=true, use search for complete history.`,
     execute: async (request, input) =>
       p.slicePage(
         array(
@@ -354,7 +354,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   tuningActions.push({
     ...common,
     name: `${prefix}.search`,
-    description: '按市场、资源、状态和时间搜索调优历史',
+    description: `Search ${kind} tuning history by market, resource, status, and time`,
     scope: 'research:read',
     input: s.searchInput(kind, false, true),
     output: s.pageOutput(schema),

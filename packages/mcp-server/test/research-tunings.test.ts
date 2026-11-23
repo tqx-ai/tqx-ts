@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { actions, callAction } from '../src/research/actions'
+import { actions, callAction } from '../src/research/tools/actions'
 import {
   envelope,
   ID,
