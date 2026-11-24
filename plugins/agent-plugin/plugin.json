@@ -30,9 +30,9 @@
     "com.openai": {
       "onboardingSkill": "./skills/tqx-setup/SKILL.md",
       "interface": {
-        "displayName": "TQX",
-        "shortDescription": "Invest and trade with TQX",
-        "longDescription": "Connect your TQX account to view balances, positions, orders, trades, and cash flows, and execute trading instructions. Research Hong Kong and US factors and strategies through Qube analyses, backtests, versions and parameter tuning. Trading and research use client-managed OAuth with separate scopes; research does not require a trading Agent binding. Local market data uses the included Python skill and requires a TQX API key and compatible Python environment.",
+        "displayName": "TQX UAT",
+        "shortDescription": "Invest and trade with TQX UAT",
+        "longDescription": "Connect your TQX UAT account to view balances, positions, orders, trades, and cash flows, and execute trading instructions. Research Hong Kong and US factors and strategies through Qube analyses, backtests, versions and parameter tuning. Trading and research use client-managed OAuth with separate scopes; research does not require a trading Agent binding. Local market data uses the included Python skill and requires a TQX API key and compatible Python environment.",
         "developerName": "TQX Team",
         "category": "Productivity",
         "capabilities": [
