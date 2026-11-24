@@ -2,7 +2,7 @@
 
 The user needs a TQX Dev Settings API key with the `data` permission:
 
-`https://www.tqx.ai/user-center?tab=dev-settings`
+`https://tqxtest.uatpandaai.com/user-center?tab=dev-settings`
 
 Install in the user's Python environment and initialize explicitly or with
 environment variables. Use the base URL provided for the user's TQX environment:

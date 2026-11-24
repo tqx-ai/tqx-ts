@@ -1,14 +1,14 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
-  "name": "tqx-agent-plugin",
+  "name": "tqx-uat-plugin",
   "version": "0.8.0",
   "description": "Let TQX help you invest and trade",
   "author": {
     "name": "TQX Team",
     "email": "joshua@tqx.ai",
-    "url": "https://www.tqx.ai"
+    "url": "https://tqxtest.uatpandaai.com"
   },
-  "homepage": "https://www.tqx.ai",
+  "homepage": "https://tqxtest.uatpandaai.com",
   "repository": "https://github.com/tqx-ai/tqx-ts",
   "license": "GPL-3.0-only",
   "keywords": [
@@ -41,10 +41,10 @@
           "Order management",
           "Factor and strategy research"
         ],
-        "websiteURL": "https://www.tqx.ai",
+        "websiteURL": "https://tqxtest.uatpandaai.com",
         "supportURL": "https://docs.tqx.ai/more/contact-us",
-        "privacyPolicyURL": "https://www.tqx.ai/auth/privacy-policy",
-        "termsOfServiceURL": "https://www.tqx.ai/auth/user-agreement",
+        "privacyPolicyURL": "https://tqxtest.uatpandaai.com/auth/privacy-policy",
+        "termsOfServiceURL": "https://tqxtest.uatpandaai.com/auth/user-agreement",
         "defaultPrompt": [
           "Show my TQX account balance and positions.",
           "List my active orders and recent trades.",

@@ -73,7 +73,7 @@ failure as client metadata retrieval, not as a TQX account or password failure.
 Ask for the exact failed URL before deciding that the MCP endpoint is blocked:
 
 - `client.json` or another client metadata URL: use `Auto`, then switch to DCR.
-- `https://www.tqx.ai/mcp`: diagnose MCP transport, endpoint policy, or resource
+- `https://tqxtest.uatpandaai.com/mcp`: diagnose MCP transport, endpoint policy, or resource
   authorization separately.
 
 Do not tell the user to keep retrying the same CIMD request. Do not make the user

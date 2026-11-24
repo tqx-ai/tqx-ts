@@ -54,7 +54,7 @@ describe('Claude plugin distribution', () => {
     expect(manifest).not.toHaveProperty('$schema')
     expect(manifest).not.toHaveProperty('extensions')
     expect(JSON.parse(readFileSync(output('.mcp.json'), 'utf8'))).toEqual({
-      mcpServers: { tqx: { type: 'http', url: 'https://www.tqx.ai/mcp' } },
+      mcpServers: { tqx: { type: 'http', url: 'https://tqxtest.uatpandaai.com/mcp' } },
     })
     for (const path of [
       '.claude-plugin/plugin.json',

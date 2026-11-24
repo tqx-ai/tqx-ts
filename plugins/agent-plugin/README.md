@@ -38,7 +38,7 @@ authority and the permissions configured in your client and TQX account.
 ## Data and local execution
 
 The MCP connector sends account, trading and research requests to
-`https://www.tqx.ai/mcp`. Your client manages OAuth credentials. The Python data
+`https://tqxtest.uatpandaai.com/mcp`. Your client manages OAuth credentials. The Python data
 workflow installs `tqx-data` in your environment and sends data requests to the
 configured TQX data service. Its optional authentication helper creates a local
 virtual environment and stores credentials in the OS keychain when available,
@@ -54,7 +54,7 @@ catalog and granted scopes. Research is distinct from trading execution.
 ## Support and license
 
 See [TQX support](https://docs.tqx.ai/more/contact-us), the
-[privacy policy](https://www.tqx.ai/auth/privacy-policy), and the
-[terms of service](https://www.tqx.ai/auth/user-agreement).
+[privacy policy](https://tqxtest.uatpandaai.com/auth/privacy-policy), and the
+[terms of service](https://tqxtest.uatpandaai.com/auth/user-agreement).
 
 Licensed under GPL-3.0-only.

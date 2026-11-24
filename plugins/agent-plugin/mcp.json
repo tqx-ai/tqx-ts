@@ -3,7 +3,7 @@
   "mcpServers": {
     "tqx": {
       "type": "streamable-http",
-      "url": "https://www.tqx.ai/mcp"
+      "url": "https://tqxtest.uatpandaai.com/mcp"
     }
   }
 }
