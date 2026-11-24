@@ -5,7 +5,7 @@
   },
   "plugins": [
     {
-      "name": "tqx-agent-plugin",
+      "name": "tqx-uat-plugin",
       "source": {
         "source": "local",
         "path": "./plugins/agent-plugin"
