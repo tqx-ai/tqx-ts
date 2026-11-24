@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { version } from '../package.json'
 import { createApp } from '../src/app'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
+import { expectPngIcons } from './helpers/icons'
 
 const oauth = await createOAuthFixture()
 const accessToken = await oauth.sign()
@@ -123,6 +124,7 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
   it('discovers the server version and tool capability using the protocol lifecycle', async () => {
     const serverInfo = { name: '@tqx-ai/mcp-server', version }
     if (protocolVersion === '2025-11-25') {
+      expectPngIcons(initialization.result.serverInfo.icons)
       expect(initialization.result.capabilities).not.toHaveProperty('prompts')
       expect(initialization).toMatchObject({
         result: { protocolVersion, capabilities: { tools: {} }, serverInfo },
@@ -130,6 +132,7 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
     } else {
       // Modern clients discover directly without an initialize handshake.
       const body = await readResponse(await call('server/discover'), protocolVersion)
+      expectPngIcons(body.result['_meta']['io.modelcontextprotocol/serverInfo'].icons)
       expect(body.result.capabilities).not.toHaveProperty('prompts')
       expect(body).toMatchObject({
         result: {
@@ -147,6 +150,7 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
     const response = await call('tools/list')
 
     const body = await readResponse(response, protocolVersion)
+    expectPngIcons(body.result.tools[0].icons)
     expect(body).toMatchObject({
       result: {
         tools: [

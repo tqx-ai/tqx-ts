@@ -3,6 +3,7 @@ import type { AuthInfo, CallToolResult, McpServer } from '@modelcontextprotocol/
 import * as v from 'valibot'
 
 import { toolSchema } from '../../utils/tool-schema'
+import { toolIcons } from '../../utils/icons'
 import { ResearchError, researchError } from '../errors'
 import type { ResearchGateway } from '../gateway'
 import { catalogOutput, detailOutput, exploreInput, callInput } from '../schemas'
@@ -33,6 +34,7 @@ export function registerResearchTools(
   server.registerTool(
     'tqx_research_explore',
     {
+      icons: toolIcons.tqx_research_explore,
       description:
         'Discover Qube Research actions for factors, strategies, analyses, backtests, versions, snapshots and parameter tuning. Omit action for the catalog; pass an action for exact input/output schemas, usage examples, docs and composition guidance. Does not access research data. Execute through tqx_research_call.',
       inputSchema: toolSchema(exploreInput),
@@ -64,6 +66,7 @@ export function registerResearchTools(
   server.registerTool(
     'tqx_research_call',
     {
+      icons: toolIcons.tqx_research_call,
       description:
         'Execute a whitelisted Qube Research action with {action,input,confirm?}. Use tqx_research_explore for exact action inputs and direct business outputs. Async submissions return an ID; poll the matching get action, then read results. Permissions are checked per action. Deletion requires confirm=true. Excludes market data and trading.',
       inputSchema: toolSchema(callInput),

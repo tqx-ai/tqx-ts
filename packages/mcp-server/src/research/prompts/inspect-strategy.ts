@@ -3,6 +3,7 @@ import type { McpServer, PromptMessage } from '@modelcontextprotocol/server'
 import * as v from 'valibot'
 
 import { promptSchema } from '../../utils/prompt-schema'
+import { promptIcons } from '../../utils/icons'
 import type { ResearchError } from '../errors'
 import {
   type LoadedStrategyResource,
@@ -169,6 +170,7 @@ export function registerInspectStrategyPrompt(
     'inspect_strategy',
     {
       title: 'Inspect a Qube strategy',
+      icons: promptIcons.inspect_strategy,
       description:
         'Inspect a Qube strategy (latest workspace version by default, or an optional frozen version). Embeds the verified MCP strategy resource when an exact strategy ID is valid, or guides fuzzy lookup via tqx_research_call.',
       argsSchema: promptSchema(inspectStrategyArgs, {

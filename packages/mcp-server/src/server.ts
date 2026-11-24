@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/server'
 import type { McpRequestContext } from '@modelcontextprotocol/server'
 
 import { version } from '../package.json'
+import { serverIcons } from './utils/icons'
 import { registerPingTool } from './tools/ping'
 import { registerSnapshot } from './tools/trading/snapshot'
 import { registerActivity } from './tools/trading/activity'
@@ -30,7 +31,7 @@ export function createServer(
   } = {},
 ) {
   const server = new McpServer(
-    { name: '@tqx-ai/mcp-server', version },
+    { name: '@tqx-ai/mcp-server', version, icons: serverIcons },
     {
       cacheHints: {
         'server/discover': { ttlMs: CACHE_TTL_MS, cacheScope: 'public' },

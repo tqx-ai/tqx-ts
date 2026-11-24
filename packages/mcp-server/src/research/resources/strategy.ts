@@ -8,6 +8,7 @@ import {
 import type { AuthInfo, McpServer } from '@modelcontextprotocol/server'
 
 import APIs from '../../config/APIs'
+import { resourceIcons } from '../../utils/icons'
 import { ResearchError, researchError } from '../errors'
 import type { ResearchGateway } from '../gateway'
 import * as p from '../projections'
@@ -217,6 +218,7 @@ export function registerStrategyResources(server: McpServer, context: StrategyAc
     }),
     {
       title: 'Qube Strategy (Latest)',
+      icons: resourceIcons.qube_strategy,
       description: 'Read the latest workspace version and source code of a Qube strategy.',
       mimeType: 'application/json',
       scopeChallenge: requireScopes('research:read'),
@@ -254,6 +256,7 @@ export function registerStrategyResources(server: McpServer, context: StrategyAc
     }),
     {
       title: 'Qube Strategy Version',
+      icons: resourceIcons.qube_strategy_version,
       description: 'Read a specific frozen version and source code of a Qube strategy.',
       mimeType: 'application/json',
       scopeChallenge: requireScopes('research:read'),

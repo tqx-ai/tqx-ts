@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../src/app'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
+import { expectPngIcons } from './helpers/icons'
 import { envelope, ID, researchConfig, resource, VERSION, version } from './helpers/research'
 
 const ID_B = '111111111111111111111111'
@@ -199,24 +200,43 @@ describe('Qube strategy resources, completions, and dynamic prompt', () => {
       completions: {},
     })
 
-    const prompts = await s.rpc('prompts/list')
-    expect(prompts.body.result.prompts).toEqual([
-      expect.objectContaining({
-        name: 'inspect_strategy',
-        arguments: [
-          expect.objectContaining({ name: 'strategy', required: true }),
-          expect.objectContaining({ name: 'version', required: false }),
-        ],
-      }),
-    ])
+    await Promise.all(
+      (['2025-11-25', '2026-07-28'] as const).map(async (protocolVersion) => {
+        const prompts = await s.rpc('prompts/list', {}, readToken, protocolVersion)
+        expect(prompts.response.status).toBe(200)
+        expect(prompts.body.result.prompts).toEqual([
+          expect.objectContaining({
+            name: 'inspect_strategy',
+            arguments: [
+              expect.objectContaining({ name: 'strategy', required: true }),
+              expect.objectContaining({ name: 'version', required: false }),
+            ],
+          }),
+        ])
+        expectPngIcons(prompts.body.result.prompts[0].icons)
 
-    const templates = await s.rpc('resources/templates/list')
-    expect(
-      templates.body.result.resourceTemplates.map((t: { uriTemplate: string }) => t.uriTemplate),
-    ).toEqual([
-      'tqx://qube/strategies/{strategy}',
-      'tqx://qube/strategies/{strategy}/versions/{version}',
-    ])
+        const templates = await s.rpc('resources/templates/list', {}, readToken, protocolVersion)
+        expect(templates.response.status).toBe(200)
+        expect(
+          templates.body.result.resourceTemplates.map(
+            (t: { uriTemplate: string }) => t.uriTemplate,
+          ),
+        ).toEqual([
+          'tqx://qube/strategies/{strategy}',
+          'tqx://qube/strategies/{strategy}/versions/{version}',
+        ])
+        for (const template of templates.body.result.resourceTemplates) {
+          expectPngIcons(template.icons)
+          expect(template.mimeType).toBe('application/json')
+        }
+
+        const resources = await s.rpc('resources/list', {}, readToken, protocolVersion)
+        expect(resources.response.status).toBe(200)
+        expect(resources.body.result.resources).toEqual([])
+      }),
+    )
+    expect(s.fetch).not.toHaveBeenCalled()
+    expect(s.exchange).not.toHaveBeenCalled()
   })
 
   it('completes strategy and cascading version arguments using short per-principal cache without Zod', async () => {

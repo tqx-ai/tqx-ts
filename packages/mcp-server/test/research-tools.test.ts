@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createApp } from '../src/app'
 import { actions } from '../src/research/tools/actions'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
+import { expectPngIcons } from './helpers/icons'
 import { envelope, ID, researchConfig, resource, run, RUN, validation } from './helpers/research'
 
 const oauth = await createOAuthFixture()
@@ -98,6 +99,9 @@ describe('Research MCP tools over authenticated HTTP', () => {
       'tqx_research_call',
     ])
     const [explore, call] = body.result.tools
+    expectPngIcons(explore.icons)
+    expectPngIcons(call.icons)
+    expect(explore.icons[0].src).not.toBe(call.icons[0].src)
     expect(explore.inputSchema.type).toBe('object')
     expect(explore.inputSchema.required ?? []).toEqual([])
     expect(call.inputSchema.required).toEqual(['action', 'input'])
