@@ -65,6 +65,8 @@ describe('Claude plugin distribution', () => {
       'skills/tqx-trading/SKILL.md',
       'skills/tqx-data/SKILL.md',
       'skills/tqx-research/SKILL.md',
+      'skills/tqx-research/agents/openai.yaml',
+      'skills/tqx-research/assets/tqx-research-1118.png',
       'skills/tqx-research/references/mcp.md',
       'skills/tqx-research/references/workflow.md',
       'skills/tqx-research/references/data/index.md',
