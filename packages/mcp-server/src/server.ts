@@ -1,3 +1,4 @@
+import type { KeyObject } from 'node:crypto'
 import { McpServer } from '@modelcontextprotocol/server'
 import type { McpRequestContext } from '@modelcontextprotocol/server'
 
@@ -15,6 +16,8 @@ import type { TradingGateway } from './trading/gateway'
 import type { ResearchGateway } from './research/gateway'
 import { registerInspectStrategyPrompt } from './research/prompts/inspect-strategy'
 import { registerStrategyResources } from './research/resources/strategy'
+import { registerFactorResources } from './research/resources/factor'
+import { registerResearchResourceList } from './research/resources/list'
 import { StrategyCompletionCache } from './research/resources/strategy-cache'
 import { registerResearchTools } from './research/tools/research'
 
@@ -26,6 +29,7 @@ export function createServer(
     gateway?: TradingGateway
     researchGateway?: ResearchGateway
     researchStrategyCache?: StrategyCompletionCache
+    researchResourceCursorKey?: KeyObject
     now?: () => number
     demoPing?: boolean
   } = {},
@@ -33,6 +37,8 @@ export function createServer(
   const server = new McpServer(
     { name: '@tqx-ai/mcp-server', version, icons: serverIcons },
     {
+      // Initialize the SDK resource handlers before the paginated list override is installed.
+      ...(options.researchGateway ? { capabilities: { resources: {} } } : {}),
       cacheHints: {
         'server/discover': { ttlMs: CACHE_TTL_MS, cacheScope: 'public' },
         'tools/list': { ttlMs: CACHE_TTL_MS, cacheScope: 'public' },
@@ -43,6 +49,7 @@ export function createServer(
 
   if (options.demoPing !== false) registerPingTool(server)
   if (options.researchGateway) {
+    if (!options.researchResourceCursorKey) throw new Error('Missing Research resource cursor key')
     const strategyContext = {
       auth: context?.authInfo,
       gateway: options.researchGateway,
@@ -50,6 +57,8 @@ export function createServer(
     }
     registerResearchTools(server, { auth: context?.authInfo, gateway: options.researchGateway })
     registerStrategyResources(server, strategyContext)
+    registerFactorResources(server, strategyContext)
+    registerResearchResourceList(server, strategyContext, options.researchResourceCursorKey)
     registerInspectStrategyPrompt(server, strategyContext)
   }
   if (options.gateway) {

@@ -1,3 +1,4 @@
+import { createHmac, createSecretKey } from 'node:crypto'
 import { ApiTokenProvider } from '../auth/api-token-provider'
 import { createTokenExchange, type TokenExchange } from '../auth/token-exchange'
 import type { ResearchConfig } from './config'
@@ -42,6 +43,21 @@ export function createResearchRuntime(
   return {
     gateway,
     strategyCache,
+    // Domain separation keeps cursor signing independent from OAuth client authentication.
+    // Shared configuration makes cursors portable across stateless replicas.
+    resourceCursorKey: createSecretKey(
+      createHmac('sha256', config.clientSecret)
+        .update(
+          JSON.stringify([
+            'tqx.research.resources.cursor.v2',
+            issuer,
+            config.clientId,
+            config.resource,
+            config.baseUrl,
+          ]),
+        )
+        .digest(),
+    ),
     dispose: () => {
       strategyCache.dispose()
       tokens.dispose()

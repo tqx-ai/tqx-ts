@@ -8,6 +8,7 @@ import type { ResearchError } from '../errors'
 import {
   type LoadedStrategyResource,
   type StrategyAccessContext,
+  PYTHON_MIME_TYPE,
   createStrategyCompleters,
   isStrategyNotFoundOrForbidden,
   readStrategyResource,
@@ -37,6 +38,7 @@ const inspectStrategyArgs = v.object({
 })
 
 function buildVerifiedStrategyMessages(loaded: LoadedStrategyResource): PromptMessage[] {
+  const metadata = Object.fromEntries(Object.entries(loaded.data).filter(([key]) => key !== 'code'))
   const versionLabel =
     loaded.kind === 'version'
       ? `frozen version ${loaded.versionNumber !== undefined ? `v${loaded.versionNumber} (${loaded.versionId})` : loaded.versionId}`
@@ -49,7 +51,7 @@ function buildVerifiedStrategyMessages(loaded: LoadedStrategyResource): PromptMe
         type: 'resource',
         resource: {
           uri: loaded.uri,
-          mimeType: 'application/json',
+          mimeType: PYTHON_MIME_TYPE,
           text: loaded.text,
         },
       },
@@ -60,7 +62,8 @@ function buildVerifiedStrategyMessages(loaded: LoadedStrategyResource): PromptMe
         type: 'text',
         text: [
           `The requested Qube strategy (${loaded.strategyId}, ${versionLabel}) has been verified as accessible to the current user and loaded via MCP resource ${loaded.uri} above.`,
-          'Present and analyze the strategy directly from this attached MCP resource (including its title, market, revision/version metadata, parameters, factor binding, and source code as appropriate).',
+          `Verified strategy metadata (JSON):\n${JSON.stringify(metadata, null, 2)}`,
+          'Present and analyze the strategy using the attached Python source and the verified metadata above (including its title, market, revision/version metadata, parameters, and factor binding as appropriate).',
           'Do not call tqx_research_call with strategy.get or strategy.version.get to re-fetch this same strategy or version. Only use tqx_research_call if the user asks for additional data not included in the resource (such as backtests, other versions, or edits).',
           "Match the user's language in your response.",
         ].join('\n\n'),
@@ -121,11 +124,12 @@ function buildTransientFailureMessages(
         type: 'text',
         text: [
           `Live verification for Qube strategy ${strategyId} was temporarily unavailable.`,
-          `Try reading MCP resource ${targetUri} if the host supports reading MCP resources; otherwise call tqx_research_call with ${
+          `For source code, try reading MCP resource ${targetUri} if the host supports reading MCP resources; otherwise call tqx_research_call with ${
             requestedVersion
               ? `action "strategy.version.list" ({"strategyId": "${strategyId}"}) and "strategy.version.get"`
               : `action "strategy.get" ({"strategyId": "${strategyId}", "includeSource": true})`
           }.`,
+          'Resource reads return source code only. For parameters, factor binding, and source/config revisions, call tqx_research_call with action "strategy.get"; for frozen-version metadata, resolve the version with "strategy.version.list" and call "strategy.version.get".',
           'If the lookup still fails, report the error clearly without exposing private diagnostics.',
           "Match the user's language in your response.",
         ].join('\n\n'),
@@ -151,6 +155,7 @@ function buildFuzzySearchMessages(
           `The user provided a fuzzy strategy name (${JSON.stringify(queryName)}) rather than an exact 24-character strategy ID.`,
           `Call tqx_research_call with action "strategy.list" and input ${JSON.stringify({ keyword: queryName, limit: 20 })} to search the user's strategies.`,
           `If exactly one strategy matches: ${versionStep}`,
+          'Resource reads return source code only. For parameters, factor binding, and source/config revisions, call tqx_research_call with action "strategy.get"; for frozen-version metadata, use "strategy.version.get".',
           'If multiple strategies match: list the matching candidates (title, market, id, updatedAt) and ask the user which strategy they want to inspect before reading source code.',
           'If no strategies match: inform the user clearly and offer to list their recent strategies via tqx_research_call with action "strategy.list".',
           "Match the user's language in your response.",

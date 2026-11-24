@@ -33,6 +33,7 @@ export const promptIcons = {
 } satisfies Record<string, Icon[]>
 
 export const resourceIcons = {
+  qube_factor: toolIcons.tqx_research_explore,
   qube_strategy: toolIcons.tqx_research_explore,
   qube_strategy_version: toolIcons.tqx_research_explore,
 } satisfies Record<string, Icon[]>

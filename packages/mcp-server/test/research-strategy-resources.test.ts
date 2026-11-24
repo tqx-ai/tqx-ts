@@ -1,9 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { OAuthTokenVerifier } from '@modelcontextprotocol/server'
 
 import { createApp } from '../src/app'
+import type { ResearchConfig } from '../src/research/config'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
 import { expectPngIcons } from './helpers/icons'
-import { envelope, ID, researchConfig, resource, VERSION, version } from './helpers/research'
+import {
+  envelope,
+  ID,
+  researchAuth,
+  researchConfig,
+  resource,
+  VERSION,
+  version,
+} from './helpers/research'
 
 const ID_B = '111111111111111111111111'
 const VERSION_2 = '222222222222222222222222'
@@ -11,6 +21,11 @@ const VERSION_2 = '222222222222222222222222'
 const oauth = await createOAuthFixture()
 const readToken = await oauth.sign({ sub: 'user-a', scope: 'research:read' })
 const userBToken = await oauth.sign({ sub: 'user-b', scope: 'research:read' })
+const clientBToken = await oauth.sign({
+  sub: 'user-a',
+  client_id: 'other-mcp-client',
+  scope: 'research:read',
+})
 const unrelatedToken = await oauth.sign({ sub: 'user-a', scope: 'trade:read' })
 
 const disposals: Array<() => void> = []
@@ -31,6 +46,12 @@ function parseRpcBody(response: Response, text: string) {
 
 const defaultFetch: typeof globalThis.fetch = async (input) => {
   const url = new URL(typeof input === 'string' ? input : input.toString())
+  if (url.pathname === '/tqxApi/qube/api/factors') {
+    return envelope({ factors: [resource('factor')], has_more: false, next_cursor: null })
+  }
+  if (url.pathname === `/tqxApi/qube/api/factors/${ID}/source`) {
+    return envelope(resource('factor'))
+  }
   if (url.pathname === '/tqxApi/qube/api/strategies') {
     return envelope({
       strategies: [
@@ -100,6 +121,8 @@ function setup(options?: {
   fetch?: typeof globalThis.fetch
   now?: () => number
   strategyCacheTtlMs?: number
+  config?: ResearchConfig
+  verifier?: OAuthTokenVerifier
 }) {
   let currentNow = Date.now()
   const now = options?.now ?? (() => currentNow)
@@ -114,7 +137,8 @@ function setup(options?: {
     config: testConfig,
     fetch: oauth.fetch,
     tradingConfig: null,
-    researchConfig,
+    researchConfig: options?.config ?? researchConfig,
+    verifier: options?.verifier,
     research: {
       fetch,
       exchange,
@@ -188,7 +212,7 @@ function setup(options?: {
   }
 }
 
-describe('Qube strategy resources, completions, and dynamic prompt', () => {
+describe('Qube resources, completions, and dynamic prompt', () => {
   it('advertises inspect_strategy prompt, strategy resource templates, and completions capability', async () => {
     const s = setup()
 
@@ -224,19 +248,26 @@ describe('Qube strategy resources, completions, and dynamic prompt', () => {
         ).toEqual([
           'tqx://qube/strategies/{strategy}',
           'tqx://qube/strategies/{strategy}/versions/{version}',
+          'tqx://qube/factors/{factor}',
         ])
         for (const template of templates.body.result.resourceTemplates) {
           expectPngIcons(template.icons)
-          expect(template.mimeType).toBe('application/json')
+          if (template.name === 'qube_factor') expect(template).not.toHaveProperty('mimeType')
+          else expect(template.mimeType).toBe('text/x-python')
         }
 
         const resources = await s.rpc('resources/list', {}, readToken, protocolVersion)
         expect(resources.response.status).toBe(200)
-        expect(resources.body.result.resources).toEqual([])
+        expect(resources.body.result.resources.map((row: { uri: string }) => row.uri)).toEqual([
+          `tqx://qube/strategies/${ID}`,
+          `tqx://qube/strategies/${ID_B}`,
+          `tqx://qube/factors/${ID}`,
+        ])
+        expect(resources.body.result).not.toHaveProperty('nextCursor')
       }),
     )
-    expect(s.fetch).not.toHaveBeenCalled()
-    expect(s.exchange).not.toHaveBeenCalled()
+    expect(s.fetch).toHaveBeenCalledTimes(4)
+    expect(s.exchange).toHaveBeenCalledTimes(1)
   })
 
   it('completes strategy and cascading version arguments using short per-principal cache without Zod', async () => {
@@ -379,36 +410,22 @@ describe('Qube strategy resources, completions, and dynamic prompt', () => {
     })
     const latestContent = latest.body.result.contents[0]
     expect(latestContent.uri).toBe(`tqx://qube/strategies/${ID}`)
-    expect(latestContent.mimeType).toBe('application/json')
-    const latestData = JSON.parse(latestContent.text)
-    expect(latestData).toMatchObject({
-      kind: 'strategy',
-      id: ID,
-      title: 'US Momentum',
-      code: 'def on_bar():\n    return 1\n',
-    })
-    expect(latestData).not.toHaveProperty('internal_path')
+    expect(latestContent.mimeType).toBe('text/x-python')
+    expect(latestContent.text).toBe('def on_bar():\n    return 1\n')
 
     // Frozen version resource (by versionId and by version number "v2")
     const frozenById = await s.rpc('resources/read', {
       uri: `tqx://qube/strategies/${ID}/versions/${VERSION_2}`,
     })
-    expect(JSON.parse(frozenById.body.result.contents[0].text)).toMatchObject({
-      kind: 'strategy_version',
-      id: VERSION_2,
-      resourceId: ID,
-      version: 2,
-      name: 'Low Turnover',
-      code: '# frozen v2\n',
+    expect(frozenById.body.result.contents[0]).toMatchObject({
+      mimeType: 'text/x-python',
+      text: '# frozen v2\n',
     })
 
     const frozenByNumber = await s.rpc('resources/read', {
       uri: `tqx://qube/strategies/${ID}/versions/v2`,
     })
-    expect(JSON.parse(frozenByNumber.body.result.contents[0].text)).toMatchObject({
-      id: VERSION_2,
-      version: 2,
-    })
+    expect(frozenByNumber.body.result.contents[0].text).toBe('# frozen v2\n')
 
     // Missing scope triggers OAuth 403 insufficient_scope challenge.
     const forbidden = await s.rpc(
@@ -428,6 +445,398 @@ describe('Qube strategy resources, completions, and dynamic prompt', () => {
     })
   })
 
+  it.each(['2025-11-25', '2026-07-28'] as const)(
+    'paginates strategy and factor summaries without prefetching or exposing source (%s)',
+    async (protocolVersion) => {
+      const strategies = Array.from({ length: 51 }, (_, i) => ({
+        ...resource('strategy'),
+        id: i.toString(16).padStart(24, '0'),
+        title: `Strategy ${i}`,
+        updated_at: '2026-11-20T00:00:00Z',
+      }))
+      const s = setup({
+        fetch: async (input, init) => {
+          const url = new URL(String(input))
+          expect(init?.method).toBe('GET')
+          const headers = new Headers(init?.headers)
+          expect(headers.get('Authorization')).toBe('Bearer research-api-token')
+          if (url.pathname.endsWith('/strategies')) {
+            expect(url.searchParams.get('limit')).toBe('50')
+            const cursor = url.searchParams.get('cursor')
+            if (cursor === null)
+              return envelope({
+                strategies: strategies.slice(0, 50),
+                next_cursor: 'opaque+/=',
+                has_more: true,
+              })
+            expect(cursor).toBe('opaque+/=')
+            return envelope({
+              strategies: strategies.slice(50),
+              next_cursor: null,
+              has_more: false,
+            })
+          }
+          expect(url.pathname).toBe('/tqxApi/qube/api/factors')
+          if (!url.searchParams.has('cursor')) {
+            expect(url.searchParams.get('limit')).toBe('49')
+            return envelope({
+              factors: [resource('factor')],
+              next_cursor: 'factor-next',
+              has_more: true,
+            })
+          }
+          expect(url.searchParams.get('limit')).toBe('50')
+          expect(url.searchParams.get('cursor')).toBe('factor-next')
+          return envelope({
+            factors: [{ ...resource('factor'), id: ID_B, code_type: 'python' }],
+            next_cursor: null,
+          })
+        },
+      })
+      const first = await s.rpc('resources/list', {}, readToken, protocolVersion)
+      expect(first.body.result.resources).toHaveLength(50)
+      expect(s.fetch).toHaveBeenCalledTimes(1)
+      const cursor = first.body.result.nextCursor
+      expect(typeof cursor).toBe('string')
+      expect(cursor).not.toBe('opaque+/=')
+      const second = await s.rpc('resources/list', { cursor }, readToken, protocolVersion)
+      expect(second.body.result.resources).toHaveLength(2)
+      expect(s.fetch).toHaveBeenCalledTimes(3)
+      expect(second.body.result.resources[1]).toMatchObject({
+        uri: `tqx://qube/factors/${ID}`,
+        mimeType: 'text/plain',
+      })
+      const third = await s.rpc(
+        'resources/list',
+        {
+          cursor: second.body.result.nextCursor,
+        },
+        readToken,
+        protocolVersion,
+      )
+      expect(third.body.result.resources[0]).toMatchObject({
+        uri: `tqx://qube/factors/${ID_B}`,
+        mimeType: 'text/x-python',
+      })
+      expect(third.body.result).not.toHaveProperty('nextCursor')
+      expect(s.fetch).toHaveBeenCalledTimes(4)
+      const summaries = [first, second, third].flatMap((page) => page.body.result.resources)
+      expect(new Set(summaries.map((row) => row.uri)).size).toBe(53)
+      expect(first.body.result.resources[0]).toMatchObject({
+        title: 'Strategy 0',
+        name: 'strategy-000000000000000000000000',
+        mimeType: 'text/x-python',
+        annotations: { lastModified: '2026-11-20T00:00:00Z' },
+      })
+      for (const row of summaries) {
+        expectPngIcons(row.icons)
+        expect(row).not.toHaveProperty('code')
+        expect(row).not.toHaveProperty('parameters')
+        expect(row).not.toHaveProperty('internal_path')
+      }
+      expect(summaries.every((row) => !row.uri.includes('/versions/'))).toBe(true)
+      expect(s.exchange).toHaveBeenCalledWith(
+        expect.objectContaining({ scopes: ['research:read'] }),
+      )
+    },
+  )
+
+  it('continues at the factor boundary when a final strategy page fills the limit', async () => {
+    const s = setup({
+      fetch: async (input) => {
+        const url = new URL(String(input))
+        if (url.pathname.endsWith('/strategies'))
+          return envelope({
+            strategies: Array.from({ length: 50 }, (_, i) => ({
+              ...resource('strategy'),
+              id: i.toString(16).padStart(24, '0'),
+            })),
+            next_cursor: null,
+          })
+        expect(url.pathname).toBe('/tqxApi/qube/api/factors')
+        expect(url.searchParams.has('cursor')).toBe(false)
+        return envelope({ factors: [], next_cursor: null })
+      },
+    })
+    const first = await s.rpc('resources/list')
+    expect(first.body.result.resources).toHaveLength(50)
+    expect(s.fetch).toHaveBeenCalledTimes(1)
+    const last = await s.rpc('resources/list', { cursor: first.body.result.nextCursor })
+    expect(last.body.result.resources).toEqual([])
+    expect(last.body.result).not.toHaveProperty('nextCursor')
+    expect(s.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns an empty catalog for accounts without resources or research scope', async () => {
+    const s = setup({
+      fetch: async (input) => {
+        const key = String(input).includes('/strategies') ? 'strategies' : 'factors'
+        return envelope({ [key]: [], next_cursor: null })
+      },
+    })
+    const noScope = await s.rpc('resources/list', {}, unrelatedToken)
+    expect(noScope.body.result.resources).toEqual([])
+    expect(s.fetch).not.toHaveBeenCalled()
+    expect(s.exchange).not.toHaveBeenCalled()
+    const empty = await s.rpc('resources/list')
+    expect(empty.body.result.resources).toEqual([])
+    expect(empty.body.result).not.toHaveProperty('nextCursor')
+    expect(s.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it.each([
+    { description: undefined, updated_at: undefined },
+    { description: null, updated_at: null },
+    { description: '', updated_at: null },
+  ])('omits empty summary fields for strategies and factors: %j', async (fields) => {
+    const s = setup({
+      fetch: async (input) => {
+        const kind = String(input).includes('/strategies') ? 'strategy' : 'factor'
+        return envelope({
+          [kind === 'strategy' ? 'strategies' : 'factors']: [{ ...resource(kind), ...fields }],
+          next_cursor: null,
+        })
+      },
+    })
+    const response = await s.rpc('resources/list')
+    expect(response.body.result.resources).toHaveLength(2)
+    for (const summary of response.body.result.resources) {
+      expect(summary).not.toHaveProperty('description')
+      expect(summary).not.toHaveProperty('annotations')
+    }
+  })
+
+  it('preserves nonempty summary descriptions and timestamps', async () => {
+    const s = setup({
+      fetch: async (input) => {
+        const kind = String(input).includes('/strategies') ? 'strategy' : 'factor'
+        return envelope({
+          [kind === 'strategy' ? 'strategies' : 'factors']: [
+            { ...resource(kind), description: 'Momentum', updated_at: '2026-11-20T00:00:00Z' },
+          ],
+          next_cursor: null,
+        })
+      },
+    })
+    const response = await s.rpc('resources/list')
+    expect(response.body.result.resources).toHaveLength(2)
+    for (const summary of response.body.result.resources)
+      expect(summary).toMatchObject({
+        description: 'Momentum',
+        annotations: { lastModified: '2026-11-20T00:00:00Z' },
+      })
+  })
+
+  it('rejects malformed, cross-user, and cross-client cursors before calling the gateway', async () => {
+    const s = setup({ fetch: async () => envelope({ strategies: [], next_cursor: 'next' }) })
+    await Promise.all(
+      ['', '%invalid', Buffer.from('{}').toString('base64url'), 'a'.repeat(8193)].map(
+        async (cursor) => {
+          const invalid = await s.rpc('resources/list', { cursor })
+          expect(invalid.body.error).toMatchObject({ code: -32602 })
+        },
+      ),
+    )
+    expect(s.fetch).not.toHaveBeenCalled()
+    const first = await s.rpc('resources/list')
+    await Promise.all(
+      [userBToken, clientBToken].map(async (bearer) => {
+        const other = await s.rpc(
+          'resources/list',
+          { cursor: first.body.result.nextCursor },
+          bearer,
+        )
+        expect(other.body.error).toMatchObject({ code: -32602 })
+      }),
+    )
+    expect(s.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects tampered payloads and signatures without exposing a principal fingerprint', async () => {
+    const s = setup({ fetch: async () => envelope({ strategies: [], next_cursor: 'next' }) })
+    const first = await s.rpc('resources/list')
+    const [payload, signature] = (first.body.result.nextCursor as string).split('.') as [
+      string,
+      string,
+    ]
+    const position = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
+    expect(position).toEqual({ version: 2, kind: 'strategy', cursor: 'next' })
+    const tag = Buffer.from(signature, 'base64url')
+    tag[0] = tag[0]! ^ 1
+    const tampered = [
+      ...[{ kind: 'factor' }, { cursor: 'attacker-probe' }].map(
+        (fields) =>
+          `${Buffer.from(JSON.stringify({ ...position, ...fields })).toString('base64url')}.${signature}`,
+      ),
+      `${payload}.${tag.toString('base64url')}`,
+      payload,
+    ]
+    await Promise.all(
+      tampered.map(async (cursor) => {
+        const response = await s.rpc('resources/list', { cursor })
+        expect(response.body.error.code).toBe(-32602)
+      }),
+    )
+    expect(s.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('accepts cursors on another replica and invalidates them when the shared secret changes', async () => {
+    const firstServer = setup({
+      fetch: async () => envelope({ strategies: [], next_cursor: 'next' }),
+    })
+    const first = await firstServer.rpc('resources/list')
+    const cursor = first.body.result.nextCursor
+    const replica = setup({
+      fetch: async (input) => {
+        const url = new URL(String(input))
+        if (url.pathname.endsWith('/strategies')) {
+          expect(url.searchParams.get('cursor')).toBe('next')
+          return envelope({ strategies: [], next_cursor: null })
+        }
+        return envelope({ factors: [], next_cursor: null })
+      },
+    })
+    const resumed = await replica.rpc('resources/list', { cursor })
+    expect(resumed.body.result.resources).toEqual([])
+    expect(resumed.body.result).not.toHaveProperty('nextCursor')
+    expect(replica.fetch).toHaveBeenCalledTimes(2)
+    const rotated = setup({ config: { ...researchConfig, clientSecret: 'rotated-test-secret' } })
+    const invalid = await rotated.rpc('resources/list', { cursor })
+    expect(invalid.body.error.code).toBe(-32602)
+    expect(rotated.fetch).not.toHaveBeenCalled()
+  })
+
+  it.each([undefined, '', 123])('rejects missing or invalid resource subjects: %j', async (sub) => {
+    const s = setup({
+      verifier: {
+        verifyAccessToken: async () => ({
+          ...researchAuth(),
+          resource: new URL(testConfig.resourceUrl),
+          extra: { sub },
+        }),
+      },
+    })
+    const response = await s.rpc('resources/list')
+    expect(response.response.status, response.text).toBe(200)
+    expect(response.body.error).toMatchObject({
+      code: -32600,
+      message: 'Research resource subject required',
+    })
+    expect(s.fetch).not.toHaveBeenCalled()
+    expect(s.exchange).not.toHaveBeenCalled()
+  })
+
+  it('preserves an empty upstream cursor instead of treating it as the final page', async () => {
+    const s = setup({
+      fetch: async (input) => {
+        const url = new URL(String(input))
+        if (!url.searchParams.has('cursor')) return envelope({ strategies: [], next_cursor: '' })
+        expect(url.searchParams.get('cursor')).toBe('')
+        return Response.json({ detail: { code: 'INVALID_CURSOR' } }, { status: 400 })
+      },
+    })
+    const first = await s.rpc('resources/list')
+    expect(typeof first.body.result.nextCursor).toBe('string')
+    const invalid = await s.rpc('resources/list', { cursor: first.body.result.nextCursor })
+    expect(invalid.body.error).toMatchObject({ code: -32602 })
+  })
+
+  it.each([
+    { strategies: [], next_cursor: null, has_more: true },
+    { strategies: [], next_cursor: 123 },
+    { strategies: [{ ...resource('strategy'), id: 'bad-id' }], next_cursor: null },
+  ])('rejects malformed catalog pages: %j', async (page) => {
+    const s = setup({ fetch: async () => envelope(page) })
+    const response = await s.rpc('resources/list')
+    expect(response.body.error.code).toBe(-32603)
+  })
+
+  it('rejects repeated upstream cursors instead of returning a pagination loop', async () => {
+    const s = setup({ fetch: async () => envelope({ strategies: [], next_cursor: 'same' }) })
+    const first = await s.rpc('resources/list')
+    const repeated = await s.rpc('resources/list', { cursor: first.body.result.nextCursor })
+    expect(repeated.body.error.code).toBe(-32603)
+    expect(s.fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects unknown factor types while listing and oversized pages', async () => {
+    const s = setup({
+      fetch: async (input) => {
+        if (String(input).includes('/strategies'))
+          return envelope({ strategies: [], next_cursor: null })
+        return envelope({
+          factors: [{ ...resource('factor'), code_type: 'unknown' }],
+          next_cursor: null,
+        })
+      },
+    })
+    expect((await s.rpc('resources/list')).body.error.code).toBe(-32603)
+    const oversized = setup({
+      fetch: async () =>
+        envelope({
+          strategies: Array.from({ length: 51 }, () => resource('strategy')),
+          next_cursor: null,
+        }),
+    })
+    expect((await oversized.rpc('resources/list')).body.error.code).toBe(-32603)
+  })
+
+  it.each([
+    ['formula', 'text/plain', 'Rank(close / Delay(close, 20))'],
+    ['python', 'text/x-python', 'def factor(data):\n    return data.close\n'],
+  ])('reads %s factor source with matching MIME type', async (codeType, mimeType, code) => {
+    const s = setup({
+      fetch: async (input) => {
+        expect(new URL(String(input)).pathname).toBe(`/tqxApi/qube/api/factors/${ID}/source`)
+        return envelope({ ...resource('factor'), code_type: codeType, code })
+      },
+    })
+    const response = await s.rpc('resources/read', { uri: `tqx://qube/factors/${ID}` })
+    expect(response.body.result.contents).toEqual([
+      { uri: `tqx://qube/factors/${ID}`, mimeType, text: code },
+    ])
+    const forbidden = await s.rpc(
+      'resources/read',
+      { uri: `tqx://qube/factors/${ID}` },
+      unrelatedToken,
+    )
+    expect(forbidden.response.status).toBe(403)
+    expect(forbidden.response.headers.get('WWW-Authenticate')).toContain('research:read')
+    expect(s.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([{ code_type: undefined }, { code_type: 'unknown' }, { code: undefined }, { id: ID_B }])(
+    'rejects invalid factor source responses: %j',
+    async (fields) => {
+      const s = setup({ fetch: async () => envelope({ ...resource('factor'), ...fields }) })
+      const response = await s.rpc('resources/read', { uri: `tqx://qube/factors/${ID}` })
+      expect(response.body.error.code).toBe(-32603)
+      expect(response.text).not.toContain('private-upstream-message')
+      expect(response.text).not.toContain('internal_path')
+    },
+  )
+
+  it.each([403, 404])(
+    'returns resource-not-found for invalid or inaccessible factors (%i)',
+    async (status) => {
+      const s = setup({
+        fetch: async () => envelope({ detail: { code: 'FACTOR_NOT_FOUND' } }, status, status),
+      })
+      const malformed = await s.rpc('resources/read', { uri: 'tqx://qube/factors/bad-id' })
+      expect(malformed.body.error.code).toBe(-32602)
+      const completionLabel = await s.rpc('resources/read', {
+        uri: `tqx://qube/factors/anything%20%5B${ID}%5D`,
+      })
+      expect(completionLabel.body.error.code).toBe(-32602)
+      expect(s.fetch).not.toHaveBeenCalled()
+      const missing = await s.rpc('resources/read', { uri: `tqx://qube/factors/${ID}` })
+      expect(missing.body.error).toMatchObject({
+        code: -32602,
+        data: { uri: `tqx://qube/factors/${ID}` },
+      })
+    },
+  )
+
   it('dynamically embeds the verified MCP resource when inspect_strategy receives a valid exact strategyId', async () => {
     const s = setup()
 
@@ -444,15 +853,17 @@ describe('Qube strategy resources, completions, and dynamic prompt', () => {
         type: 'resource',
         resource: {
           uri: `tqx://qube/strategies/${ID}`,
-          mimeType: 'application/json',
+          mimeType: 'text/x-python',
         },
       },
     })
-    expect(JSON.parse(latestMessages[0].content.resource.text)).toMatchObject({
-      id: ID,
-      title: 'US Momentum',
-      code: 'def on_bar():\n    return 1\n',
-    })
+    expect(latestMessages[0].content.resource.text).toBe('def on_bar():\n    return 1\n')
+    expect(latestMessages[1].content.text).toContain('"title": "US Momentum"')
+    expect(latestMessages[1].content.text).toContain('"sourceRevision": 3')
+    expect(latestMessages[1].content.text).toContain('"parameters": {}')
+    expect(latestMessages[1].content.text).toContain('"factorBinding": null')
+    expect(latestMessages[1].content.text).not.toContain('"code":')
+    expect(JSON.stringify(latestMessages)).not.toContain('internal_path')
     expect(latestMessages[1].content.text).toContain(`tqx://qube/strategies/${ID}`)
     expect(latestMessages[1].content.text).toContain(
       'Do not call tqx_research_call with strategy.get',
@@ -477,10 +888,11 @@ describe('Qube strategy resources, completions, and dynamic prompt', () => {
       type: 'resource',
       resource: {
         uri: `tqx://qube/strategies/${ID}/versions/${VERSION_2}`,
-        mimeType: 'application/json',
+        mimeType: 'text/x-python',
       },
     })
     expect(versionMessages[1].content.text).toContain(`v2 (${VERSION_2})`)
+    expect(versionMessages[1].content.text).toContain('"name": "Low Turnover"')
   })
 
   it('returns dynamic not-found guidance when an exact strategyId or version is deleted or inaccessible', async () => {
@@ -511,6 +923,27 @@ describe('Qube strategy resources, completions, and dynamic prompt', () => {
     )
   })
 
+  it.each([undefined, 'v2'])(
+    'includes metadata lookup guidance after a transient failure (version %j)',
+    async (requestedVersion) => {
+      const s = setup({
+        fetch: async () => {
+          throw new Error('Unavailable')
+        },
+      })
+      const response = await s.rpc('prompts/get', {
+        name: 'inspect_strategy',
+        arguments: { strategy: ID, ...(requestedVersion ? { version: requestedVersion } : {}) },
+      })
+      const text = response.body.result.messages[0].content.text
+      expect(text).toContain('temporarily unavailable')
+      expect(text).toContain('Resource reads return source code only')
+      expect(text).toContain('parameters, factor binding, and source/config revisions')
+      expect(text).toContain('action "strategy.get"')
+      if (requestedVersion) expect(text).toContain('"strategy.version.get"')
+    },
+  )
+
   it('returns fuzzy-lookup prompt without hitting Qube when given a strategy name instead of an ID', async () => {
     const s = setup()
 
@@ -525,6 +958,9 @@ describe('Qube strategy resources, completions, and dynamic prompt', () => {
     expect(text).toContain('"keyword":"Momentum"')
     expect(text).toContain('tqx://qube/strategies/<strategyId>')
     expect(text).toContain('If multiple strategies match')
+    expect(text).toContain('Resource reads return source code only')
+    expect(text).toContain('parameters, factor binding, and source/config revisions')
+    expect(text).toContain('action "strategy.get"')
 
     // Missing scope on prompts/get triggers OAuth 403 challenge.
     const forbidden = await s.rpc(

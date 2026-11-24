@@ -314,9 +314,38 @@ errors return `isError: true` with `{ error: { code, message, requestId?, detail
 SDK outer argument validation and protocol errors keep SDK semantics; missing
 action permissions use the existing HTTP scope challenge.
 
+### Research resources and prompts
+
+`resources/list` browses the current user's latest strategies followed by factors,
+with up to 50 summaries per page. Summaries include a URI, stable name, title,
+optional description/update time, icon and MIME type; they exclude source code.
+Pass `nextCursor` unchanged as the next request's `cursor` until the server omits
+it. Cursors are signed and bound to the user and OAuth client without embedding
+their identifiers or a principal hash. Replicas with the same Research configuration
+share a signing key derived from the exchange client secret; rotating the secret
+invalidates existing cursors, so restart listing without a cursor. Listing forwards
+backend pages without loading the full catalog. Accounts without `research:read` receive an empty
+list; reading a resource requires that scope.
+
+Read source on demand with these resource templates:
+
+| URI template                                          | Content                                | MIME type                                                 |
+| ----------------------------------------------------- | -------------------------------------- | --------------------------------------------------------- |
+| `tqx://qube/strategies/{strategy}`                    | Latest strategy Python source          | `text/x-python`                                           |
+| `tqx://qube/strategies/{strategy}/versions/{version}` | Frozen strategy Python source          | `text/x-python`                                           |
+| `tqx://qube/factors/{factor}`                         | Latest factor Python source or formula | `text/x-python` or `text/plain`, according to `code_type` |
+
+Resource reads return raw source rather than a JSON object containing `code`.
+The factor template omits a fixed MIME type because each factor declares its own;
+unknown or missing factor code types are rejected. Historical versions remain
+available through the strategy version template and are not enumerated in the list.
+The `inspect_strategy` prompt embeds the Python resource and separately includes
+verified strategy metadata, parameters and factor binding. Use `strategy.get` or
+`factor.get` for structured details outside the prompt.
+
 Use `strategy.get` → `strategy.validate` → `strategy.backtest.submit` →
 `strategy.backtest.get` → `backtest.result.get` / `backtest.chart.get`.
-Pass source/config revisions from the resource read, keep the submit response's
+Pass source/config revisions from `strategy.get`, keep the submit response's
 `id` as `runId`, and poll about every two seconds with rate-limit backoff. Backtest results and charts permit empty or partial reads while queued or running;
 `partial`, `availableFrom` and `availableTotal` describe availability.
 `LIVE_RESULT_UNAVAILABLE` is transient: retry the same read with backoff and retain
@@ -325,7 +354,7 @@ business results, not tool execution errors. Cancellation acknowledgements do
 not imply the run is already cancelled. An Agent poll timeout does not cancel
 the remote run.
 
-Resources omit source by default; use `get_source` or `get({ includeSource: true })`.
+Tool detail responses omit source by default; use `get_source` or `get({ includeSource: true })`.
 Result rows retain engine field names and units. Cursor lists use the upstream
 cursor. Factor analysis history and snapshots expose at most the upstream's
 latest 200 entries, version lists at most 1000; MCP offset pagination slices only

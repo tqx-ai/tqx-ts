@@ -1,6 +1,6 @@
 # MCP icons
 
-The server, its nine tools, two prompts, and two strategy resource templates use
+The server, its nine tools, two prompts, and three Research resource templates use
 48 x 48 PNG icons embedded as `data:` URIs.
 Each icon has a near-black (`#030303`) background. The server keeps the original
 white TQX logomark; tool, prompt, and resource artwork uses TQX yellow (`#ffff3a`). Icons
@@ -15,9 +15,11 @@ tree. Clients decide whether to render the advertised icons.
 The `inspect_strategy` prompt reuses `research-explore`, and `prepare_bug_report`
 reuses `bug-report`. Both are advertised in `prompts/list`.
 
-The `qube_strategy` and `qube_strategy_version` resource templates also reuse
-`research-explore`. Their icons are advertised in `resources/templates/list`;
-individual strategy instances are not enumerated in `resources/list`.
+The `qube_strategy`, `qube_strategy_version`, and `qube_factor` resource templates
+also reuse `research-explore`. Their icons are advertised in
+`resources/templates/list`. Latest strategy and factor instances are enumerated
+with icons in `resources/list`; historical strategy versions are available only
+through their resource template.
 
 ## Artwork sources
 

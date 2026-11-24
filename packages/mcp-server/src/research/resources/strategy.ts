@@ -20,6 +20,7 @@ import {
 
 export const STRATEGY_URI_TEMPLATE = 'tqx://qube/strategies/{strategy}'
 export const STRATEGY_VERSION_URI_TEMPLATE = 'tqx://qube/strategies/{strategy}/versions/{version}'
+export const PYTHON_MIME_TYPE = 'text/x-python'
 
 const VERSION_NUMBER_RE = /^v?(\d+)$/i
 
@@ -130,7 +131,7 @@ export async function readStrategyResource(
       uri: strategyResourceUri(normalizedStrategyId),
       strategyId: normalizedStrategyId,
       data,
-      text: JSON.stringify(data, null, 2),
+      text: raw.code,
     }
   }
 
@@ -173,7 +174,7 @@ export async function readStrategyResource(
     versionId,
     versionNumber: typeof data.version === 'number' ? data.version : undefined,
     data,
-    text: JSON.stringify(data, null, 2),
+    text: raw.code,
   }
 }
 
@@ -219,8 +220,8 @@ export function registerStrategyResources(server: McpServer, context: StrategyAc
     {
       title: 'Qube Strategy (Latest)',
       icons: resourceIcons.qube_strategy,
-      description: 'Read the latest workspace version and source code of a Qube strategy.',
-      mimeType: 'application/json',
+      description: 'Read the Python source of the latest workspace version of a Qube strategy.',
+      mimeType: PYTHON_MIME_TYPE,
       scopeChallenge: requireScopes('research:read'),
     },
     async (uri, variables) => {
@@ -233,7 +234,7 @@ export function registerStrategyResources(server: McpServer, context: StrategyAc
           contents: [
             {
               uri: uri.href,
-              mimeType: 'application/json',
+              mimeType: PYTHON_MIME_TYPE,
               text: loaded.text,
             },
           ],
@@ -257,8 +258,8 @@ export function registerStrategyResources(server: McpServer, context: StrategyAc
     {
       title: 'Qube Strategy Version',
       icons: resourceIcons.qube_strategy_version,
-      description: 'Read a specific frozen version and source code of a Qube strategy.',
-      mimeType: 'application/json',
+      description: 'Read the Python source of a specific frozen version of a Qube strategy.',
+      mimeType: PYTHON_MIME_TYPE,
       scopeChallenge: requireScopes('research:read'),
     },
     async (uri, variables) => {
@@ -278,7 +279,7 @@ export function registerStrategyResources(server: McpServer, context: StrategyAc
           contents: [
             {
               uri: uri.href,
-              mimeType: 'application/json',
+              mimeType: PYTHON_MIME_TYPE,
               text: loaded.text,
             },
           ],
