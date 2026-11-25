@@ -97,6 +97,8 @@ describe('Research MCP tools over authenticated HTTP', () => {
     expect(body.result.tools.map((t: { name: string }) => t.name)).toEqual([
       'tqx_research_explore',
       'tqx_research_call',
+      'tqx_backtest_view',
+      'tqx_backtest_view_query',
     ])
     const [explore, call] = body.result.tools
     expectPngIcons(explore.icons)
@@ -111,7 +113,7 @@ describe('Research MCP tools over authenticated HTTP', () => {
       destructiveHint: true,
       idempotentHint: false,
     })
-    expect(JSON.stringify(body).length).toBeLessThan(5000)
+    expect(JSON.stringify(body.result.tools.slice(0, 2)).length).toBeLessThan(5000)
     expect(s.exchange).not.toHaveBeenCalled()
   })
 

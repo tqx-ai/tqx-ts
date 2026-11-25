@@ -21,6 +21,9 @@ import { registerResearchResourceList } from './research/resources/list'
 import { StrategyCompletionCache } from './research/resources/strategy-cache'
 import { registerResearchTools } from './research/tools/research'
 
+import { registerBacktestApp } from './apps/qube/backtest/register'
+import { registerReportResource, reportResource, supportsApps } from './apps/qube/backtest/resource'
+
 const CACHE_TTL_MS = 5 * 60 * 1000
 
 export function createServer(
@@ -56,9 +59,17 @@ export function createServer(
       cache: options.researchStrategyCache ?? new StrategyCompletionCache({ now: options.now }),
     }
     registerResearchTools(server, { auth: context?.authInfo, gateway: options.researchGateway })
+    registerBacktestApp(server, {
+      auth: context?.authInfo,
+      gateway: options.researchGateway,
+      now: options.now,
+    })
+    registerReportResource(server, context?.authInfo)
     registerStrategyResources(server, strategyContext)
     registerFactorResources(server, strategyContext)
-    registerResearchResourceList(server, strategyContext, options.researchResourceCursorKey)
+    registerResearchResourceList(server, strategyContext, options.researchResourceCursorKey, () =>
+      supportsApps(server.server.getClientCapabilities()) ? [reportResource] : [],
+    )
     registerInspectStrategyPrompt(server, strategyContext)
   }
   if (options.gateway) {

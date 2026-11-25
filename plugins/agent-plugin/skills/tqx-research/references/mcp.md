@@ -1,13 +1,16 @@
 # Qube Research MCP interface
 
-Use these two deployed tools:
+Use these Research tools, checking the deployed catalog for availability:
 
 ```text
 tqx_research_explore({action?})
 tqx_research_call({action, input, confirm?})
+tqx_backtest_view({type:"qube", runId})
 ```
 
 `explore` without an action returns the catalog. With an action it returns exact `inputSchema`, `outputSchema`, documentation and examples. `call` success returns the business object directly in `structuredContent` with matching JSON text in `content`; there is no additional `data` wrapper. Errors set `isError` and include an `error` object. Never use the trading `request` wrapper for research.
+
+`tqx_backtest_view` is a separate read-only tool, not a Research action. After a requested strategy backtest succeeds, call it automatically with `type:"qube"` and the submission's root `id` as `runId`, unless the user requested text only. Most users never supply a run ID. It renders the native report in MCP Apps hosts and returns a bounded summary elsewhere. The App uses its own read-only `tqx_backtest_view_query` helper; agents should use the view tool. Rendering or refresh failures do not justify starting a new backtest.
 
 ## Action families
 

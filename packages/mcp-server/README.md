@@ -272,6 +272,9 @@ including all 57 actions for factors, analyses, strategies, backtests, versions
 and snapshots, plus factor and strategy parameter tuning. It excludes tqx_data, market/financial data, standalone symbol
 klines, SSE subscriptions and trading accounts.
 
+Qube backtest reports additionally expose `tqx_backtest_view` and an App-only
+read helper. These are separate tools, not new entries in the 57-action registry.
+
 Enable it with both runtime settings below plus the shared
 `TQX_MCP_EXCHANGE_CLIENT_ID` / `TQX_MCP_EXCHANGE_CLIENT_SECRET`. Omit both Research
 variables to disable it. A partial configuration stops startup. Research-only,
@@ -313,6 +316,75 @@ action's output and `explore({ action })` returns its precise schema. Handler
 errors return `isError: true` with `{ error: { code, message, requestId?, details? } }`.
 SDK outer argument validation and protocol errors keep SDK semantics; missing
 action permissions use the existing HTTP scope challenge.
+
+### Qube Backtest App
+
+After a user-requested strategy backtest reaches `status=succeeded`, the agent
+should automatically call `tqx_backtest_view({type:"qube",runId})`, using the
+submission's root `id` internally. Users need not supply or understand run IDs.
+The tool also reopens existing runs. It reads data only and never starts a backtest.
+Report failures retry the same run; failed/cancelled runs remain labelled accordingly.
+
+The tool requires `research:read`. Its standard `_meta.ui.resourceUri` references
+`ui://tqx/qube/backtest/report-v1.html` (`text/html;profile=mcp-app`). Model-visible
+content is a bounded summary; chart data stays in `_meta["tqx.trade/backtest-view"]`.
+The App queries overview, a chart window or a bounded result page through
+`tqx_backtest_view_query`, declared with `visibility:["app"]`. Other Research and
+Trading tools are model-only. Visibility is a host presentation rule, not access
+control; every query still authenticates, exchanges its token and checks run access.
+The stable tool catalog also supports text-only hosts through the summary; older
+hosts ignoring visibility may list the read-only helper.
+
+The English dark glass report has sample-snapping equity/return inspection,
+benchmark and trade-day controls, range queries, paginated tables, frozen settings,
+metric explanations and host-controlled fullscreen. Inline reports grow with their
+content; fullscreen uses one document scrollbar. Narrow result tables become
+labeled records without horizontal scrolling. Missing metrics remain unavailable;
+engine risk metrics are never recomputed from sampled curves. Fonts and code are
+bundled into one HTML file with no external network requirements or credentials.
+Vue 3 owns component state; the existing SVG renderer and official MCP Apps adapter remain
+independent. Vite 8 and vite-plugin-singlefile build the resource.
+
+```bash
+# From the workspace root; synthetic data, no account or UAT needed.
+bun run --cwd packages/mcp-server dev:backtest-app
+# Build the static resource used by the server and simulator.
+bun run --cwd packages/mcp-server build:ui
+```
+
+The workbench at `http://127.0.0.1:53043/` offers `Production sandbox` (the built
+single HTML) and `Vue HMR` (the same Vue source served by a second loopback port).
+Both use standard MCP Apps messages. It offers fixed scenarios, widths,
+delivery-order tests, query latency/failure/timeout simulation, host display-mode changes,
+teardown and a payload-free protocol trace. In HMR mode, CSS/template edits update without restarting the report; script edits
+may remount components. Production mode rebuilds and reloads the HTML.
+Only the development iframe permits local module/WebSocket access; production
+CSP remains network-free. Use `?build=hmr` to select development mode.
+`TQX_APP_DEV_PORT` overrides its loopback port. A manually sanitized projected
+overview JSON (maximum 512 KiB) can be replayed in memory; unrecorded table pages
+and new windows from sampled overview recordings fail explicitly. Automatic capture
+and complete query replay are future work.
+
+Production `build`, `start`, development server and Docker build prepare the HTML;
+direct `src/index.ts` startup fails clearly if Research is enabled but it is missing.
+Generated files stay in this package's ignored `dist/apps/`.
+`bun run typecheck` also runs strict `vue-tsc` checks for SFC templates. This checker
+uses a package-scoped `@typescript/typescript6` compatibility alias because Vue
+language-tools still requires the JS compiler API; workspace/server checks stay on
+native TS 7. UI build/test packages are development dependencies only.
+
+The host adapter uses the official `@modelcontextprotocol/ext-apps` App and
+PostMessageTransport APIs for initialization, routing, tool calls and teardown.
+Inline sizing uses `App.sendSizeChanged` with the report's layout policy.
+First-party business schemas and TQX payload validation stay in Valibot. Zod is
+installed only to satisfy the SDK's runtime peer requirement; third-party internal
+use of Zod is allowed and is not grounds to reject a maintained library.
+Local protocol and data tests
+do not establish live ChatGPT/Claude compatibility, OAuth acceptance or publication
+approval. Those checks still require a real authorized run and target host. Public
+ChatGPT UI submission also requires a confirmed component origin (`_meta.ui.domain`);
+no domain is invented or enabled by this implementation. See the
+[design and acceptance boundaries](docs/backtest-mcp-app-design.md).
 
 ### Research resources and prompts
 

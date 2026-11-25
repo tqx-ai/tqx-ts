@@ -10,3 +10,6 @@
 !packages/mcp-server/package.json
 !packages/mcp-server/src/
 !packages/mcp-server/src/**
+!packages/mcp-server/scripts/
+!packages/mcp-server/scripts/build-backtest-app.ts
+!packages/mcp-server/scripts/backtest-vite.ts

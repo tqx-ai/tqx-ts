@@ -24,6 +24,8 @@ Run states `preparing`, `queued`, `running` are in progress; `succeeded`, `faile
 
 Backtest pages/charts can be empty or partial while running. Preserve `partial`, `available_from`, `available_total`, `complete` and benchmark information (MCP uses camelCase availability fields). Honor pagination and time bounds. `LIVE_RESULT_UNAVAILABLE` calls for backing off and reading the same run, not resubmission. An empty page, a partial curve, or a missing benchmark is not a final zero result. Factor results require the status documented by the selected endpoint.
 
+For MCP, after a user-requested strategy backtest reaches `status=succeeded`, call `tqx_backtest_view({type:"qube",runId:<submission id>})` automatically when the tool is available, unless the user asked for text only. Include already-terminal submissions. The agent keeps the ID internally; users need not know it or ask separately to display results. Existing runs can be reopened. Text-only hosts consume the summary; unavailable deployments use existing result actions. A report error retries the same run, never submits another. Failed/cancelled runs are not successful completion. This UI tool does not change CLI/SDK behavior.
+
 Only report findings after checking actual status, inputs, source/parameter snapshots, dates, coverage, costs and artifacts. Distinguish static validity, accepted submission, terminal completion and reviewed results. Keep IDs available for follow-up without exposing credentials or private diagnostics.
 
 ## Tuning and versions

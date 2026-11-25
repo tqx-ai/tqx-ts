@@ -57,6 +57,7 @@ export function registerTradingTool<T extends v.GenericSchema>(
       icons: toolIcons[definition.name],
       description: definition.description,
       inputSchema: toolSchema(v.strictObject({ request: definition.schema })),
+      _meta: { ui: { visibility: ['model'] } },
       scopeChallenge:
         definition.scopeChallenge ?? requireScopes(definition.write ? 'order:write' : 'trade:read'),
       annotations: {

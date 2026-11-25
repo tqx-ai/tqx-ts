@@ -16,6 +16,7 @@ const cursorSchema = v.strictObject({
   version: v.literal(2),
   kind: v.picklist(['strategy', 'factor']),
   cursor: v.optional(upstreamCursor),
+  uiListed: v.optional(v.boolean()),
 })
 type Cursor = v.InferOutput<typeof cursorSchema>
 
@@ -95,6 +96,7 @@ export function registerResearchResourceList(
   server: McpServer,
   context: StrategyAccessContext,
   cursorKey: KeyObject,
+  staticResources: () => Resource[] = () => [],
 ): void {
   // SDK 2.4 merges template lists but drops their nextCursor and does not pass the request cursor.
   // This owns the entire server's resources/list, bypassing SDK static/template lists.
@@ -107,6 +109,9 @@ export function registerResearchResourceList(
     const principal = principalKey(auth)
     let position: Cursor | undefined = decodeCursor(request.params?.cursor, principal, cursorKey)
     const resources: Resource[] = []
+    const ui = position.uiListed ? [] : staticResources()
+    const uiListed = position.uiListed || ui.length > 0
+    if (ui.length > 0) resources.push(...ui)
     try {
       // At most one upstream page per kind; never prefetch the complete catalog.
       while (position && resources.length < PAGE_SIZE) {
@@ -143,7 +148,13 @@ export function registerResearchResourceList(
         resources,
         ...(position === undefined
           ? {}
-          : { nextCursor: encodeCursor(position, principal, cursorKey) }),
+          : {
+              nextCursor: encodeCursor(
+                { ...position, ...(uiListed ? { uiListed: true } : {}) },
+                principal,
+                cursorKey,
+              ),
+            }),
       }
     } catch (error) {
       if (

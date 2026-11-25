@@ -13,6 +13,10 @@ import {
 import * as p from '../projections'
 import * as s from '../schemas'
 import { tuningActions } from './tunings'
+import { readBacktest, readBacktestChart, readBacktestResult } from '../backtests'
+
+const backtestViewNote =
+  'After a requested strategy backtest reaches status=succeeded, automatically call tqx_backtest_view({type:"qube",runId:<submission id>}) unless the user requested text only. Keep runId internally; do not ask the user to supply it or request display again. Retry report errors against the same run, never resubmit.'
 
 export interface Action {
   name: string
@@ -239,7 +243,7 @@ for (const kind of ['factor', 'strategy'] as const) {
       `${kind}.${child}.get`,
       kind === 'factor' ? 'factor.analysis.result.get' : 'backtest.result.get',
     ],
-    notes: `${revisionNote} ${paramsNote} For ordinary runs, save user-specified settings with ${kind}.update first, verify parameters, parameterValidation.status=valid, aligned revisions, and no parametersDraft, then submit without ${kind === 'factor' ? 'parameters' : 'backtest'}. Only pass a one-off override when the user explicitly requests a temporary trial run; overrides are not persisted. ${runNote} Use the response id as ${runKey}; idempotent replays may return a terminal state immediately.`,
+    notes: `${revisionNote} ${paramsNote} For ordinary runs, save user-specified settings with ${kind}.update first, verify parameters, parameterValidation.status=valid, aligned revisions, and no parametersDraft, then submit without ${kind === 'factor' ? 'parameters' : 'backtest'}. Only pass a one-off override when the user explicitly requests a temporary trial run; overrides are not persisted. ${runNote} Use the response id as ${runKey}; idempotent replays may return a terminal state immediately. ${kind === 'strategy' ? backtestViewNote : ''}`,
     execute: async (request, input) => {
       const raw = await request({
         path: `${path(input)}/${children}`,
@@ -273,12 +277,15 @@ for (const kind of ['factor', 'strategy'] as const) {
         `${kind}.${child}.get`,
         kind === 'factor' ? 'factor.analysis.result.get' : 'backtest.result.get',
       ],
-      notes: `${runNote} ${cancel ? 'cancelRequested=true only indicates cancellation was requested, not that status=cancelled; cancel does not guarantee extra idempotency, so poll get after a timeout.' : 'Status responses omit source code and large result arrays, and error summaries never expose upstream stack traces.'}`,
+      notes: `${runNote} ${cancel ? 'cancelRequested=true only indicates cancellation was requested, not that status=cancelled; cancel does not guarantee extra idempotency, so poll get after a timeout.' : 'Status responses omit source code and large result arrays, and error summaries never expose upstream stack traces.'} ${kind === 'strategy' && !cancel ? backtestViewNote : ''}`,
       execute: async (request, input) => {
-        const raw = await request({
-          path: `${runBase}/${String(input[runKey])}${cancel ? '/cancel' : ''}`,
-          method: cancel ? 'POST' : 'GET',
-        })
+        const raw =
+          kind === 'strategy' && !cancel
+            ? await readBacktest(request, String(input.runId))
+            : await request({
+                path: `${runBase}/${String(input[runKey])}${cancel ? '/cancel' : ''}`,
+                method: cancel ? 'POST' : 'GET',
+              })
         expectIdentity(raw, 'id', input[runKey])
         return p.run(raw, kind)
       },
@@ -680,15 +687,13 @@ add({
     'Supports intermediate results provided by upstream. partial=true indicates the run is still incomplete, and availableFrom/availableTotal describe the currently readable window; an empty page does not mean the run finished. On LIVE_RESULT_UNAVAILABLE, keep runId and retry with backoff. keyword filters result rows, and symbol applies only to trades. Use nextOffset when hasMore=true. Engine row fields keep original keys; account_summary has zero or one row object, and logs preserves log lines. All figures are backtest outputs, not a live trading account.',
   execute: async (request, input) => {
     return p.backtestResults(
-      await request({
-        path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}/result`,
-        query: {
-          field: input.field,
-          offset: input.offset,
-          limit: input.limit,
-          q: input.keyword,
-          symbol: input.symbol,
-        },
+      await readBacktestResult(request, {
+        runId: String(input.runId),
+        field: String(input.field),
+        offset: Number(input.offset),
+        limit: Number(input.limit),
+        ...(input.keyword === undefined ? {} : { keyword: String(input.keyword) }),
+        ...(input.symbol === undefined ? {} : { symbol: String(input.symbol) }),
       }),
       input,
     )
@@ -715,17 +720,12 @@ add({
   notes:
     'Supports available curves during queued, running, and terminal states; do not treat partial=true or complete=false as final results. On LIVE_RESULT_UNAVAILABLE, keep runId and retry with backoff. benchmark preserves the benchmark symbol and curve. maxPoints caps equity points only, not tradeDays or trades; narrow from/to if the response exceeds size limits. Preserve sampled, sourceCount, totalCount, complete, and partial without claiming sampled points are complete. Does not provide symbol K-lines.',
   execute: async (request, input) => {
-    const raw = await request({
-      path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}/chart`,
-      query: { from: input.from, to: input.to, max_points: input.maxPoints },
+    const raw = await readBacktestChart(request, {
+      runId: String(input.runId),
+      from: input.from as string | undefined,
+      to: input.to as string | undefined,
+      maxPoints: Number(input.maxPoints),
     })
-    expectIdentity(raw, 'run_id', input.runId)
-    if (
-      array(raw.points).length > Number(input.maxPoints) ||
-      (raw.benchmark !== undefined &&
-        array(object(raw.benchmark).points).length > Number(input.maxPoints))
-    )
-      throw new ResearchError('INVALID_RESPONSE', 'Chart exceeds maxPoints')
     return p.chart(raw)
   },
 })

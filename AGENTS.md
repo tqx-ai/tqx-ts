@@ -27,6 +27,10 @@
 
 - Use strict TypeScript, ESM syntax, extensionless local imports, ASCII source by default, and the
   native Fetch API. Keep `fetch`, credential stores, and output streams injectable for tests.
+- Use Valibot for first-party business schemas and validation; do not introduce Zod
+  into business code. Third-party libraries may use Zod internally, and may require
+  an explicit Zod peer dependency. That alone is not a reason to reject a dependency
+  or reimplement its protocol.
 - Validate public SDK inputs and response payloads with Valibot. Preserve
   `TqxConfigurationError`, `TqxNetworkError`, `TqxProtocolError`, `TqxValidationError`, and
   `TqxApiError`; do not leak raw transport, parser, or range errors from public methods.

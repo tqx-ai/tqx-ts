@@ -9,6 +9,14 @@ COPY packages/mcp-server/package.json ./packages/mcp-server/package.json
 
 RUN bun install --frozen-lockfile --production --filter @tqx-ai/mcp-server
 
+FROM dependencies AS build
+
+RUN bun install --frozen-lockfile --filter @tqx-ai/mcp-server
+
+COPY packages/mcp-server/src ./packages/mcp-server/src
+COPY packages/mcp-server/scripts/build-backtest-app.ts packages/mcp-server/scripts/backtest-vite.ts ./packages/mcp-server/scripts/
+RUN bun run --cwd packages/mcp-server build:ui
+
 FROM docker.cnb.cool/liangyunzhijing/docker-sync/oven-bun:1.4.4-slim_amd64 AS runtime
 
 WORKDIR /app/packages/mcp-server
@@ -20,6 +28,7 @@ COPY --from=dependencies --chown=bun:bun /app/node_modules /app/node_modules
 COPY --from=dependencies --chown=bun:bun /app/packages/mcp-server/node_modules ./node_modules
 COPY --chown=bun:bun packages/mcp-server/package.json ./package.json
 COPY --chown=bun:bun packages/mcp-server/src ./src
+COPY --from=build --chown=bun:bun /app/packages/mcp-server/dist/apps ./dist/apps
 
 USER bun
 EXPOSE 61102

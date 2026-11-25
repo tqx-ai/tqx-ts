@@ -1,7 +1,9 @@
 import { createApp } from './app'
 import { getLogger } from './utils/logger'
+import { readReportHtml } from './apps/qube/backtest/resource'
 
 const app = createApp()
+if (process.env.TQX_MCP_RESEARCH_BASE_URL !== undefined) await readReportHtml()
 const resourceUrl = process.env.TQX_MCP_RESOURCE_URL ?? ''
 const issuer = process.env.TQX_MCP_OAUTH_ISSUER ?? ''
 const allowedOrigins = (process.env.TQX_MCP_ALLOWED_ORIGINS ?? '')
