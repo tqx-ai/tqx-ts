@@ -1,0 +1,36 @@
+{
+  "name": "tqx-plugins",
+  "owner": {
+    "name": "TQX Team",
+    "email": "joshua@tqx.ai",
+    "url": "https://www.tqx.ai"
+  },
+  "metadata": {
+    "description": "TQX plugins for investment, trading, market data, and research."
+  },
+  "plugins": [
+    {
+      "name": "tqx-agent-plugin",
+      "displayName": "TQX",
+      "source": "./plugins/agent-plugin",
+      "version": "0.8.0",
+      "description": "Let TQX help you invest and trade",
+      "author": {
+        "name": "TQX Team",
+        "email": "joshua@tqx.ai",
+        "url": "https://www.tqx.ai"
+      },
+      "homepage": "https://www.tqx.ai",
+      "repository": "https://github.com/tqx-ai/tqx-ts",
+      "license": "GPL-3.0-only",
+      "category": "Productivity",
+      "strict": false,
+      "mcpServers": {
+        "tqx": {
+          "type": "http",
+          "url": "https://www.tqx.ai/mcp"
+        }
+      }
+    }
+  ]
+}
