@@ -128,7 +128,7 @@ function trade(day: string) {
           >
             Refresh</button
           ><button
-            v-if="connected && capabilities.message"
+            v-if="connected && capabilities.message?.text"
             type="button"
             data-action="analyze"
             class="secondary"

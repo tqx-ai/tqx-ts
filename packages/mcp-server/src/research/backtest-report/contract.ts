@@ -8,6 +8,7 @@ const nullableNumber = v.nullable(finite)
 const identity = { schemaVersion: v.literal(1), type: v.literal('qube'), runId: id }
 export const viewInput = v.strictObject({ type: v.literal('qube'), runId: id })
 const bound = (max: number, min = 1) => v.pipe(integer, v.minValue(min), v.maxValue(max))
+// Internal component/adapter contract, not a separate MCP tool input.
 export const queryInput = v.variant('operation', [
   v.strictObject({ ...viewInput.entries, operation: v.literal('overview') }),
   v.pipe(
@@ -140,10 +141,6 @@ export const queryResultSchema = v.variant('operation', [
   v.object({ ...identity, operation: v.literal('chart'), chart: chartSchema }),
   v.object({ ...identity, operation: v.literal('result'), result: resultSchema }),
 ])
-export const receiptSchema = v.object({
-  ...identity,
-  operation: v.picklist(['overview', 'chart', 'result']),
-})
 
 export type Identity = v.InferOutput<typeof viewInput>
 export type Summary = v.InferOutput<typeof summarySchema>

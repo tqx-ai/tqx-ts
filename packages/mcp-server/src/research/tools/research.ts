@@ -69,9 +69,9 @@ export function registerResearchTools(
     {
       icons: toolIcons.tqx_research_call,
       description:
-        'Execute a whitelisted Qube Research action with {action,input,confirm?}. Use tqx_research_explore for exact action inputs and direct business outputs. Async submissions return an ID; poll the matching get action. When a requested strategy backtest succeeds, call tqx_backtest_view with {type:"qube",runId:<submission id>} automatically unless the user requested text only; no user-supplied runId is needed. Permissions are checked per action. Deletion requires confirm=true. Excludes market data and trading.',
+        'Execute a whitelisted Qube Research action with {action,input,confirm?}. Use tqx_research_explore for exact action inputs and direct business outputs. Async submissions return an ID; poll the matching get action. When a requested strategy backtest succeeds, call tqx_open_backtest_view with {type:"qube",runId:<submission id>} automatically unless the user requested text only; no user-supplied runId is needed. Permissions are checked per action. Deletion requires confirm=true. Excludes market data and trading.',
       inputSchema: toolSchema(callInput),
-      _meta: { ui: { visibility: ['model'] } },
+      _meta: { ui: { visibility: ['model', 'app'] } },
       scopeChallenge: (ctx) => {
         const parsed = v.safeParse(v.object({ action: v.string() }), ctx.request.params?.arguments)
         const action = parsed.success ? actions.get(parsed.output.action) : undefined

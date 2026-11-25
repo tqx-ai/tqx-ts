@@ -272,8 +272,9 @@ including all 57 actions for factors, analyses, strategies, backtests, versions
 and snapshots, plus factor and strategy parameter tuning. It excludes tqx_data, market/financial data, standalone symbol
 klines, SSE subscriptions and trading accounts.
 
-Qube backtest reports additionally expose `tqx_backtest_view` and an App-only
-read helper. These are separate tools, not new entries in the 57-action registry.
+Qube backtest reports additionally expose `tqx_open_backtest_view`, a separate
+tool rather than a new entry in the 57-action registry. App interactions reuse
+the existing `tqx_research_call` tool.
 
 Enable it with both runtime settings below plus the shared
 `TQX_MCP_EXCHANGE_CLIENT_ID` / `TQX_MCP_EXCHANGE_CLIENT_SECRET`. Omit both Research
@@ -320,7 +321,7 @@ action permissions use the existing HTTP scope challenge.
 ### Qube Backtest App
 
 After a user-requested strategy backtest reaches `status=succeeded`, the agent
-should automatically call `tqx_backtest_view({type:"qube",runId})`, using the
+should automatically call `tqx_open_backtest_view({type:"qube",runId})`, using the
 submission's root `id` internally. Users need not supply or understand run IDs.
 The tool also reopens existing runs. It reads data only and never starts a backtest.
 Report failures retry the same run; failed/cancelled runs remain labelled accordingly.
@@ -328,17 +329,20 @@ Report failures retry the same run; failed/cancelled runs remain labelled accord
 The tool requires `research:read`. Its standard `_meta.ui.resourceUri` references
 `ui://tqx/qube/backtest/report-v1.html` (`text/html;profile=mcp-app`). Model-visible
 content is a bounded summary; chart data stays in `_meta["tqx.trade/backtest-view"]`.
-The App queries overview, a chart window or a bounded result page through
-`tqx_backtest_view_query`, declared with `visibility:["app"]`. Other Research and
-Trading tools are model-only. Visibility is a host presentation rule, not access
-control; every query still authenticates, exchanges its token and checks run access.
-The stable tool catalog also supports text-only hosts through the summary; older
-hosts ignoring visibility may list the read-only helper.
+The App queries through `tqx_research_call`, visible to both model and App. A
+central UI adapter calls only `strategy.backtest.get`, `backtest.chart.get` and
+`backtest.result.get`; no separate query tool is registered. Existing public
+inputs, outputs, per-action scopes and authorization remain unchanged. Later
+queries use public `structuredContent`, not the opener's private report metadata.
+Explore and Trading tools remain model-only. Visibility is a host presentation
+rule, not access control. Text-only hosts receive the opener's bounded summary.
 
 The English dark glass report has sample-snapping equity/return inspection,
 benchmark and trade-day controls, range queries, paginated tables, frozen settings,
-metric explanations and host-controlled fullscreen. Inline reports grow with their
-content; fullscreen uses one document scrollbar. Narrow result tables become
+metric explanations and host-controlled fullscreen. Reports follow the host's
+standard `containerDimensions`: fixed axes fill the viewport; flexible axes grow
+with content up to the supplied maximum. Constrained reports use one document
+scrollbar. Narrow result tables become
 labeled records without horizontal scrolling. Missing metrics remain unavailable;
 engine risk metrics are never recomputed from sampled curves. Fonts and code are
 bundled into one HTML file with no external network requirements or credentials.
@@ -356,7 +360,8 @@ The workbench at `http://127.0.0.1:53043/` offers `Production sandbox` (the buil
 single HTML) and `Vue HMR` (the same Vue source served by a second loopback port).
 Both use standard MCP Apps messages. It offers fixed scenarios, widths,
 delivery-order tests, query latency/failure/timeout simulation, host display-mode changes,
-teardown and a payload-free protocol trace. In HMR mode, CSS/template edits update without restarting the report; script edits
+natural/maximum/fixed inline heights, same-view scenario changes, teardown and a
+payload-free protocol trace. In HMR mode, CSS/template edits update without restarting the report; script edits
 may remount components. Production mode rebuilds and reloads the HTML.
 Only the development iframe permits local module/WebSocket access; production
 CSP remains network-free. Use `?build=hmr` to select development mode.
@@ -375,7 +380,11 @@ native TS 7. UI build/test packages are development dependencies only.
 
 The host adapter uses the official `@modelcontextprotocol/ext-apps` App and
 PostMessageTransport APIs for initialization, routing, tool calls and teardown.
-Inline sizing uses `App.sendSizeChanged` with the report's layout policy.
+Sizing uses `App.sendSizeChanged` only for flexible axes, within host limits and
+without duplicate size notifications. `App.getHostVersion()` exposes standard
+`hostInfo` (name/version) to report state for diagnostics; capabilities and context
+control behavior rather than the host's name or `userAgent`. Text analysis requires
+`hostCapabilities.message.text`, and tool queries require `serverTools`.
 First-party business schemas and TQX payload validation stay in Valibot. Zod is
 installed only to satisfy the SDK's runtime peer requirement; third-party internal
 use of Zod is allowed and is not grounds to reject a maintained library.

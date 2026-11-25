@@ -91,14 +91,13 @@ function setup() {
 }
 
 describe('Research MCP tools over authenticated HTTP', () => {
-  it('exposes two tools with compact object schemas and no aggregated output schema', async () => {
+  it('exposes Research tools and the report opener with compact object schemas and no aggregated output schema', async () => {
     const s = setup()
     const body = await (await s.rpc('tools/list')).json()
     expect(body.result.tools.map((t: { name: string }) => t.name)).toEqual([
       'tqx_research_explore',
       'tqx_research_call',
-      'tqx_backtest_view',
-      'tqx_backtest_view_query',
+      'tqx_open_backtest_view',
     ])
     const [explore, call] = body.result.tools
     expectPngIcons(explore.icons)

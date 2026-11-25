@@ -2,8 +2,6 @@ import * as v from 'valibot'
 
 import { date, revision } from '../../utils/research-values'
 import { ResearchError } from '../errors'
-import { object } from '../gateway'
-import * as p from '../projections'
 import { runOutput, chartOutput, resultOutput } from '../schemas'
 import { chartSchema, reportSchema, resultSchema, summarySchema } from './contract'
 import type { Summary, ChartData, ResultPage } from './contract'
@@ -15,7 +13,9 @@ export function validate<T extends v.GenericSchema>(schema: T, value: unknown): 
 }
 
 function record(value: unknown): Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value) ? object(value) : {}
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
 }
 function number(value: unknown): number | null {
   const n =
@@ -31,8 +31,12 @@ const string = (value: unknown, max = 200) =>
 const validDate = (value: unknown) => (v.safeParse(date, value).success ? value : null)
 const validRevision = (value: unknown) => (v.safeParse(revision, value).success ? value : null)
 
-export function projectRun(raw: Record<string, unknown>, fetchedAt: string): Summary {
-  const run = record(validate(runOutput('backtest'), p.run(raw, 'strategy')))
+export function projectRun(
+  data: Record<string, unknown>,
+  fetchedAt: string,
+  metadata: { title?: unknown; market?: unknown } = {},
+): Summary {
+  const run = record(validate(runOutput('backtest'), data))
   const metrics = record(run.metrics)
   const backtest = record(record(run.parameters).backtest)
   const metric = (...keys: string[]): { value: number | null; source: string | null } => {
@@ -43,7 +47,7 @@ export function projectRun(raw: Record<string, unknown>, fetchedAt: string): Sum
     return { value: null, source: null }
   }
   const initial = number(backtest.init_balance)
-  const market = raw.market === 'hk' || raw.market === 'us' ? raw.market : null
+  const market = metadata.market === 'hk' || metadata.market === 'us' ? metadata.market : null
   const count = metric('trade_count', 'total_trades')
   if (count.value !== null && (!Number.isSafeInteger(count.value) || count.value < 0))
     count.value = null
@@ -53,7 +57,7 @@ export function projectRun(raw: Record<string, unknown>, fetchedAt: string): Sum
     type: 'qube',
     runId: run.id,
     strategyId: run.resourceId,
-    title: string(raw.title) || 'Backtest report',
+    title: string(metadata.title) || 'Backtest report',
     market,
     currency: market === 'hk' ? 'HKD' : market === 'us' ? 'USD' : null,
     status: run.status,
@@ -98,9 +102,9 @@ export function projectRun(raw: Record<string, unknown>, fetchedAt: string): Sum
   })
 }
 
-export function projectChart(raw: Record<string, unknown>): ChartData {
+export function projectChart(data: Record<string, unknown>): ChartData {
   // Validate the existing public shape first, then remove trade previews from UI data.
-  const chart = validate(chartOutput, p.chart(raw))
+  const chart = validate(chartOutput, data)
   const points = [chart.points, ...(chart.benchmark ? [chart.benchmark.points] : [])]
   for (const series of points) {
     let previous = -Infinity
@@ -111,7 +115,9 @@ export function projectChart(raw: Record<string, unknown>): ChartData {
       previous = ts
     }
   }
-  return validate(chartSchema, chart)
+  const result = validate(chartSchema, chart)
+  enforceBudget(result, UI_BUDGET - 16_384)
+  return result
 }
 
 const columns = {
@@ -175,11 +181,22 @@ const numericColumns = new Set([
 ])
 
 export function projectResult(
-  raw: Record<string, unknown>,
+  data: Record<string, unknown>,
   input: { runId: string; field: keyof typeof columns; offset: number; limit: number },
 ): ResultPage {
-  const page = validate(resultOutput(false), p.backtestResults(raw, input))
-  const rows = (page.rows as unknown[]).map((item) => {
+  const page = validate(resultOutput(false), data)
+  const sourceRows = page.rows as unknown[]
+  if (
+    page.runId !== input.runId ||
+    page.field !== input.field ||
+    page.offset !== input.offset ||
+    page.limit !== input.limit ||
+    sourceRows.length > input.limit ||
+    (page.hasMore &&
+      (sourceRows.length === 0 || page.nextOffset !== page.offset + sourceRows.length))
+  )
+    throw new ResearchError('INVALID_RESPONSE', 'Invalid backtest result page')
+  const rows = sourceRows.map((item) => {
     const row = record(item)
     return Object.fromEntries(
       columns[input.field]
@@ -197,8 +214,34 @@ export function projectResult(
   return validate(resultSchema, { ...page, rows })
 }
 
-export function report(summary: Summary, chart: ChartData | null) {
-  return validate(reportSchema, {
+export const UI_BUDGET = 524_288
+export function enforceBudget(value: unknown, limit: number) {
+  if (new TextEncoder().encode(JSON.stringify(value)).length > limit)
+    throw new ResearchError(
+      'RESULT_TOO_LARGE',
+      'Backtest report exceeds the output limit; reduce the page or range',
+    )
+}
+
+export function report(
+  summary: Summary,
+  chart: ChartData | null,
+  error?: { code: string; message: string },
+) {
+  if (error) {
+    summary.sections.chart = { state: 'error', ...error }
+    summary.warnings.push(
+      'Chart unavailable. Metrics remain available; refresh or narrow the range.',
+    )
+  } else if (chart) {
+    summary.sections.chart = { state: chart.points.length ? 'ready' : 'empty' }
+    if (chart.sampled)
+      summary.warnings.push('Curve is sampled; inspection snaps to returned samples.')
+    if (chart.partial || chart.complete !== true)
+      summary.warnings.push('Chart completeness is not confirmed; available data may be partial.')
+  }
+  enforceBudget(summary, 16_384)
+  const result = validate(reportSchema, {
     schemaVersion: 1,
     type: 'qube',
     runId: summary.runId,
@@ -206,4 +249,6 @@ export function report(summary: Summary, chart: ChartData | null) {
     summary,
     chart,
   })
+  enforceBudget(result, UI_BUDGET)
+  return result
 }

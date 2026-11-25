@@ -124,20 +124,23 @@ describe('Qube MCP Apps integration', () => {
     const apps = (await s.rpc('tools/list')).body.result.tools
     const text = (await s.rpc('tools/list', {}, readToken, false)).body.result.tools
     expect(apps).toEqual(text)
-    const view = apps.find((tool: { name: string }) => tool.name === 'tqx_backtest_view')
+    const view = apps.find((tool: { name: string }) => tool.name === 'tqx_open_backtest_view')
     expect(view['_meta'].ui).toEqual({ resourceUri: REPORT_URI, visibility: ['model', 'app'] })
     expect(view.inputSchema.required).toEqual(['type', 'runId'])
     expect(view.inputSchema.properties.type).toMatchObject({ const: 'qube' })
     expect(view.description).toContain('automatically')
     expect(view.description).toContain('submission response id')
+    expect(apps.map((tool: { name: string }) => tool.name)).toEqual([
+      'tqx_research_explore',
+      'tqx_research_call',
+      'tqx_open_backtest_view',
+    ])
     expect(
-      apps.find((tool: { name: string }) => tool.name === 'tqx_backtest_view_query')['_meta'].ui
-        .visibility,
-    ).toEqual(['app'])
+      apps.find((tool: { name: string }) => tool.name === 'tqx_research_call')['_meta'].ui,
+    ).toEqual({ visibility: ['model', 'app'] })
     expect(
-      apps.find((tool: { name: string }) => tool.name === 'tqx_research_call')['_meta'].ui
-        .visibility,
-    ).toEqual(['model'])
+      apps.find((tool: { name: string }) => tool.name === 'tqx_research_call')['_meta'].ui,
+    ).not.toHaveProperty('resourceUri')
     expect(s.exchange).not.toHaveBeenCalled()
   })
   it.each(['2025-11-25', '2026-07-28'])(
@@ -145,7 +148,7 @@ describe('Qube MCP Apps integration', () => {
     async (version) => {
       const s = setup()
       const { body } = await s.call(
-        'tqx_backtest_view',
+        'tqx_open_backtest_view',
         { type: 'qube', runId: RUN },
         readToken,
         false,
@@ -169,19 +172,16 @@ describe('Qube MCP Apps integration', () => {
     const s = setup()
     const invalid = await Promise.all(
       [{ runId: RUN }, { type: 'other', runId: RUN }, { type: 1, runId: RUN }].map((input) =>
-        s.call('tqx_backtest_view', input),
+        s.call('tqx_open_backtest_view', input),
       ),
     )
     for (const response of invalid) expect(response.body.result.isError).toBe(true)
-    const forbidden = await s.call('tqx_backtest_view', { type: 'qube', runId: RUN }, runToken)
+    const forbidden = await s.call('tqx_open_backtest_view', { type: 'qube', runId: RUN }, runToken)
     expect(forbidden.response.status).toBe(403)
     expect(forbidden.response.headers.get('WWW-Authenticate')).toContain('research:read')
-    const query = await s.call('tqx_backtest_view_query', {
-      type: 'qube',
-      runId: RUN,
-      operation: 'result',
-      field: 'trades',
-      limit: 101,
+    const query = await s.call('tqx_research_call', {
+      action: 'backtest.result.get',
+      input: { runId: RUN, field: 'trades', limit: 501 },
     })
     expect(query.body.result.isError).toBe(true)
     expect(s.exchange).not.toHaveBeenCalled()
@@ -212,29 +212,34 @@ describe('Qube MCP Apps integration', () => {
     expect(s.exchange).not.toHaveBeenCalled()
     expect((await s.rpc('resources/read', { uri: REPORT_URI }, runToken)).response.status).toBe(403)
   })
-  it('queries only the selected run with pagination and keeps table rows out of model content', async () => {
+  it('serves UI pagination through the unchanged public Research action', async () => {
     const s = setup()
-    const { body } = await s.call('tqx_backtest_view_query', {
-      type: 'qube',
+    const { body } = await s.call('tqx_research_call', {
+      action: 'backtest.result.get',
+      input: { runId: RUN, field: 'trades', offset: 0, limit: 5 },
+    })
+    expect(body.result.isError).not.toBe(true)
+    expect(body.result.structuredContent).toMatchObject({
       runId: RUN,
-      operation: 'result',
       field: 'trades',
       offset: 0,
       limit: 5,
+      rows: [{ symbol: 'AAPL.US', price: '12.3456789' }],
     })
-    expect(body.result.isError).not.toBe(true)
-    expect(body.result.structuredContent).toEqual({
-      schemaVersion: 1,
-      type: 'qube',
-      runId: RUN,
-      operation: 'result',
-    })
-    expect(body.result['_meta'][REPORT_META].result.rows).toEqual([
-      { symbol: 'AAPL.US', price: '12.3456789' },
-    ])
-    expect(s.fetch).toHaveBeenCalledTimes(2)
-    expect(String(s.fetch.mock.calls[1]?.[0])).toContain('field=trades&offset=0&limit=5')
+    expect(body.result['_meta']).not.toHaveProperty(REPORT_META)
+    expect(JSON.parse(body.result.content[0].text)).toEqual(body.result.structuredContent)
+    expect(s.fetch).toHaveBeenCalledTimes(1)
+    expect(String(s.fetch.mock.calls[0]?.[0])).toContain('field=trades&offset=0&limit=5')
     for (const [, init] of s.fetch.mock.calls) expect(init?.method).toBe('GET')
+    const forbidden = await s.call(
+      'tqx_research_call',
+      {
+        action: 'backtest.result.get',
+        input: { runId: RUN, field: 'trades' },
+      },
+      runToken,
+    )
+    expect(forbidden.response.status).toBe(403)
   })
   it('merges the UI resource exactly once into signed business pagination', async () => {
     const s = setup()
@@ -266,7 +271,7 @@ describe('Qube MCP Apps integration', () => {
     const s = setup()
     const { body } = await s.call('tqx_research_explore', { action: 'strategy.backtest.submit' })
     expect(body.result.structuredContent.documentation).toContain(
-      'automatically call tqx_backtest_view',
+      'automatically call tqx_open_backtest_view',
     )
     expect(body.result.structuredContent.documentation).toContain('never resubmit')
   })

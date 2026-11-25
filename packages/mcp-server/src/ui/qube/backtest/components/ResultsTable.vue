@@ -145,7 +145,8 @@ onBeforeUnmount(() => {
         name="keyword"
         placeholder="Search records"
         maxlength="200"
-      /><button type="submit" class="secondary">Search</button>
+        @keydown.enter.prevent="search"
+      /><button type="button" class="secondary" @click="search">Search</button>
     </form>
     <div class="result-records">
       <table class="result-table" :aria-busy="loading">

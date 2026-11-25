@@ -4,27 +4,13 @@ import type { CallToolResult, McpServer } from '@modelcontextprotocol/server'
 import { toolSchema } from '../../../utils/tool-schema'
 import { toolIcons } from '../../../utils/icons'
 import { researchError } from '../../../research/errors'
-import { loadReport, loadQuery, type ReportContext } from '../../../research/backtest-report/load'
-import {
-  REPORT_META,
-  viewInput,
-  queryInput,
-  summarySchema,
-  receiptSchema,
-} from '../../../research/backtest-report/contract'
-import type { QueryResult } from '../../../research/backtest-report/contract'
+import { loadReport, type ReportContext } from '../../../research/backtest-report/load'
+import { REPORT_META, viewInput, summarySchema } from '../../../research/backtest-report/contract'
+import type { Report } from '../../../research/backtest-report/contract'
 import { REPORT_URI } from './resource'
 
-function result(data: QueryResult): CallToolResult {
-  const summary =
-    data.operation === 'overview'
-      ? data.summary
-      : {
-          schemaVersion: data.schemaVersion,
-          type: data.type,
-          runId: data.runId,
-          operation: data.operation,
-        }
+function result(data: Report): CallToolResult {
+  const summary = data.summary
   return {
     structuredContent: summary,
     content: [{ type: 'text', text: JSON.stringify(summary) }],
@@ -50,7 +36,7 @@ export function registerBacktestApp(server: McpServer, context: ReportContext) {
   // Keep discovery stable across clients. Apps hosts enforce standard visibility;
   // text-only hosts can consume the same bounded summary without loading HTML.
   server.registerTool(
-    'tqx_backtest_view',
+    'tqx_open_backtest_view',
     {
       title: 'Qube backtest report',
       icons: toolIcons.tqx_research_call,
@@ -65,37 +51,6 @@ export function registerBacktestApp(server: McpServer, context: ReportContext) {
     async (input) => {
       try {
         return result(await loadReport(context, input))
-      } catch (error) {
-        return failure(error)
-      }
-    },
-  )
-  server.registerTool(
-    'tqx_backtest_view_query',
-    {
-      title: 'Query Qube backtest report',
-      description:
-        'Read the current Qube report overview, chart window, or one bounded result page. App-only; read-only. Pass type="qube" and the current report runId.',
-      inputSchema: toolSchema(queryInput),
-      outputSchema: toolSchema(receiptSchema),
-      annotations,
-      scopeChallenge: requireScopes('research:read'),
-      _meta: { ui: { visibility: ['app'] } },
-    },
-    async (input) => {
-      try {
-        const data = await loadQuery(context, input)
-        const receipt = {
-          schemaVersion: data.schemaVersion,
-          type: data.type,
-          runId: data.runId,
-          operation: data.operation,
-        }
-        return {
-          structuredContent: receipt,
-          content: [{ type: 'text', text: JSON.stringify(receipt) }],
-          _meta: { [REPORT_META]: data },
-        }
       } catch (error) {
         return failure(error)
       }

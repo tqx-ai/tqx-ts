@@ -212,7 +212,7 @@ authentication, Python execution, or marketplace behavior.
 | OpenAI              | `com.openai`                                                     | Keep existing presentation metadata and `onboardingSkill`.                         |
 | GitHub Copilot      | `com.github.copilot`                                             | Shared skills and MCP suffice; no client-only components to configure.             |
 | VS Code / Copilot   | `com.github.copilot`                                             | Reuse Copilot's namespace; do not invent `com.microsoft.vscode`.                   |
-| Antigravity         | No named Agent Plugins extension contract in the reviewed guides | Record the native-format mismatch; do not invent `com.google.antigravity`.         |
+| Antigravity         | No named Agent Plugins extension contract in the reviewed guides | Generate a separate native distribution; do not invent `com.google.antigravity`.   |
 | Hermes              | `com.nousresearch.hermes`                                        | Omit optional trust overrides; retain client-managed authorization.                |
 | NanoClaw            | `ai.nanoco.nanoclaw`                                             | Set `agentName` to `TQX`.                                                          |
 | OpenClaw            | `ai.openclaw`                                                    | Declare tool activation with `onStartup: false`.                                   |
@@ -257,11 +257,28 @@ The authoring guide explicitly says Antigravity ignores `mcp.json` and loads
 `mcp_config.json`. A `.antigravity-plugin/plugin.json` overrides the root
 manifest in that client. Therefore, our existing package must not be advertised
 as providing its MCP connection in Antigravity without an adapter and live
-verification. If a native distribution is needed, build it separately from the
-canonical package; do not replace our schema or relocate its MCP configuration.
-Validate that artifact with `agy plugin validate`; evaluate the documented
-multi-tool warnings separately from errors. Root contributor `AGENTS.md` is not
-an Antigravity plugin rule.
+verification. Build the native distribution separately from the canonical
+package; do not replace our schema or relocate its MCP configuration. Root
+contributor `AGENTS.md` is not an Antigravity plugin rule.
+
+Run these commands from the workspace root:
+
+```bash
+bun run plugin:antigravity:build
+bun run plugin:antigravity:check
+```
+
+The builder in `scripts/build-antigravity-plugin.ts` uses
+`scripts/lib/antigravity-plugin.ts` (sharing packaging utilities with
+`scripts/lib/claude-plugin.ts` via `scripts/lib/plugin-distribution.ts`) to
+produce `dist/antigravity-plugin/` and `dist/antigravity-plugin.zip`. It maps
+`name`, `version`, `description`, `author` (`name` and `url`), `homepage`, and
+`repository` from the canonical manifest, maps `displayName`, `logo`
+(`assets/logo.png`), and the first three `defaultPrompt` entries
+(`suggestedPrompts`) from `com.openai.interface`, converts `mcp.json` to
+`mcp_config.json`, and copies `skills/`, `README.md`, and `LICENSE` unchanged.
+Validate the generated directory with `agy plugin validate`; evaluate the
+documented multi-tool warnings separately from errors.
 
 ### Hermes
 

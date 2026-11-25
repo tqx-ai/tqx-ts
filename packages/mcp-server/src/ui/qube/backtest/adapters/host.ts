@@ -2,17 +2,26 @@ import { App, PostMessageTransport } from '@modelcontextprotocol/ext-apps'
 import type { McpUiHostCapabilities, McpUiHostContext } from '@modelcontextprotocol/ext-apps'
 import * as v from 'valibot'
 
+import { measureHostSize } from './layout'
+import { createResearchQuery } from './research'
+
 import {
   REPORT_META,
   queryResultSchema,
   viewInput,
 } from '../../../../research/backtest-report/contract'
-import type { Identity, Query, QueryResult } from '../../../../research/backtest-report/contract'
+import type {
+  Identity,
+  Query,
+  QueryResult,
+  Summary,
+} from '../../../../research/backtest-report/contract'
 
 const object = v.record(v.string(), v.unknown())
 const requestOptions = { timeout: 20_000, maxTotalTimeout: 20_000 }
 export type HostContext = McpUiHostContext
 export type HostCapabilities = McpUiHostCapabilities
+export type HostInfo = NonNullable<ReturnType<App['getHostVersion']>>
 export interface HostActions {
   query(input: Query): Promise<QueryResult>
   display(mode: 'inline' | 'fullscreen'): Promise<void>
@@ -23,7 +32,7 @@ export interface HostActions {
 export interface HostEvents {
   input(identity: Identity): void
   result(data: QueryResult): void
-  context(context: HostContext, capabilities: HostCapabilities): void
+  context(context: HostContext, capabilities: HostCapabilities, info?: HostInfo): void
   error(message: string): void
   teardown(): void
 }
@@ -38,6 +47,19 @@ export function connectHost(events: HostEvents): HostActions {
     ready = false,
     resizeFrame = 0
   let teardownTimer: ReturnType<typeof setTimeout> | undefined
+  let summary: Summary | undefined
+  let identity: Identity | undefined
+  const query = createResearchQuery(
+    async (action, input) => {
+      if (!active || !ready || !app.getHostCapabilities()?.serverTools)
+        throw new Error('Host connection unavailable')
+      return app.callServerTool(
+        { name: 'tqx_research_call', arguments: { action, input } },
+        requestOptions,
+      )
+    },
+    () => summary,
+  )
   function shutdown() {
     if (!active) return
     active = ready = false
@@ -54,7 +76,11 @@ export function connectHost(events: HostEvents): HostActions {
   }
   function publishContext() {
     if (!active) return
-    events.context(app.getHostContext() ?? {}, app.getHostCapabilities() ?? {})
+    events.context(
+      app.getHostContext() ?? {},
+      app.getHostCapabilities() ?? {},
+      app.getHostVersion(),
+    )
     notifySize()
   }
   function accept(callback: () => void) {
@@ -66,8 +92,22 @@ export function connectHost(events: HostEvents): HostActions {
     }
   }
   // Protocol lifecycle and routing belong to the SDK; Valibot checks only TQX data.
-  app.ontoolinput = (params) => accept(() => events.input(v.parse(viewInput, params.arguments)))
-  app.ontoolresult = (params) => accept(() => events.result(readToolResult(params)))
+  app.ontoolinput = (params) =>
+    accept(() => {
+      identity = v.parse(viewInput, params.arguments)
+      if (summary?.runId !== identity.runId || summary.type !== identity.type) summary = undefined
+      events.input(identity)
+    })
+  app.ontoolresult = (params) =>
+    accept(() => {
+      const data = readToolResult(params)
+      if (
+        data.operation === 'overview' &&
+        (!identity || (identity.runId === data.runId && identity.type === data.type))
+      )
+        summary = data.summary
+      events.result(data)
+    })
   app.ontoolcancelled = () => {
     if (active) events.error('Tool call cancelled. Previously loaded data is retained.')
   }
@@ -88,18 +128,25 @@ export function connectHost(events: HostEvents): HostActions {
   app.onerror = () => {
     if (active) events.error('Host communication failed. Refresh this report.')
   }
-  // Layout policy: inline grows naturally; fullscreen keeps its host-sized viewport.
+  // Size negotiation follows container constraints, not a host name or display mode.
+  let lastSize: { width?: number; height?: number } | undefined
+  let lastLayout = ''
   function notifySize() {
-    if (!observer || !active || !ready || app.getHostContext()?.displayMode === 'fullscreen') return
+    if (!observer || !active || !ready) return
     cancelAnimationFrame(resizeFrame)
     resizeFrame = requestAnimationFrame(() => {
-      if (!active || !ready || app.getHostContext()?.displayMode === 'fullscreen') return
-      void app
-        .sendSizeChanged({
-          height: Math.ceil(document.documentElement.getBoundingClientRect().height),
-          width: Math.ceil(document.documentElement.clientWidth),
-        })
-        .catch(() => {})
+      if (!active || !ready) return
+      const context = app.getHostContext() ?? {}
+      const layout = JSON.stringify([context.displayMode, context.containerDimensions])
+      if (layout !== lastLayout) lastSize = undefined
+      lastLayout = layout
+      const size = measureHostSize(context)
+      if (size.width === undefined && size.height === undefined) return
+      if (size.width === lastSize?.width && size.height === lastSize?.height) return
+      lastSize = size
+      void app.sendSizeChanged(size).catch(() => {
+        lastSize = undefined
+      })
     })
   }
   const observer =
@@ -125,23 +172,7 @@ export function connectHost(events: HostEvents): HostActions {
   }
   return {
     async query(input) {
-      if (!active || !ready || !app.getHostCapabilities()?.serverTools)
-        throw new Error('Host connection unavailable')
-      const result = await app.callServerTool(
-        {
-          name: 'tqx_backtest_view_query',
-          arguments: input,
-        },
-        requestOptions,
-      )
-      const data = readToolResult(result)
-      if (
-        data.type !== input.type ||
-        data.runId !== input.runId ||
-        data.operation !== input.operation
-      )
-        throw new Error('Report response identity mismatch')
-      return data
+      return query(input)
     },
     async display(mode) {
       if (!active || !ready || !app.getHostContext()?.availableDisplayModes?.includes(mode))
@@ -155,7 +186,7 @@ export function connectHost(events: HostEvents): HostActions {
       if (result.isError) throw new Error('Host did not open the link')
     },
     async analyze(context) {
-      if (!active || !ready || !app.getHostCapabilities()?.message)
+      if (!active || !ready || !app.getHostCapabilities()?.message?.text)
         throw new Error('This host does not support conversation messages')
       if (app.getHostCapabilities()?.updateModelContext)
         await app.updateModelContext({ structuredContent: context }, requestOptions)

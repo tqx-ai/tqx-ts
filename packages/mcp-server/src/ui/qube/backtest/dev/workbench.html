@@ -125,6 +125,15 @@
           <option value="fullscreen">Fullscreen</option>
         </select></label
       >
+      <label
+        >Inline height<select id="height-constraint">
+          <option value="natural">Natural</option>
+          <option value="max:600">Max 600px</option>
+          <option value="max:800">Max 800px</option>
+          <option value="fixed:640">Fixed 640px</option>
+        </select></label
+      >
+      <label><input id="reuse-view" type="checkbox" />Reuse view on scenario change</label>
       <label><input id="text-host" type="checkbox" />Limited host</label>
       <button id="restart">Restart App</button><button id="teardown">Teardown</button>
       <span id="status" role="status">Starting</span>

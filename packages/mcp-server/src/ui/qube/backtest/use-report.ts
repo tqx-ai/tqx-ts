@@ -6,8 +6,10 @@ import {
   type HostActions,
   type HostCapabilities,
   type HostContext,
+  type HostInfo,
 } from './adapters/host'
 import { identityKey } from './format'
+import { applyHostLayout, clearHostLayout } from './adapters/layout'
 
 export function useReport() {
   const identity = shallowRef<Identity>(),
@@ -16,18 +18,19 @@ export function useReport() {
     context = shallowRef<HostContext>({})
   const capabilities = shallowRef<HostCapabilities>({}),
     alert = shallowRef('')
+  const hostInfo = shallowRef<HostInfo>()
   const connected = shallowRef(false)
+  let awaitingInput: Report | undefined
   let active = true,
     refreshRequest = 0
   const canQuery = computed(() => connected.value && !!capabilities.value.serverTools)
   const fullscreen = computed(() => context.value.displayMode === 'fullscreen')
-  function accept(data: QueryResult) {
-    if (
-      !active ||
-      data.operation !== 'overview' ||
-      (identity.value && identityKey(identity.value) !== identityKey(data))
-    )
+  function accept(data: QueryResult, buffer = false) {
+    if (!active || data.operation !== 'overview') return
+    if (identity.value && identityKey(identity.value) !== identityKey(data)) {
+      if (buffer) awaitingInput = data
       return
+    }
     if (
       report.value?.summary.fetchedAt === data.summary.fetchedAt &&
       identityKey(report.value) === identityKey(data)
@@ -46,11 +49,15 @@ export function useReport() {
           refreshRequest++
         }
         identity.value = next
+        const buffered = awaitingInput
+        awaitingInput = undefined
+        if (buffered && identityKey(buffered) === identityKey(next)) accept(buffered)
       },
-      result: accept,
-      context(next, caps) {
+      result: (data) => accept(data, true),
+      context(next, caps, info) {
         context.value = next
         capabilities.value = caps
+        hostInfo.value = info
         connected.value = true
       },
       error(message) {
@@ -58,6 +65,7 @@ export function useReport() {
       },
       teardown() {
         active = false
+        awaitingInput = undefined
         connected.value = false
         refreshRequest++
         alert.value = 'Report disconnected. Restart to reconnect.'
@@ -67,6 +75,7 @@ export function useReport() {
   watch(
     context,
     (next) => {
+      applyHostLayout(next)
       for (const side of ['top', 'right', 'bottom', 'left'] as const)
         document.documentElement.style.setProperty(
           `--safe-${side}`,
@@ -116,8 +125,10 @@ export function useReport() {
   }
   onBeforeUnmount(() => {
     active = false
+    awaitingInput = undefined
     refreshRequest++
     host.value?.dispose()
+    clearHostLayout()
     for (const side of ['top', 'right', 'bottom', 'left'])
       document.documentElement.style.removeProperty(`--safe-${side}`)
   })
@@ -125,6 +136,7 @@ export function useReport() {
     identity,
     report,
     host,
+    hostInfo,
     context,
     capabilities,
     alert,

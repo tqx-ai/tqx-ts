@@ -6,6 +6,66 @@ import {
   reportSchema,
 } from '../../../../research/backtest-report/contract'
 import type { Query, QueryResult, Report } from '../../../../research/backtest-report/contract'
+import { backtestRunInput, chartInput, resultInput } from '../../../../research/schemas'
+import type { ResearchCall } from './research'
+
+// Development-only conversion into the same public outputs as tqx_research_call.
+export function fixtureResearch(recording: Report, syntheticResults = false): ResearchCall {
+  const query = fixtureQuery(recording, syntheticResults)
+  return async (action, input) => {
+    let data: Record<string, unknown>
+    if (action === 'strategy.backtest.get') {
+      const { runId } = v.parse(backtestRunInput, input)
+      const overview = query({ type: 'qube', runId, operation: 'overview' })
+      if (overview.operation !== 'overview') throw new Error('Expected fixture overview')
+      const s = overview.summary
+      data = {
+        kind: 'backtest',
+        id: s.runId,
+        resourceId: s.strategyId,
+        status: s.status,
+        terminal: s.terminal,
+        progress: s.progress === null ? undefined : { percent: s.progress },
+        sourceRevision: s.sourceRevision ?? undefined,
+        configRevision: s.configRevision ?? undefined,
+        metrics: Object.fromEntries(
+          Object.values(s.metrics)
+            .filter((m) => m.source !== null && m.value !== null)
+            .map((m) => [m.source!, m.value]),
+        ),
+        parameters: {
+          backtest: {
+            init_balance: s.initialCapital,
+            period_start: s.period.from,
+            period_end: s.period.to,
+            frequency: s.frequency,
+            commission_rate: s.parameters.commissionRate,
+            slippage: s.parameters.slippage,
+            standard_symbol: s.parameters.standardSymbol,
+            margin_rate: s.parameters.marginRate,
+          },
+        },
+      }
+    } else if (action === 'backtest.chart.get') {
+      const args = v.parse(chartInput, input)
+      const result = query({ type: 'qube', operation: 'chart', ...args })
+      if (result.operation !== 'chart') throw new Error('Expected fixture chart')
+      data = {
+        ...result.chart,
+        runId: result.runId,
+        tradeDays: result.chart.tradeDays.map((day) =>
+          Object.assign({}, day, { counts: {}, trades: [] }),
+        ),
+      }
+    } else if (action === 'backtest.result.get') {
+      const args = v.parse(resultInput, input)
+      const result = query(v.parse(queryInput, { type: 'qube', operation: 'result', ...args }))
+      if (result.operation !== 'result') throw new Error('Expected fixture result')
+      data = { ...result.result, runId: result.runId }
+    } else throw new Error('Unsupported fixture action')
+    return { structuredContent: data, content: [{ type: 'text', text: JSON.stringify(data) }] }
+  }
+}
 
 export function fixtureQuery(recording: Report, syntheticResults = false) {
   const report = v.parse(reportSchema, recording)

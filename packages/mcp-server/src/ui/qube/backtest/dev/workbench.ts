@@ -1,8 +1,9 @@
 import * as v from 'valibot'
 
 import { REPORT_META, reportSchema } from '../../../../research/backtest-report/contract'
-import type { Query, Report } from '../../../../research/backtest-report/contract'
-import { fixtureQuery } from '../adapters/fixture'
+import type { Report } from '../../../../research/backtest-report/contract'
+import { fixtureResearch } from '../adapters/fixture'
+import type { ResearchCall } from '../adapters/research'
 import { fixture, scenarios, type Scenario } from './fixtures'
 
 const find = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -16,7 +17,11 @@ const delivery = find<HTMLSelectElement>('delivery'),
 const reject = find<HTMLInputElement>('reject'),
   limited = find<HTMLInputElement>('text-host')
 const displayMode = find<HTMLSelectElement>('display-mode')
+const heightConstraint = find<HTMLSelectElement>('height-constraint')
+const reuseView = find<HTMLInputElement>('reuse-view')
 const params = new URLSearchParams(location.search)
+if (['natural', 'max:600', 'max:800', 'fixed:640'].includes(params.get('height') ?? ''))
+  heightConstraint.value = params.get('height')!
 const buildMode = find<HTMLSelectElement>('build')
 buildMode.value = params.get('build') === 'hmr' ? 'hmr' : 'production'
 const devConfig = fetch('/dev-config').then((response) => response.json()) as Promise<{
@@ -36,7 +41,7 @@ let generation = 0,
   mode = params.get('mode') === 'fullscreen' ? 'fullscreen' : 'inline'
 displayMode.value = mode
 let data = fixture(scenario.value as Scenario),
-  query = fixtureQuery(data),
+  query = fixtureResearch(data),
   recording: Report | undefined
 let html = ''
 function log(message: string) {
@@ -53,6 +58,14 @@ function notification(method: string, payload: Record<string, unknown>) {
   log(`host → ${method}`)
   send({ method, params: payload })
 }
+function heightBounds() {
+  const [kind, value] = heightConstraint.value.split(':')
+  return kind === 'fixed'
+    ? { height: Number(value) }
+    : kind === 'max'
+      ? { maxHeight: Number(value) }
+      : {}
+}
 function context() {
   return {
     theme: 'dark',
@@ -61,14 +74,16 @@ function context() {
     containerDimensions:
       mode === 'fullscreen'
         ? { width: Math.max(960, Number(width.value)), height: 820 }
-        : { width: Number(width.value) },
+        : { width: Number(width.value), ...heightBounds() },
     safeAreaInsets: { top: 0, right: 0, bottom: 0, left: 0 },
   }
 }
 let inlineHeight = 1100
 function resize() {
   frame.style.width = `${mode === 'fullscreen' ? Math.max(960, Number(width.value)) : width.value}px`
-  frame.style.height = `${mode === 'fullscreen' ? 820 : inlineHeight}px`
+  const bounds = heightBounds()
+  const height = bounds.height ?? Math.min(inlineHeight, bounds.maxHeight ?? Infinity)
+  frame.style.height = `${mode === 'fullscreen' ? 820 : height}px`
 }
 function toolResult(report: Report) {
   return {
@@ -102,7 +117,7 @@ async function restart() {
   displayMode.value = mode
   displayMode.disabled = limited.checked
   data = recording ?? fixture(scenario.value as Scenario)
-  query = fixtureQuery(data, recording === undefined)
+  query = fixtureResearch(data, recording === undefined)
   if (buildMode.value === 'hmr') {
     frame.removeAttribute('srcdoc')
     frame.sandbox.value = 'allow-scripts allow-same-origin'
@@ -124,6 +139,7 @@ async function restart() {
     width: width.value,
     mode,
     build: buildMode.value,
+    height: heightConstraint.value,
   })
   history.replaceState(null, '', `?${search}`)
 }
@@ -163,31 +179,27 @@ window.addEventListener('message', (event) => {
     deliver()
   } else if (message.method === 'ui/notifications/size-changed') {
     if (mode !== 'fullscreen' && typeof args.height === 'number') {
-      inlineHeight = Math.max(300, args.height)
-      frame.style.height = `${inlineHeight}px`
+      inlineHeight = Math.max(0, args.height)
+      resize()
     }
   } else if (message.method === 'tools/call') {
     if (find<HTMLInputElement>('stall').checked) {
       log('Response dropped for timeout simulation')
       return
     }
+    const readQuery = query
     setTimeout(
-      () => {
+      async () => {
         if (current !== generation) return
         try {
-          if (reject.checked || args.name !== 'tqx_backtest_view_query')
+          if (reject.checked || args.name !== 'tqx_research_call')
             throw new Error('Injected query error')
-          const result = query(args.arguments as Query)
-          respond({
-            content: [],
-            structuredContent: {
-              schemaVersion: 1,
-              type: data.type,
-              runId: data.runId,
-              operation: result.operation,
-            },
-            _meta: { [REPORT_META]: result },
-          })
+          const request = args.arguments as {
+            action: Parameters<ResearchCall>[0]
+            input: Record<string, unknown>
+          }
+          const result = await readQuery(request.action, request.input)
+          respond(result)
           log(
             `host → result #${message.id} · ${Math.round(performance.now() - started)} ms · ${new TextEncoder().encode(JSON.stringify(result)).length} bytes`,
           )
@@ -225,9 +237,19 @@ window.addEventListener('message', (event) => {
   } else if (message.id !== undefined)
     send({ id: message.id, error: { code: -32601, message: 'Unsupported local method' } })
 })
+let runSequence = 0
 scenario.addEventListener('change', () => {
   recording = undefined
-  void restart()
+  if (reuseView.checked && status.textContent === 'Connected') {
+    data = fixture(scenario.value as Scenario)
+    data.runId = data.summary.runId = (++runSequence).toString(16).padStart(24, '0')
+    query = fixtureResearch(data, true)
+    deliver()
+  } else void restart()
+})
+heightConstraint.addEventListener('change', () => {
+  resize()
+  notification('ui/notifications/host-context-changed', context())
 })
 displayMode.addEventListener('change', () => {
   mode = displayMode.value === 'fullscreen' && !limited.checked ? 'fullscreen' : 'inline'

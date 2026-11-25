@@ -76,7 +76,7 @@ beforeEach(async () => {
   app.mount(root)
   events.context(
     { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] },
-    { serverTools: {}, message: {}, openLinks: {} },
+    { serverTools: {}, message: { text: {} }, openLinks: {} },
   )
   events.input({ type: 'qube', runId: fixture('hk-loss').runId })
   events.result(fixture('hk-loss'))
@@ -123,6 +123,70 @@ describe('Vue backtest report lifecycle', () => {
       fixture('hk-loss').summary.strategyId,
     )
     expect(actions.openLink).not.toHaveBeenCalled()
+  })
+  it('uses standard text-message capability rather than the host name', async () => {
+    events.context(
+      { displayMode: 'inline', userAgent: 'any-host' },
+      { serverTools: {}, message: {} },
+      { name: 'Antigravity', version: '99' },
+    )
+    await settle()
+    expect(root.querySelector('[data-action="analyze"]')).toBeNull()
+    events.context(
+      { displayMode: 'inline', userAgent: 'another-host' },
+      { serverTools: {}, message: { text: {} } },
+      { name: 'Other host', version: '1' },
+    )
+    await settle()
+    click('[data-action="analyze"]')
+    expect(actions.analyze).toHaveBeenCalledOnce()
+  })
+  it('accepts a new run result before its input in the same mounted view and rejects the old run', async () => {
+    openResults()
+    await settle()
+    const next = fixture('us-profit')
+    next.runId = next.summary.runId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
+    events.result(next)
+    await settle()
+    expect(root.querySelector('h1')!.textContent).toBe('Adaptive momentum')
+    events.input({ type: 'qube', runId: next.runId })
+    await settle()
+    expect(root.querySelector('.metric-primary .metric-value')!.textContent).toBe('21.90%')
+    expect(root.querySelector<HTMLDetailsElement>('.results')!.open).toBe(false)
+    pending[0]!.resolve(page('trades', 'OLD RUN'))
+    events.result(fixture('hk-loss'))
+    await settle()
+    expect(root.querySelector('.metric-primary .metric-value')!.textContent).toBe('21.90%')
+    expect(root.textContent).not.toContain('OLD RUN')
+    click('[data-action="refresh"]')
+    expect(actions.query).toHaveBeenLastCalledWith({
+      type: 'qube',
+      runId: next.runId,
+      operation: 'overview',
+    })
+  })
+  it('clears host sizing constraints on context changes and unmount', async () => {
+    events.context(
+      { displayMode: 'inline', containerDimensions: { width: 720, maxHeight: 800 } },
+      {},
+    )
+    await settle()
+    expect(document.documentElement.style.maxHeight).toBe('800px')
+    events.context(
+      { displayMode: 'fullscreen', containerDimensions: { width: 960, height: 640 } },
+      {},
+    )
+    await settle()
+    expect(document.documentElement.style.height).toBe('100vh')
+    expect(document.documentElement.style.maxHeight).toBe('')
+    events.context({ displayMode: 'inline', containerDimensions: {} }, {})
+    await settle()
+    expect(document.documentElement.style.height).toBe('')
+    events.context({ containerDimensions: { maxWidth: 560, maxHeight: 600 } }, {})
+    await settle()
+    app.unmount()
+    expect(document.documentElement.style.maxWidth).toBe('')
+    expect(document.documentElement.style.maxHeight).toBe('')
   })
   it('initializes the overview to the full sample range', () => {
     const end = root.querySelector<HTMLInputElement>('[name="range-end"]')!
@@ -191,7 +255,7 @@ describe('Vue backtest report lifecycle', () => {
     expect(root.querySelector('table')!.textContent).toContain('12.3456789012345')
     expect(root.querySelector('table unsafe')).toBeNull()
     change('[name="keyword"]', 'new search')
-    root.querySelector('form.search-form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+    click('.search-form .secondary')
     await settle()
     expect(root.querySelectorAll('tbody tr')).toHaveLength(0)
     pending[1]!.reject(new Error('Unavailable'))
@@ -199,8 +263,53 @@ describe('Vue backtest report lifecycle', () => {
     expect(root.querySelectorAll('tbody tr')).toHaveLength(0)
     expect(root.querySelector('.result-status')!.textContent).toBe('Unavailable')
   })
+  it.each(['button', 'Enter'])(
+    'queries chart dates and result keywords through %s without native submission',
+    async (trigger) => {
+      const submit = vi.fn()
+      root.addEventListener('submit', submit)
+      change('[name="from"]', '2025-02-01')
+      change('[name="to"]', '2025-03-01')
+      await settle()
+      if (trigger === 'button') click('.range-form .secondary')
+      else
+        root
+          .querySelector('[name="to"]')!
+          .dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+          )
+      await settle()
+      expect(actions.query).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          operation: 'chart',
+          from: '2025-02-01',
+          to: '2025-03-01',
+        }),
+      )
+      openResults()
+      await settle()
+      change('[name="keyword"]', '00700.HK')
+      await settle()
+      if (trigger === 'button') click('.search-form .secondary')
+      else
+        root
+          .querySelector('[name="keyword"]')!
+          .dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+          )
+      await settle()
+      expect(actions.query).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          operation: 'result',
+          keyword: '00700.HK',
+          offset: 0,
+        }),
+      )
+      expect(submit).not.toHaveBeenCalled()
+    },
+  )
   it('does not let an old chart response overwrite Reset', async () => {
-    root.querySelector('form.range-form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+    click('.range-form .secondary')
     await settle()
     expect(pending).toHaveLength(1)
     click('[data-action="reset"]')

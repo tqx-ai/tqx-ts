@@ -1,13 +1,28 @@
 import * as v from 'valibot'
 import { describe, expect, it } from 'vitest'
 
-import { loadReport, loadQuery, enforceBudget } from '../src/research/backtest-report/load'
-import { projectRun, projectChart, projectResult } from '../src/research/backtest-report/project'
+import { loadReport } from '../src/research/backtest-report/load'
+import {
+  projectRun as projectPublicRun,
+  projectChart as projectPublicChart,
+  projectResult as projectPublicResult,
+  enforceBudget,
+} from '../src/research/backtest-report/project'
+import * as p from '../src/research/projections'
 import { queryInput, viewInput } from '../src/research/backtest-report/contract'
 import { nearestSample, pointValue } from '../src/ui/qube/backtest/chart'
 import { fixture, scenarios } from '../src/ui/qube/backtest/dev/fixtures'
 import { fixtureQuery } from '../src/ui/qube/backtest/adapters/fixture'
 import { chart, envelope, ID, RUN, researchAuth, run, setupResearch } from './helpers/research'
+
+// Exercise raw-to-public projection followed by the shared report projection.
+const projectRun = (raw: Record<string, unknown>, fetchedAt: string) =>
+  projectPublicRun(p.run(raw, 'strategy'), fetchedAt, raw)
+const projectChart = (raw: Record<string, unknown>) => projectPublicChart(p.chart(raw))
+const projectResult = (
+  raw: Record<string, unknown>,
+  input: { runId: string; field: 'trades'; offset: number; limit: number },
+) => projectPublicResult(p.backtestResults(raw, input), input)
 
 const fetchedAt = '2026-11-25T04:00:00Z'
 const frozenRun = () => ({
@@ -175,23 +190,13 @@ describe('backtest report data boundaries', () => {
       runtime.dispose()
     }
   })
-  it('requires read scope before exchange, including queries, and rejects mismatched runs', async () => {
+  it('requires read scope before exchange, and rejects mismatched runs', async () => {
     const runtime = setupResearch()
     try {
       const context = { auth: researchAuth(['research:run']), gateway: runtime.gateway }
       await expect(loadReport(context, { type: 'qube', runId: RUN })).rejects.toMatchObject({
         code: 'AUTHORIZATION_REQUIRED',
       })
-      await expect(
-        loadQuery(context, {
-          type: 'qube',
-          runId: RUN,
-          operation: 'result',
-          field: 'trades',
-          offset: 0,
-          limit: 5,
-        }),
-      ).rejects.toMatchObject({ code: 'AUTHORIZATION_REQUIRED' })
       expect(runtime.exchange).not.toHaveBeenCalled()
       runtime.fetch.mockImplementation(async () => envelope({ ...frozenRun(), id: ID }))
       await expect(

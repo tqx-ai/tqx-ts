@@ -16,11 +16,11 @@ bun run --cwd packages/mcp-server dev:backtest-app
 
 ## 1. 核心决策
 
-主流程是：**用户描述策略想法，agent 编写策略、运行回测，并在回测成功后主动调用 `tqx_backtest_view`，由支持 MCP Apps 的宿主在同一对话中展示可交互报告。** `runId` 由 agent 从提交结果取得并在工具间传递；用户无需知道这个标识，也无需额外说“展示报告”。用户指定已有回测的场景作为第二入口保留。
+主流程是：**用户描述策略想法，agent 编写策略、运行回测，并在回测成功后主动调用 `tqx_open_backtest_view`，由支持 MCP Apps 的宿主在同一对话中展示可交互报告。** `runId` 由 agent 从提交结果取得并在工具间传递；用户无需知道这个标识，也无需额外说“展示报告”。用户指定已有回测的场景作为第二入口保留。
 
 TQX 是产品品牌，Qube 是其中一个子产品。展示工具通过必填字符串参数 **`type`** 标识产品来源，当前唯一合法值为 **`"qube"`**；agent 根据 Qube 工作流传入，不要求用户理解或填写。首期使用 Qube 专属 UI resource：`ui://tqx/qube/backtest/report-v1.html`。
 
-报告以曲线为视觉中心，包含核心指标、交易记录、标的表现和冻结参数；左下角始终保留 **TQX 字标 + `Painted by TQX`**。`tqx_backtest_view` 是只读展示工具，策略编写与回测提交继续使用现有 Research 能力。
+报告以曲线为视觉中心，包含核心指标、交易记录、标的表现和冻结参数；左下角始终保留 **TQX 字标 + `Painted by TQX`**。`tqx_open_backtest_view` 是只读展示工具，策略编写与回测提交继续使用现有 Research 能力。
 
 采用一个可缓存的 HTML UI resource，配合每次工具调用返回的结果数据；不为每个 run 生成 HTML，不把现有网站整页嵌入对话，也不让 iframe 直接访问业务网关。
 
@@ -30,10 +30,10 @@ TQX 是产品品牌，Qube 是其中一个子产品。展示工具通过必填�
 | 产品类型     | `type` 必填，字符串仅接受 `"qube"`；当前不支持其他产品值                      |
 | 工具间标识   | `runId`，由 agent 内部传递；只接受当前 Research 契约中的 24 位小写十六进制 ID |
 | 默认触发     | 用户要求运行的回测达到 `status=succeeded` 后，agent 主动调用展示工具          |
-| agent 入口   | `tqx_backtest_view({ type: "qube", runId })`                                  |
+| agent 入口   | `tqx_open_backtest_view({ type: "qube", runId })`                             |
 | UI resource  | `ui://tqx/qube/backtest/report-v1.html`                                       |
 | MIME         | `text/html;profile=mcp-app`                                                   |
-| UI 查询入口  | `tqx_backtest_view_query`，仅 app 可见，操作限定为本报告的只读查询            |
+| UI 查询入口  | `tqx_research_call`，UI adapter 固定调用已有的三个只读 action                 |
 | 展示模式     | 默认 `inline`，响应宿主切换到 `fullscreen`；首期不做 `pip`                    |
 | 权限         | 仅 `research:read`；已有登录、token exchange、数据归属校验继续生效            |
 | 支持市场     | 首期 HK / US，与当前 MCP Research 校验保持一致                                |
@@ -245,6 +245,8 @@ python3 -m http.server 8080 --bind 127.0.0.1 --directory packages/mcp-server/doc
 
 默认 inline 可先以约 720–880px 评估内容高度；使用自然高度并报告 size-changed，宿主接受请求高度时不增加内部纵向滚动。若宿主限制 inline 高度，允许 iframe 文档自身作为唯一滚动区，不在卡片或列表中再套滚动区；不能保证宿主无限撑高。全屏仅保留 iframe 文档纵向滚动；玻璃卡片、图表和列表不设独立滚动区。680px 及以下，结果表格改为带字段名的记录卡片，不出现横向滚动条。生产 bridge 已实现宿主尺寸协商。这些数值仅作为请求尺寸的设计目标，服从 `containerDimensions`。遵守宿主给出的 width / maxWidth / height / maxHeight 与安全边距；不把目标高度写成固定最小高度。
 
+标准容器的两个方向独立协商，不以 display mode 或宿主名称推断：固定方向填满视口且不请求变更；弹性方向上报内容尺寸，并限制在对应最大值内；未给上限的方向按自然尺寸上报。上下文变化时清除旧约束并重新协商，尺寸相同不重复通知。运行时通过官方 SDK 的 `getHostVersion()` 读取 `hostInfo.name/version`，同时保留标准 `userAgent`；这些信息仅供诊断，功能判断使用能力声明，例如文字分析要求 `message.text`，查询要求 `serverTools`。不增加宿主私有扩展。
+
 正式版键盘应能操作图例、日期输入、刷选器替代控件和 tooltip 定位。当前预览已支持模式切换、曲线定位、info 按钮和交易展开；尚无日期输入、交互图例或刷选控件。触摸操作使用点按固定 tooltip，保留页面纵向滚动；不把所有手势交给图表。正式版主要触摸控件目标约 44px；当前 info 按钮为 24×24px，仍需结合触摸体验验收。
 
 正式版曲线应有文字摘要与可展开的数据表；当前预览只有键盘定位播报，尚无数据表。买卖标记分别用方向、形状和文案区分。正文对比度目标 4.5:1，关键图形与控件边界 3:1；绿色、红色和黄色都要单独检查。支持 `prefers-reduced-motion`，不播放逐点“盈利增长”动画。
@@ -260,16 +262,16 @@ python3 -m http.server 8080 --bind 127.0.0.1 --directory packages/mcp-server/doc
 1. **编写与校验策略。** 使用现有 Research 流程创建或更新策略、保存源码并检查校验结果。普通回测先通过 `strategy.update` 保存用户设置，确认 `parameterValidation.status=valid`、revision 一致且没有 `parametersDraft`；遵守现有提交与授权契约。
 2. **提交并保存身份。** 调用 `strategy.backtest.submit`，将响应的 `id` 保存为本次 `runId`，后续始终绑定这一执行。不能用 strategyId、调优任务 ID 或搜索到的其他 run 替代。
 3. **等待本次运行成功。** 通过 `strategy.backtest.get({ runId })` 读取同一 run；沿用现有指引，约每 2 秒查询并在限流时退避。`queued`、`preparing`、`running` 均继续等待，只有 `status=succeeded` 才触发默认展示；`terminal=true` 不足以判定成功。幂等提交若直接返回 `succeeded`，可直接进入展示步骤。
-4. **主动展示原生报告。** 成功后立即调用 `tqx_backtest_view({ type: "qube", runId })`。用户无需再次要求展示，也无需复制或提供 ID。宿主按协商能力渲染原生 MCP Apps UI；agent 配合简短解读，报告成为这次回测的默认结果交付。
+4. **主动展示原生报告。** 成功后立即调用 `tqx_open_backtest_view({ type: "qube", runId })`。用户无需再次要求展示，也无需复制或提供 ID。宿主按协商能力渲染原生 MCP Apps UI；agent 配合简短解读，报告成为这次回测的默认结果交付。
 
-这里的 `strategy.*` 名称是现有 Research action，由对应 MCP 工具调用；`tqx_backtest_view` 是本方案拟新增的独立 MCP 工具。
+这里的 `strategy.*` 名称是现有 Research action，由对应 MCP 工具调用；`tqx_open_backtest_view` 是本方案拟新增的独立 MCP 工具。
 
 ```mermaid
 sequenceDiagram
     actor User as 用户
     participant Agent as Agent
     participant Research as 现有 Research 工具
-    participant View as tqx_backtest_view
+    participant View as tqx_open_backtest_view
     participant Host as Agent Host
     User->>Agent: 描述策略想法并要求回测
     Agent->>Research: 编写、校验、保存设置并提交回测
@@ -303,7 +305,7 @@ sequenceDiagram
 
 #### 4.1.1 打开已有回测
 
-第二入口是用户要求重新打开某次已有回测，例如“把刚才那次回测展示出来”，或直接提供 `runId`。agent 从当前上下文确定对应执行，并调用 `tqx_backtest_view({ type: "qube", runId })`，无需 strategyId、URL 或前端配置。已有明确 ID 时不重新提交；上下文有多个候选且无法确定时才澄清目标，不猜测最近一次执行。报告本身仍支持非终态和失败状态，便于用户主动查看进度或诊断。
+第二入口是用户要求重新打开某次已有回测，例如“把刚才那次回测展示出来”，或直接提供 `runId`。agent 从当前上下文确定对应执行，并调用 `tqx_open_backtest_view({ type: "qube", runId })`，无需 strategyId、URL 或前端配置。已有明确 ID 时不重新提交；上下文有多个候选且无法确定时才澄清目标，不猜测最近一次执行。报告本身仍支持非终态和失败状态，便于用户主动查看进度或诊断。
 
 初始化显示与最终布局一致的骨架，品牌 footer 从第一帧出现。先展示可用的状态和指标，再局部补齐曲线；曲线错误不能把已有的 KPI 和身份信息清空。
 
@@ -416,12 +418,12 @@ sequenceDiagram
     UI->>Agent: ui/initialize
     Agent-->>UI: capabilities + hostContext
     UI->>Agent: ui/notifications/initialized
-    Agent->>Server: tools/call tqx_backtest_view(type="qube", runId)
+    Agent->>Server: tools/call tqx_open_backtest_view(type="qube", runId)
     Server->>Gateway: Authorized read requests
     Gateway-->>Server: Run + chart
     Server-->>Agent: content + structuredContent + _meta
     Agent-->>UI: ui/notifications/tool-result
-    UI->>Agent: tools/call tqx_backtest_view_query(type="qube", runId, operation)
+    UI->>Agent: tools/call tqx_research_call(action, input)
     Agent->>Server: Forward authorized read
     Server-->>Agent: Read result
     Agent-->>UI: tools/call response
@@ -437,7 +439,7 @@ agent 入口的设计声明：
 
 ```json
 {
-  "name": "tqx_backtest_view",
+  "name": "tqx_open_backtest_view",
   "description": "Show an interactive backtest report. Currently only TQX Qube is supported: always pass type=qube. After a user-requested Qube backtest reaches status=succeeded, call this tool automatically to present its results unless the user requested text only. Use the submission response id as runId; do not ask the user for the type, that ID, or a separate request to show results. Also use this tool to reopen a specific existing Qube run. Read-only; does not start a backtest. Hosts without MCP Apps receive a text summary.",
   "inputSchema": {
     "type": "object",
@@ -472,26 +474,28 @@ JSON Schema 最终从 Valibot schema 生成，不维护手写的第二套输入�
 主流程不能只写在本文或 HTML 中。以下 agent 可见入口已同步到本仓库的工具说明、Research action notes 与 TQX 自有 skill / 工作流；已安装的上游官方 skills 不作修改。实际 agent 是否按指引调用仍需会话验收：
 
 - **展示工具 description：** 使用上面的英文声明，在工具发现时即可得知成功后的自动展示规则，不依赖用户知道工具名称。
-- **Research action 的发现与说明：** 在 `strategy.backtest.submit` / `strategy.backtest.get` 的说明及相关能力导航中，指向可用的 `tqx_backtest_view`；明确提交响应 `id` 的传递、成功触发条件和错误边界。关联独立工具时使用现有发现机制支持的形式，不把它伪装成 Research action。
+- **Research action 的发现与说明：** 在 `strategy.backtest.submit` / `strategy.backtest.get` 的说明及相关能力导航中，指向可用的 `tqx_open_backtest_view`；明确提交响应 `id` 的传递、成功触发条件和错误边界。关联独立工具时使用现有发现机制支持的形式，不把它伪装成 Research action。
 - **TQX 维护的 Research skill / 工作流 prompt：** 将“成功回测 → 调用展示工具 → 解读结果”写成默认收尾步骤，覆盖新建策略、修改策略后回测与重试恢复。外部 MCP host 仅通过工具发现接入时也应有足够指引；不以安装 skill 为必要条件。
 
 可复用的英文工作流指引：
 
-> When a Qube backtest requested by the user succeeds, present its results with `tqx_backtest_view({ type: "qube", runId })` if the tool is available, unless the user requested text only. Set `type` from the Qube workflow and keep the submission response `id` internally as `runId`; never ask the user for either value when the workflow already determines them. Poll the same run until `status=succeeded`; failed and cancelled are not success. Do not resubmit to obtain a report. For tuning or batches, present the selected final result rather than every intermediate run.
+> When a Qube backtest requested by the user succeeds, present its results with `tqx_open_backtest_view({ type: "qube", runId })` if the tool is available, unless the user requested text only. Set `type` from the Qube workflow and keep the submission response `id` internally as `runId`; never ask the user for either value when the workflow already determines them. Poll the same run until `status=succeeded`; failed and cancelled are not success. Do not resubmit to obtain a report. For tuning or batches, present the selected final result rather than every intermediate run.
 
 后续调用由 host 中的 agent 编排。后端提交接口不自行渲染 UI，也不在 handler 内调用展示工具冒充下一次模型调用；UI resource 继续绑定展示工具，避免提交时先出现一张无结果报告。
 
-UI 查询工具只声明 `_meta.ui.visibility: ["app"]`，不绑定新的 resourceUri，避免每次缩放都创建一个新报告。设计输入是以下互斥分支，不允许传任意 action 或 URL：
+UI 后续查询复用已有的 `tqx_research_call`，不新增查询工具。该工具声明 `_meta.ui.visibility: ["model", "app"]`，不绑定 `resourceUri`，所以交互查询不会创建新报告。`tqx_research_explore` 和 Trading 工具继续保持 model-only。
 
-所有分支同时必填 `type: "qube"` 与 `runId`，沿用展示工具的类型校验；UI 从当前已校验报告传递这两个值，不自动改写产品或 run 身份。每次 query 仍执行既有 scope 和归属校验。
+组件只使用内部 `overview / chart / result` 查询合同；`adapters/research.ts` 负责映射为固定的公共 action 和校验响应。`type: "qube"` 留在报告合同中，调用现有 Research action 时只传其原有参数，不添加 `type` 或 `operation`。
 
-| operation  | 输入                                                            | 用途                         |
-| ---------- | --------------------------------------------------------------- | ---------------------------- |
-| `overview` | `type="qube"; runId`                                            | 显式刷新身份、指标、默认曲线 |
-| `chart`    | `type="qube"; runId; from?; to?; maxPoints?`                    | 读取指定窗口                 |
-| `result`   | `type="qube"; runId; field; offset?; limit?; keyword?; symbol?` | 分页详情                     |
+| 内部 operation | `tqx_research_call` 的 action                            | 公共 input                                    |
+| -------------- | -------------------------------------------------------- | --------------------------------------------- |
+| `overview`     | 并行调用 `strategy.backtest.get` 与 `backtest.chart.get` | `{runId}` 与 `{runId,maxPoints:600}`          |
+| `chart`        | `backtest.chart.get`                                     | `{runId,from?,to?,maxPoints}`                 |
+| `result`       | `backtest.result.get`                                    | `{runId,field,offset,limit,keyword?,symbol?}` |
 
-`field` 首期仅为 `trades`、`symbol_performance`、`account_summary`；limit 默认 20，上限 100；symbol 仅允许用于 trades。其余时间和 ID 校验沿用现有 schema。overview 不重置用户已选择的窗口；若需更新当前选区，UI 在刷新状态后单独查询该窗口。
+UI 内部 `field` 仅为 `trades`、`symbol_performance`、`account_summary`；limit 默认 20，上限 100；symbol 仅用于 trades。这些是界面 adapter 的约束，不收紧现有 Research action 的公共 schema。服务端继续按 action 检查 scope、参数和上游归属，保留原有返回格式及错误语义。
+
+公共 run-state 输出不含冻结 title / market。刷新同一 `(type, runId)` 时，adapter 保留首屏已校验的这两个字段，并核对 strategyId；没有可信首屏信息时标题用通用文案，market / currency 保持缺失，不查询当前策略来补猜。overview 不重置用户已选择的窗口；若需更新当前选区，UI 在刷新状态后单独查询该窗口。
 
 ### 6.3 静态 UI resource
 
@@ -530,23 +534,23 @@ HTML、CSS、脚本和字标构建为自包含产物，不引用 CDN、远端字
 
 ### 6.4 结果分层
 
-| 字段                               | 内容                                                         | 设计目的                                       |
-| ---------------------------------- | ------------------------------------------------------------ | ---------------------------------------------- |
-| `content`                          | 简短、可读的回测摘要，明确身份、主要指标和完整性             | 文字宿主可用，不返回只有“请看 UI”的文本        |
-| `structuredContent`                | 有界的 run 身份、状态、指标、区间、section 状态、warnings    | agent 可理解结果，供模型处理；不假设对模型隐藏 |
-| `_meta["tqx.trade/backtest-view"]` | 经过校验的 UI 数据：曲线、日期锚点、交易日计数、当前结果页等 | 避免把大数组重复塞入模型摘要                   |
+| 字段                               | 内容                                                       | 设计目的                                       |
+| ---------------------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
+| `content`                          | 简短、可读的回测摘要，明确身份、主要指标和完整性           | 文字宿主可用，不返回只有“请看 UI”的文本        |
+| `structuredContent`                | 有界的 run 身份、状态、指标、区间、section 状态、warnings  | agent 可理解结果，供模型处理；不假设对模型隐藏 |
+| `_meta["tqx.trade/backtest-view"]` | 打开报告时的完整 UI 数据：摘要、曲线、日期锚点和交易日计数 | 避免把大数组重复塞入模型摘要                   |
 
 自定义的 `tqx.trade/backtest-view` 是业务数据命名空间，不新增 MCP method 或宿主私有协议。它不是认证隔离机制，宿主可读取其中内容，不能放任何 token 或秘密。
 
-报告摘要建议字段：`schemaVersion: 1`、`type: "qube"`、`runId`、`strategyId`、`status`、`terminal`、可用的 title / market / currency / period、标准化 metric 值及来源、section 状态和 warnings。UI 数据及 query 结果也带 `schemaVersion`、`type` 和 `runId`；所有数值保持原单位与精度，显示层才格式化。涉及报告身份的状态、缓存键和旧请求丢弃判断均使用 `(type, runId)`，不只比较 ID。
+报告摘要建议字段：`schemaVersion: 1`、`type: "qube"`、`runId`、`strategyId`、`status`、`terminal`、可用的 title / market / currency / period、标准化 metric 值及来源、section 状态和 warnings。UI 数据及内部 query 结果也带 `schemaVersion`、`type` 和 `runId`；所有数值保持原单位与精度，显示层才格式化。涉及报告身份的状态、缓存键和旧请求丢弃判断均使用 `(type, runId)`，不只比较 ID。
 
 首屏按同一用户授权并行读取 run 与默认 chart。身份读取失败则不展示该 run 的任何结果；身份可读而 chart 失败时，返回可用摘要和 section 错误。账户摘要和表格在用户打开对应区域后再读，避免首屏串联过多请求。
 
-content 同时提供小型 structuredContent 的 JSON 序列化文本，遵循核心协议的向后兼容建议。app 不应把现有 `tqx_research_call` 的完整 JSON 文本和 `_meta` 大数组再复制一份到 content。当前 Research action 仍保留原有输出；新报告工具使用自己的有界投影。
+打开报告时，content 同时提供小型 structuredContent 的 JSON 序列化文本，遵循核心协议的向后兼容建议。后续 `tqx_research_call` 保留公共 `structuredContent` 与对应 JSON 文本；UI adapter 读取 structuredContent，再投影为内部报告数据，不更改服务端返回。后续查询没有专用 `_meta` 数据通道，不承诺对模型隐藏查询数据；宿主决定这些交互结果如何进入上下文。
 
 ### 6.5 生命周期与宿主协商
 
-- 宿主 MCP initialize 中的扩展标识为 `io.modelcontextprotocol/ui`，支持的 MIME 包括 `text/html;profile=mcp-app`。当前实现采用**稳定工具目录**：所有宿主收到相同工具和标准 UI metadata；view 返回可用文字摘要，query 始终标为 app-only。支持 Apps 的宿主按 visibility 隐藏 query；忽略扩展的旧宿主可能仍列出该只读 helper。visibility 不是鉴权，所有调用仍校验 research:read 和上游归属。
+- 宿主 MCP initialize 中的扩展标识为 `io.modelcontextprotocol/ui`，支持的 MIME 包括 `text/html;profile=mcp-app`。当前实现采用**稳定工具目录**：所有宿主收到相同工具和标准 UI metadata；打开工具返回可用文字摘要，`tqx_research_call` 同时对 model / app 可见。没有额外的 app-only 查询工具。visibility 不是鉴权，现有 action 继续按各自 scope 和上游归属校验。
 - 稳定目录避免能力差异误用 `tools/list` 的 public 共享缓存。SDK 2.4 的 HTTP factory 每请求创建 server，注册阶段没有完整的客户端能力；不为此绕过高层 registerTool。资源目录在有 Apps 能力时合入一次静态 UI 条目，已知 URI 的读取保持注册。静态 HTML 和用户业务结果使用不同缓存边界。
 - UI 初始化声明支持 `inline` / `fullscreen`，读取 hostContext 的 theme、locale、containerDimensions、availableDisplayModes、safeAreaInsets。
 - 报告内不显示 `Expand / Exit fullscreen` 按钮，由宿主提供进入/退出全屏的控件；UI 响应 `host-context-changed` 中的实际 displayMode。bridge 保留标准 `ui/request-display-mode` 能力，当前产品界面不主动调用。宿主侧边栏可以是其 fullscreen 实现，不能强制宿主进入某种页面结构。
@@ -560,17 +564,17 @@ content 同时提供小型 structuredContent 的 JSON 序列化文本，遵循�
 
 #### 共同协议与当前方案的对应
 
-| 核对项          | 本方案                                         | ChatGPT 官方依据与结论                                                    |
-| --------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
-| 关联 UI         | `tqx_backtest_view` 的 `_meta.ui.resourceUri`  | 官方推荐的标准字段；无需另加旧 `openai/outputTemplate` 才能工作           |
-| HTML resource   | `ui://...`、`text/html;profile=mcp-app`        | 与官方示例一致；共享同一构建产物                                          |
-| 初始化与结果    | `ui/initialize`、tool-input / tool-result 通知 | 使用标准生命周期；不能要求初始输入始终已就绪                              |
-| UI 后续查询     | `tools/call`、查询工具 visibility 为 app       | 官方支持 `_meta.ui.visibility`；不要求改用 `window.openai.callTool`       |
-| 结果分层        | content / structuredContent / `_meta`          | ChatGPT 将 `_meta` 交给组件且不放入模型可见正文；大数组继续留在 UI 数据层 |
-| 对话协作        | `ui/message`、`ui/update-model-context`        | 标准方法可复用；按宿主能力与结果降级                                      |
-| 展示模式        | inline 优先，响应宿主 fullscreen 上下文        | 官方支持对应模式；fullscreen 需要避让 ChatGPT composer                    |
-| 资源边界        | `_meta.ui.csp`、`prefersBorder: false`         | 使用标准字段；边框是偏好，不保证宿主完全按原型呈现                        |
-| 数据 / 渲染解耦 | 只有 view 工具绑定 UI；query 不绑定            | 与官方避免重复挂载 iframe 的建议一致                                      |
+| 核对项          | 本方案                                                | ChatGPT 官方依据与结论                                              |
+| --------------- | ----------------------------------------------------- | ------------------------------------------------------------------- |
+| 关联 UI         | `tqx_open_backtest_view` 的 `_meta.ui.resourceUri`    | 官方推荐的标准字段；无需另加旧 `openai/outputTemplate` 才能工作     |
+| HTML resource   | `ui://...`、`text/html;profile=mcp-app`               | 与官方示例一致；共享同一构建产物                                    |
+| 初始化与结果    | `ui/initialize`、tool-input / tool-result 通知        | 使用标准生命周期；不能要求初始输入始终已就绪                        |
+| UI 后续查询     | `tools/call`、`tqx_research_call` 对 model / app 可见 | 官方支持 `_meta.ui.visibility`；不要求改用 `window.openai.callTool` |
+| 结果分层        | content / structuredContent / `_meta`                 | 打开工具的完整报告放 `_meta`；后续 Research 查询保留公共结果格式    |
+| 对话协作        | `ui/message`、`ui/update-model-context`               | 标准方法可复用；按宿主能力与结果降级                                |
+| 展示模式        | inline 优先，响应宿主 fullscreen 上下文               | 官方支持对应模式；fullscreen 需要避让 ChatGPT composer              |
+| 资源边界        | `_meta.ui.csp`、`prefersBorder: false`                | 使用标准字段；边框是偏好，不保证宿主完全按原型呈现                  |
+| 数据 / 渲染解耦 | 只有打开工具绑定 UI；`tqx_research_call` 不绑定       | 与官方避免重复挂载 iframe 的建议一致                                |
 
 表中字段、visibility 与结果语义见 [OpenAI Reference](https://developers.openai.com/plugins/reference)；生命周期的审批时序见 [2026-05-27 更新记录](https://developers.openai.com/plugins/changelog#mcp-apps-tool-lifecycle-updates)。即使只读工具也不能根据应用名称假设永不审批，UI 要能等待 tool-input 或处理宿主拒绝。
 
@@ -594,11 +598,11 @@ content 同时提供小型 structuredContent 的 JSON 序列化文本，遵循�
 
 ### 7.1 数据与工具边界
 
-数据路径固定为：**App → Host bridge → MCP read tool → 既有 Research gateway → 上游公开 HTTP API**。
+数据路径固定为：**App → Host bridge → tqx_research_call 的固定只读 action → 既有 Research gateway → 上游公开 HTTP API**。
 
 MCP 层沿用 token exchange 和 `research:read`，每次读取仍由上游校验用户归属；不能把“知道 runId”当作授权。不得新增数据库直连、内部信任请求头、浏览器存储 token 或 iframe 直连业务网关。
 
-默认工具 visibility 同时包含 model / app。因此引入 Apps 时，需将现有混合读写的 `tqx_research_call` 和不应被 UI 触发的写操作工具明确设为 model-only；新 UI 只调用专用只读查询工具。host 应按协议执行 visibility；服务端仍执行真实鉴权，不能把 visibility 或 readOnlyHint 当成权限系统。
+`tqx_research_call` 对 model / app 可见。UI adapter 中的 action 是静态程序分支，不由模型、结果文本或用户输入决定；当前报告只调用上述三个只读 action。工具整体仍保留混合读写的 annotations，宿主可按自身策略要求确认。服务端不新增 App 专用授权分支，继续执行已有的逐 action 校验、scope 与写入确认；visibility 或 readOnlyHint 不作为鉴权。
 
 用户标题、标的名称、日志和结果文本一律作为数据渲染，不作为 HTML、脚本、提示词指令或工具名执行。所有 query 操作走枚举和严格 schema。错误保留可公开的 code / requestId，不回显凭据、上游堆栈或任意 payload。
 
@@ -657,12 +661,12 @@ packages/mcp-server/
       backtests.ts                   # 必要时抽取共享的回测只读请求
       backtest-report/
         contract.ts                  # 浏览器可用的 Valibot 数据/query schema 与推导类型
-        load.ts                      # overview/chart/result 的有界读取与分区状态
-        project.ts                   # 上游字段 -> 报告数据；校验来源、单位和完整性
+        load.ts                      # 打开报告的 run/chart 授权读取与分区状态
+        project.ts                   # 公共 Research 输出 -> 报告数据；纯投影与预算校验
       tools/                         # 既有 Research action 与发现说明
       resources/list.ts              # 既有唯一资源目录与分页入口
     apps/qube/backtest/
-      register.ts                    # 展示/query 双工具、权限及 MCP 结果封装
+      register.ts                    # 打开工具、权限及 MCP 结果封装
       resource.ts                    # UI URI、MIME、CSP、目录描述与静态资源读取
     ui/qube/backtest/
       index.html                     # 页面入口
@@ -682,8 +686,10 @@ packages/mcp-server/
       tsconfig.json                  # vue-tsc 严格模板检查
       vue.d.ts                       # 原生 TS 检查的 SFC/CSS 模块声明
       adapters/
-        host.ts                      # 官方 App SDK 适配、Valibot 业务结果校验与查询转发
-        fixture.ts                   # 仅开发：同一查询接口的固定数据实现
+        host.ts                      # 官方 App SDK 生命周期、初始结果校验及工具转发
+        research.ts                  # 固定只读 action、公共输出校验与报告投影
+        layout.ts                    # 标准宿主尺寸与滚动边界
+        fixture.ts                   # 仅开发：模拟相同 Research action 输出
       dev/
         fixtures.ts                  # 固定合成场景
         workbench.html               # iframe 外的调试控件与 trace
@@ -708,9 +714,9 @@ packages/mcp-server/
 | `ui/qube/backtest`                       | 报告 contract、浏览器视图与图表依赖；bridge 限定在 host adapter | 不导入服务端模块，不持有业务 token，不拼 gateway 路径            |
 | `ui/qube/backtest/dev` / fixture adapter | 共享视图和 contract、本地场景/模拟器                            | 不被生产 `main.ts` 或服务端入口导入                              |
 
-服务端调用路径为 `register.ts → load.ts → 共享读取函数 → ResearchGateway`；数据经 `project.ts` 转为报告 contract 后，由 `register.ts` 分别封装摘要和 UI 专用结果。浏览器路径为 `host.ts → contract 校验 → use-report.ts → App.vue / components → chart.ts`；交互查询沿相同 adapter 返回。fixture adapter 替换数据入口，视图和控件不分叉。
+服务端打开路径为 `register.ts → load.ts → 共享读取函数 → ResearchGateway`；既有 `projections.ts` 将上游响应转为公共 Research 输出，`project.ts` 纯投影为报告 contract，首屏冻结 title / market 单独由原始 run 响应提供。`register.ts` 封装摘要和 UI 数据。浏览器初始结果经 `host.ts → contract 校验 → use-report.ts → 组件`；交互经 `research.ts → host.ts 的 callServerTool → tqx_research_call`，返回后复用纯 `project.ts` 适配。组件不感知工具名称与公共 action 返回格式。
 
-`contract.ts` 是前后端共享的数据边界，UI 只能从这里引用 Research 类型或运行时 schema，不能把 `research/schemas.ts`、`projections.ts` 或整个 action registry 打进浏览器。它不包含服务端工具注册、鉴权或 JSON Schema adapter；注册时在服务端完成工具 schema 转换。现有 ID/日期等规则若无法安全复用，仅抽取确有双端用途的少量 schema 到 `src/utils/`，保持原校验语义，避免借此重构整个 Research 模块。
+`contract.ts` 是报告数据边界；`queryInput` / `queryResultSchema` 是组件与 adapter 的内部合同，不再对应独立 MCP 工具。`project.ts` 只依赖浏览器安全的公共 schema、错误类型和报告合同，前后端共享；公共 schema 按构建依赖裁剪。浏览器不能引入 `load.ts`、`projections.ts`、action registry、gateway、鉴权或 JSON Schema 注册 adapter；生产构建检查依赖图，防止服务端模块进入 HTML。
 
 每张报告的选区、请求序号、图表实例和清理函数属于该次挂载；更新同一 run 时复用视图，切换 run 时清理旧状态，teardown 释放事件、图表和订阅。无需新增全局 store、通用事件总线或跨用户报告缓存。
 
@@ -745,7 +751,7 @@ packages/mcp-server/
 - 报告的输入、结果大小上限、业务身份匹配和响应合同仍用 Valibot 检查。宿主上下文使用官方类型和 SDK 合并结果，不维护第二份协议 schema。
 - 使用 `autoResize: false`，保留报告布局所需的小型 ResizeObserver；仅在 inline 通过 `App.sendSizeChanged` 上报自然高度，fullscreen 不请求改变宿主 viewport。回到 inline 时主动重报高度，卸载时取消观察与动画帧。
 - 使用 SDK 的 `callServerTool`、`requestDisplayMode`、`updateModelContext` 和 `sendMessage`；请求总等待上限为 20 秒。先由 SDK 确认 teardown，再关闭 transport；pagehide 与 Vue 卸载同样清理，不能只依赖宿主发送 teardown。
-- 服务端保留 MCP v2 高层 `registerTool` / `registerResource`，继续传入 Valibot adapter、scopeChallenge 与标准 UI metadata；MIME 常量来自官方 server 导出。App helper 并非协议必需，不为调用 helper 而增加第二套注册封装。
+- 服务端保留 MCP v2 高层 `registerTool` / `registerResource`，继续传入 Valibot adapter、scopeChallenge 与标准 UI metadata；MIME 常量来自官方 server 导出。不新增 App 查询工具或第二套工具注册封装。
 - 单 HTML 构建、严格 CSP（不增加 unsafe-eval）、SDK 握手与工具调用必须通过；本地模拟器和自动测试不代替 ChatGPT / Claude 等真实宿主互通验收。
 
 ### 8.3 本地调试是首期架构的一部分
@@ -762,8 +768,8 @@ packages/mcp-server/
 
 生产视图只接收经过校验的报告 view model、查询接口和宿主能力，不从自身判断“是否 UAT”。目录按 8.1 划分：`App.vue` / `components` / `chart.ts` 共享渲染，`adapters` 切换 host/fixture 数据入口，`dev` 承载固定场景和外部工作台/模拟器。
 
-- fixture adapter 提供固定 overview / chart / result，支持本地筛选和分页；host adapter 将同样的查询转发到 App bridge。控件、曲线和错误布局完全共用，避免做出一套漂亮 demo 和另一套正式 UI。
-- 协议输入由报告专用 Valibot schema 校验，fixture 直接提供符合相同 contract 的已投影数据。若从上游样例生成 fixture，由开发脚本复用 `project.ts`，不把服务端投影打进浏览器或在 fixture adapter 重写字段映射。开发场景切换属于外层工作台，不在生产报告里添加调试按钮。
+- fixture adapter 将固定 overview / chart / result 转成现有 Research action 的公共输出；模拟器响应真实的 `tqx_research_call({action,input})` 消息，生产 `research.ts` adapter 再校验并投影。筛选、分页与刷新走同一条查询路径，视图和控件共用。
+- 初始 fixture 使用报告 Valibot contract；交互模拟返回公共 Research 输出，复用生产的纯投影校验。若从上游样例生成录制数据，由开发脚本完成服务端映射，不把 gateway 或原始上游投影打进浏览器。开发场景切换属于外层工作台，不在生产报告里添加调试按钮。
 - 当前静态 HTML 是视觉基线。批准后把布局转为共享视图；随后每次预览直接运行共享视图，不长期维护两套页面。
 - 运行 `bun run --cwd packages/mcp-server dev:backtest-app` 启动工作台、Vite HMR 和生产自动构建；默认端口 53043，可用 `TQX_APP_DEV_PORT` 覆盖。生产静态产物可单独用 `bun run --cwd packages/mcp-server build:ui` 构建。
 - 本地工作台可用 `?scenario=hk-loss&mode=inline&width=480&build=hmr` 等仅本地参数复现场景。生产入口不接受 fixture/scenario，也不会在真实请求失败后静默显示样例数据。
@@ -814,7 +820,7 @@ fixture 只包含经过审查的合成或脱敏数据，不复制账户信息、
 ### 9.1 分阶段实施
 
 1. **本地基线与协议验证（已实施）：** 官方 App SDK 薄适配、Valibot 业务校验、生产 HTML、fixture / 自动刷新工作台、本地宿主模拟器与协议测试。静态评审稿单独保留。
-2. **只读数据路径与 agent 衔接（已实施）：** 报告投影、双工具、scope、归属、错误和预算，资源分页目录、稳定工具目录、工具说明与 Research 工作流指引。是否被具体宿主的 agent 自动选择还需真实会话验收。
+2. **只读数据路径与 agent 衔接（已实施）：** 报告投影、打开工具及既有 Research 查询、scope、归属、错误和预算，资源分页目录、稳定工具目录、工具说明与 Research 工作流指引。是否被具体宿主的 agent 自动选择还需真实会话验收。
 3. **主视觉（已实施）：** 标题、四 KPI、折线/基准、刷选器、深色液态玻璃样式、响应式、卡片外顶部角标与底部署名，以及 inline 自然高度 / fullscreen 单一文档滚动。
 4. **探索交互（已实施）：** 标的/交易分页、冻结参数、局部错误、可选对话分析、fullscreen 和 teardown。
 5. **宿主验收（待进行）：** 使用实际支持 MCP Apps 的目标 host 与具体版本验证，记录能力差异。首期目标明确包含 ChatGPT 与 Claude；未测的 host 标为待验证，不承诺所有 MCP 客户端均可渲染。
@@ -827,12 +833,12 @@ fixture 只包含经过审查的合成或脱敏数据，不复制账户信息、
 - App 支持输入、结果、初始化并行到达；刷新 response 与通知重复时不重复请求或闪回。
 - 两个用户并发打开不同 run、同一用户打开多个卡片、多副本部署都没有身份、曲线、缓存或 cursor 串用。
 - runId 格式错误、归属不符、权限不足、token 过期、上游错误、响应超限均保持当前错误与授权语义。
-- 展示和 query 工具的 `type` 均必填且仅接受 `"qube"`；缺失、其他字符串、大小写变体及非字符串在访问上游前拒绝。所有发现、metadata 与 resource read 示例使用 `ui://tqx/qube/backtest/report-v1.html`。
+- 打开工具和内部 query 合同的 `type` 均必填且仅接受 `"qube"`；缺失、其他字符串、大小写变体及非字符串在访问上游前拒绝。所有发现、metadata 与 resource read 示例使用 `ui://tqx/qube/backtest/report-v1.html`。
 - 输入、报告摘要、UI 数据与 query 响应的 `(type, runId)` 一致；现有 Qube Research action 的参数不新增 `type`，其他产品值不能被误送到 Qube gateway。
-- chart 的时间、最大点数、分页和搜索参数映射正确；日期/时区、ratio/percent、金额和缺失值有覆盖。
+- chart 的时间、最大点数、分页和搜索参数映射正确；日期/时区、ratio/percent、金额和缺失值有覆盖。区间 Apply 和 Search 由按钮点击或 Enter 直接调用查询，不依赖沙箱可能拦截的原生表单提交，不放宽 CSP 或 sandbox。
 - 部分结果、断线、空结果、单点、失败/取消、无基准和旧请求晚返回均能正确呈现。
 - unsupported host 得到文字摘要；无桥接时不尝试直连或读取宿主 token。
-- 无外部网络来源、无秘密进入 HTML，host enforce CSP，app-only / model-only visibility 与真实鉴权分别验证。
+- 无外部网络来源、无秘密进入 HTML，host enforce CSP，model / app visibility 与逐 action 的真实鉴权分别验证。
 
 #### 从想法到报告的工作流验收
 
@@ -877,7 +883,7 @@ fixture 只包含经过审查的合成或脱敏数据，不复制账户信息、
 以下均待真实 ChatGPT 宿主验证；代码实施、本地模拟器与工作区自动化测试通过不代表已完成此清单。
 
 - 使用当前同一份生产 HTML resource 在真实 ChatGPT 连接中打开既有 run，记录日期、客户端/平台、账号或工作区测试范围及资源版本。
-- 验证 `ui.resourceUri`、MIME、完整 tool-result `_meta` 与 outputSchema，无需旧 OpenAI 别名也能渲染；UI query 不重复挂载新卡片，app-only 工具不暴露给模型。
+- 验证 `ui.resourceUri`、MIME、完整 tool-result `_meta` 与 outputSchema，无需旧 OpenAI 别名也能渲染；`tqx_research_call` 后续查询不重复挂载新卡片，仅三个固定只读 action 被 UI 调用。
 - 验证输入延迟、审批通过/拒绝、错误、重连和重复通知；完成 info、曲线定位、切换、分页以及 query 的只读权限检查。
 - inline 无内部纵向滚动和深层导航；宿主 fullscreen 进入/退出后尺寸均可恢复，composer 与 safe area 不遮挡图表或署名。分别记录 ChatGPT 桌面与移动端结果。
 - CSP 无额外放宽；确认自包含脚本、样式和字体在宿主沙箱的实际加载情况。公开发布前配置唯一组件 origin，另行处理第 6.6 节的视觉差异。
@@ -892,6 +898,8 @@ fixture 只包含经过审查的合成或脱敏数据，不复制账户信息、
 - Strategy ID 外链：增加 4 项测试覆盖 SDK 请求、拒绝/能力缺失/断开、UI 点击与动态策略身份；本地生产沙箱验证 `ui/open-link` 打开准确的策略 URL，720 / 320px 下高亮、下划线、箭头与换行正常。
 - 本地模拟器浏览器检查覆盖 320 / 480 / 720 / 960px、KPI 释义、键盘定位末尾真实样本、分页、fullscreen、结果先于输入、缺失值与 teardown。Vue 迁移后复核样本末值、释义、表格、fullscreen、缺失值及各宽度；修复首次加载滑杆被旧 max 夹到 0 的问题，并补充 6 项 UI 生命周期/异步隔离测试。模板 HMR 实测即时更新且不新增 host 握手；脚本 HMR 允许组件重新挂载。结果查询失败时清空旧表格，重试可恢复；本地合成案例不作为真实回测数据验收。
 - 滚动交互修订：移除报告内的全屏切换按钮，全屏由宿主控制；inline 自然撑高，fullscreen 只滚动 iframe 文档。浏览器复核展开交易/参数、320 / 480 / 720px 与受窗口约束的宽版、全屏进入/退出，均无卡片或表格内部滚动区及横向溢出。补充 2 项回归测试，覆盖宿主模式切换下的分页/旧结果隔离，以及无内容 resize 时回到 inline 的高度重新上报。
+- 标准宿主适配复核：`env -u NO_COLOR bun run test` 通过，44 个测试文件 / 897 项测试，生产 HTML 为 506,575 bytes。定向测试覆盖独立方向的固定/最大/无限制尺寸、重复通知抑制、标准宿主信息读取、文字能力缺失、同页结果先于参数及旧请求隔离。本地生产沙箱浏览器验证最大高度 800px、固定高度 640px、fullscreen 及恢复自然高度；只有文档滚动，同页切换无新增握手，能力受限时隐藏分析按钮。未执行真实 Antigravity 客户端联调。
+- 工具收敛验证：`env -u NO_COLOR bun run test` 通过，46 个测试文件 / 941 项测试，生产 HTML 为 516,048 bytes。打开工具改为 `tqx_open_backtest_view`，移除独立查询工具；UI 通过集中 adapter 复用三个现有 Research 只读 action，公共输入/输出及逐 action 鉴权保持原样。新增测试覆盖 action 映射、冻结 metadata、身份核对、分页响应、数值字符串、图表顺序/点数/预算、全部 fixture 场景与未录制数据拒绝。本地生产沙箱验证刷新、区间查询、分页、搜索按钮及 Enter；修复沙箱中原生表单提交被拦截导致按钮无响应的问题。
 - 未执行真实授权 run 的逐字段验收、ChatGPT / Claude 会话和发布审核，也未提交新回测或部署服务。Dockerfile 已接入 UI 构建，但本机 Docker 引擎未运行，未验证镜像构建。US 夏令时边界和完整 query 录制回放仍需专项验证 / 后续实施。
 
 ## 10. 官方依据

@@ -16,7 +16,7 @@ import { tuningActions } from './tunings'
 import { readBacktest, readBacktestChart, readBacktestResult } from '../backtests'
 
 const backtestViewNote =
-  'After a requested strategy backtest reaches status=succeeded, automatically call tqx_backtest_view({type:"qube",runId:<submission id>}) unless the user requested text only. Keep runId internally; do not ask the user to supply it or request display again. Retry report errors against the same run, never resubmit.'
+  'After a requested strategy backtest reaches status=succeeded, automatically call tqx_open_backtest_view({type:"qube",runId:<submission id>}) unless the user requested text only. Keep runId internally; do not ask the user to supply it or request display again. Retry report errors against the same run, never resubmit.'
 
 export interface Action {
   name: string

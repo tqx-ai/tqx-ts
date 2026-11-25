@@ -297,10 +297,23 @@ onBeforeUnmount(() => {
             @input="brush"
         /></label>
       </div>
+      <!-- Sandboxed hosts may block native submission before the submit event. -->
       <form class="range-form" @submit.prevent="apply">
-        <label>From<input v-model="from" type="date" name="from" required /></label
-        ><label>To<input v-model="to" type="date" name="to" required /></label
-        ><button type="submit" class="secondary">Apply</button
+        <label
+          >From<input
+            v-model="from"
+            type="date"
+            name="from"
+            required
+            @keydown.enter.prevent="apply" /></label
+        ><label
+          >To<input
+            v-model="to"
+            type="date"
+            name="to"
+            required
+            @keydown.enter.prevent="apply" /></label
+        ><button type="button" class="secondary" @click="apply">Apply</button
         ><button type="button" data-action="reset" class="text-button" @click="reset">Reset</button>
       </form>
     </div>

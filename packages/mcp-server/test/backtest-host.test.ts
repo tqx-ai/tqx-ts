@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { connectHost, readToolResult, type HostEvents } from '../src/ui/qube/backtest/adapters/host'
 import { REPORT_META } from '../src/research/backtest-report/contract'
 import { fixture } from '../src/ui/qube/backtest/dev/fixtures'
+import { fixtureResearch } from '../src/ui/qube/backtest/adapters/fixture'
 
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -41,7 +42,7 @@ async function setup() {
     await flush()
   }
   await flush()
-  async function initialize(openLinks = true) {
+  async function initialize(openLinks = true, capabilities: Record<string, unknown> = {}) {
     const initial = postMessage.mock.calls[0]![0]
     expect(initial).toMatchObject({
       method: 'ui/initialize',
@@ -60,6 +61,7 @@ async function setup() {
           message: { text: {} },
           updateModelContext: {},
           ...(openLinks ? { openLinks: {} } : {}),
+          ...capabilities,
         },
         hostContext: { displayMode: 'inline', availableDisplayModes: ['inline', 'fullscreen'] },
       },
@@ -104,6 +106,17 @@ describe('official MCP Apps SDK adapter', () => {
     expect(s.postMessage).toHaveBeenCalledTimes(sent)
     s.host.dispose()
   })
+  it('does not send unsupported text messages or tool requests', async () => {
+    const s = await setup()
+    await s.initialize(false, { message: {}, serverTools: undefined })
+    const sent = s.postMessage.mock.calls.length
+    await expect(s.host.analyze({ runId: report.runId })).rejects.toThrow('conversation messages')
+    await expect(
+      s.host.query({ type: 'qube', runId: report.runId, operation: 'overview' }),
+    ).rejects.toThrow('unavailable')
+    expect(s.postMessage).toHaveBeenCalledTimes(sent)
+    s.host.dispose()
+  })
   it('registers handlers before initialization and accepts result-before-input notifications', async () => {
     const s = await setup()
     await s.receive({ method: 'ui/notifications/tool-result', params: result() })
@@ -121,6 +134,7 @@ describe('official MCP Apps SDK adapter', () => {
     expect(s.events.context).toHaveBeenCalledWith(
       expect.objectContaining({ displayMode: 'inline' }),
       expect.objectContaining({ serverTools: {} }),
+      { name: 'Test host', version: '1' },
     )
     s.host.dispose()
   })
@@ -149,10 +163,13 @@ describe('official MCP Apps SDK adapter', () => {
     const context = (displayMode: string) =>
       s.receive({
         method: 'ui/notifications/host-context-changed',
-        params: { displayMode },
+        params: {
+          displayMode,
+          containerDimensions: displayMode === 'fullscreen' ? { width: 960, height: 820 } : {},
+        },
       })
     await context('fullscreen')
-    expect(frames).toHaveLength(0)
+    frames.shift()!(0)
     await context('inline')
     expect(frames).toHaveLength(1)
     frames.shift()!(0)
@@ -180,32 +197,100 @@ describe('official MCP Apps SDK adapter', () => {
     expect(s.events.context).toHaveBeenLastCalledWith(
       expect.objectContaining({ theme: 'dark', displayMode: 'inline' }),
       expect.objectContaining({ serverTools: {} }),
+      { name: 'Test host', version: '1' },
     )
+    s.host.dispose()
+  })
+  it('negotiates only flexible axes, respects changing limits and suppresses duplicate sizes', async () => {
+    const frames: FrameRequestCallback[] = []
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        observe() {}
+        disconnect() {}
+      },
+    )
+    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) =>
+      frames.push(callback),
+    )
+    vi.stubGlobal('document', {
+      body: {},
+      documentElement: {
+        getBoundingClientRect: () => ({ height: 1284 }),
+        clientWidth: 720,
+      },
+    })
+    const s = await setup()
+    await s.initialize()
+    frames.shift()!(0)
+    await (
+      [
+        [{ width: 720, maxHeight: 800 }, { height: 800 }],
+        [{ width: 720, maxHeight: 600 }, { height: 600 }],
+        [{ maxWidth: 500, height: 640 }, { width: 500 }],
+        [{ width: 720, height: 640 }, undefined],
+        [{ width: 720 }, { height: 1284 }],
+      ] as const
+    ).reduce<Promise<void>>(async (previous, [containerDimensions, size]) => {
+      await previous
+      const update = () =>
+        s.receive({
+          method: 'ui/notifications/host-context-changed',
+          params: { containerDimensions },
+        })
+      await update()
+      const sent = s.postMessage.mock.calls.length
+      frames.shift()!(0)
+      await flush()
+      if (size)
+        expect(s.postMessage).toHaveBeenLastCalledWith(
+          { jsonrpc: '2.0', method: 'ui/notifications/size-changed', params: size },
+          '*',
+        )
+      else expect(s.postMessage).toHaveBeenCalledTimes(sent)
+      const afterSize = s.postMessage.mock.calls.length
+      await update()
+      frames.shift()!(0)
+      await flush()
+      expect(s.postMessage).toHaveBeenCalledTimes(afterSize)
+    }, Promise.resolve())
     s.host.dispose()
   })
   it('uses SDK tools/call and rejects mismatched TQX response identities', async () => {
     const s = await setup()
     await s.initialize()
-    const promise = s.host.query({ type: 'qube', runId: report.runId, operation: 'overview' })
+    const input = { type: 'qube', runId: report.runId, operation: 'chart', maxPoints: 600 } as const
+    const promise = s.host.query(input)
     await flush()
     const request = s.postMessage.mock.calls.at(-1)![0]
     expect(request).toMatchObject({
       method: 'tools/call',
       params: {
-        name: 'tqx_backtest_view_query',
-        arguments: { type: 'qube', runId: report.runId, operation: 'overview' },
+        name: 'tqx_research_call',
+        arguments: { action: 'backtest.chart.get', input: { runId: report.runId, maxPoints: 600 } },
       },
     })
-    await s.receive({ id: request.id, result: result() })
-    await expect(promise).resolves.toEqual(report)
+    const output = await fixtureResearch(report)('backtest.chart.get', {
+      runId: report.runId,
+      maxPoints: 600,
+    })
+    await s.receive({ id: request.id, result: output })
+    await expect(promise).resolves.toMatchObject({
+      runId: report.runId,
+      operation: 'chart',
+      chart: report.chart,
+    })
     const stale = structuredClone(report)
     stale.runId = stale.summary.runId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
-    const next = s.host.query({ type: 'qube', runId: report.runId, operation: 'overview' })
+    const next = s.host.query(input)
     const rejection = expect(next).rejects.toThrow('identity mismatch')
     await flush()
     await s.receive({
       id: s.postMessage.mock.calls.at(-1)![0].id,
-      result: { content: [], _meta: { [REPORT_META]: stale } },
+      result: await fixtureResearch(stale)('backtest.chart.get', {
+        runId: stale.runId,
+        maxPoints: 600,
+      }),
     })
     await rejection
     s.host.dispose()
