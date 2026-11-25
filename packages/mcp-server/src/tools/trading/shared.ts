@@ -10,6 +10,7 @@ import * as v from 'valibot'
 import { publicError, TradingError } from '../../trading/errors'
 import type { TradingGateway } from '../../trading/gateway'
 import { toolSchema } from '../../utils/tool-schema'
+import { toolIcons } from '../../utils/icons'
 
 export interface TradingToolContext {
   auth?: AuthInfo
@@ -39,7 +40,7 @@ export function registerTradingTool<T extends v.GenericSchema>(
   server: McpServer,
   context: TradingToolContext,
   definition: {
-    name: string
+    name: keyof typeof toolIcons
     description: string
     schema: T
     write?: boolean
@@ -53,6 +54,7 @@ export function registerTradingTool<T extends v.GenericSchema>(
   server.registerTool(
     definition.name,
     {
+      icons: toolIcons[definition.name],
       description: definition.description,
       inputSchema: toolSchema(v.strictObject({ request: definition.schema })),
       scopeChallenge:

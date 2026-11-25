@@ -1,10 +1,13 @@
 import type { McpServer } from '@modelcontextprotocol/server'
 
+import { promptIcons } from '../../utils/icons'
+
 export function registerBugReportPrompt(server: McpServer): void {
   server.registerPrompt(
     'prepare_bug_report',
     {
       title: 'Prepare a bug report',
+      icons: promptIcons.prepare_bug_report,
       description:
         'Investigate the reported problem, determine ownership, and submit a TQX bug report when the evidence shows it is a TQX issue.',
     },

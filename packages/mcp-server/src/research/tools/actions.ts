@@ -1,17 +1,17 @@
 import type { AuthInfo } from '@modelcontextprotocol/server'
 import * as v from 'valibot'
 
-import APIs from '../config/APIs'
-import { ResearchError } from './errors'
+import APIs from '../../config/APIs'
+import { ResearchError } from '../errors'
 import {
   type ResearchGateway,
   array,
   object,
   type ResearchRequest,
   type ResearchScope,
-} from './gateway'
-import * as p from './projections'
-import * as s from './schemas'
+} from '../gateway'
+import * as p from '../projections'
+import * as s from '../schemas'
 import { tuningActions } from './tunings'
 
 export interface Action {
@@ -73,13 +73,13 @@ const versionExample = (kind: p.ResourceKind) => ({
   readOnly: true,
 })
 const sourceNote =
-  '默认不返回源码；get_source 或 includeSource=true 返回源码。market 仅限 hk/us。parameters 保留引擎字段，不能作为任意更新输入。'
+  'Source code is omitted by default; use get_source or includeSource=true to fetch source. market is limited to hk or us. parameters preserves engine fields and cannot be passed as arbitrary update input.'
 const runNote =
-  'queued/preparing/running 尚未完成。约每 2 秒 get 一次，限流时退避；因子结果仅 succeeded 后读取；回测结果/曲线允许读取空或部分产物，保留 partial 与可用范围。LIVE_RESULT_UNAVAILABLE 时退避重读同一 runId，不重新提交。failed/cancelled 时停止依赖成功的步骤。等待超时保留 ID，不自动取消远端任务。'
+  'queued, preparing, and running are non-terminal. Poll get about every 2 seconds and back off on rate limits; factor results are readable only after succeeded, whereas backtest results and charts may return empty or partial outputs while preserving partial and available range fields. On LIVE_RESULT_UNAVAILABLE, back off and retry reading the same runId rather than resubmitting. Stop dependent steps on failed or cancelled. Keep the ID on timeout and do not auto-cancel the remote job.'
 const revisionNote =
-  '先 get 当前 sourceRevision/configRevision，再提交。复用 requestId 仅重试完全相同的意图和输入；网络超时可能已经生效，先核实远端状态。revision 冲突时重新 get 后再决定，不自动覆盖。'
+  'Read the current sourceRevision and configRevision with get before submitting. Reuse a requestId only to retry the exact same intent and input; a network timeout may still have succeeded remotely, so verify remote state first. On a revision conflict, re-read with get before deciding rather than blindly overwriting.'
 const paramsNote =
-  '未传参数沿用上游保存配置与默认值。分析日期严格递增、最长五年；回测日频最长十年，1M 表示分钟频率、最长一年。因子分析与调优的 stockPool 当前仅支持 all（全市场）。历史指数股票池需显式更新为 all，不会自动改写保存配置。standardSymbol 使用对应市场的指数（不含 all），跨市场参数由上游拒绝。'
+  'Omitted parameters inherit upstream saved settings and defaults. Analysis dates must be strictly increasing and span at most 5 years; daily backtests span at most 10 years, and 1M (minute frequency) spans at most 1 year. For factor analyses and tunings, stockPool currently supports only all (full market). Legacy index stock pools must be explicitly updated to all and are not rewritten automatically. standardSymbol must use an index for the selected market (excluding all); cross-market parameters are rejected upstream.'
 function expectIdentity(raw: p.Input, key: string, expected: unknown) {
   if (raw[key] !== expected)
     throw new ResearchError('INVALID_RESPONSE', 'Research response identity mismatch')
@@ -123,8 +123,9 @@ for (const kind of ['factor', 'strategy'] as const) {
   const runBase = kind === 'factor' ? APIs.RESEARCH_FACTOR_ANALYSES : APIs.RESEARCH_BACKTESTS
   const runKey = kind === 'factor' ? 'analysisId' : 'runId'
   const runKind = kind === 'factor' ? 'factor_analysis' : 'backtest'
-  const label = kind === 'factor' ? '因子' : '策略',
-    runLabel = kind === 'factor' ? '因子分析' : '策略回测'
+  const label = kind === 'factor' ? 'factor' : 'strategy',
+    pluralLabel = kind === 'factor' ? 'factors' : 'strategies',
+    runLabel = kind === 'factor' ? 'factor analysis' : 'strategy backtest'
   const ids = { [key]: resourceId },
     runIds = { [runKey]: runId }
   const detail = s.resourceOutput(kind, true)
@@ -137,12 +138,12 @@ for (const kind of ['factor', 'strategy'] as const) {
   add({
     ...baseAction,
     name: `${kind}.list`,
-    description: `列出可访问的${label}，支持市场、关键词和游标`,
+    description: `List accessible ${pluralLabel} with market, keyword, and cursor filters`,
     input: inputs.list,
     output: s.pageOutput(s.resourceOutput(kind)),
     exampleInput: { market: 'us', limit: 20 },
     exampleOutput: emptyPage,
-    notes: `${sourceNote} nextCursor 原样用于下一次同条件调用；不自动拉取所有页。因子 bindableOnly=true 仅筛选上游允许绑定的资源。`,
+    notes: `${sourceNote} Pass nextCursor unchanged to fetch the next page with the same filters; do not auto-fetch all pages. For factors, bindableOnly=true restricts results to resources upstream allows binding.`,
     execute: async (request, input) =>
       p.cursorPage(
         await request({
@@ -162,7 +163,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   add({
     ...baseAction,
     name: `${kind}.get`,
-    description: `读取${label}详情及当前 revision，可选源码`,
+    description: `Read ${label} details and current revisions, with optional source code`,
     input: inputs.get,
     output: detail,
     exampleInput: ids,
@@ -178,7 +179,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   add({
     ...baseAction,
     name: `${kind}.get_source`,
-    description: `读取${label}当前源码及 revision`,
+    description: `Read the current ${label} source code and revisions`,
     input: inputs.source,
     output: s.resourceOutput(kind, true, true),
     exampleInput: ids,
@@ -194,7 +195,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.validate`,
-    description: `校验${label}当前或临时源码，不提交运行`,
+    description: `Validate saved or draft ${label} source code without submitting a run`,
     scope: execute,
     input: inputs.validate,
     output: s.validationOutput,
@@ -207,7 +208,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     },
     related: [`${kind}.get`, `${kind}.save_source`, `${kind}.${child}.submit`],
     notes:
-      '可以按资源 ID 校验，也可以提供临时 code 和 market；两种形状不能混用。valid=false 是正常业务结果，先根据 diagnostics 修正源码；valid=true 不保证运行成功，也不证明策略没有前视偏差。',
+      'Validate either by resource ID or by supplying draft code and market; do not mix the two input shapes. valid=false is a normal business result -- fix source diagnostics before proceeding. valid=true does not guarantee runtime success or absence of look-ahead bias.',
     execute: async (request, input) =>
       p.validation(
         await request({
@@ -226,7 +227,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.${child}.submit`,
-    description: `提交异步${runLabel}并返回运行 ID 和真实状态`,
+    description: `Submit an asynchronous ${runLabel} and return its run ID and status`,
     scope: execute,
     input: inputs.submit,
     output: s.runOutput(runKind, 'submission'),
@@ -238,7 +239,7 @@ for (const kind of ['factor', 'strategy'] as const) {
       `${kind}.${child}.get`,
       kind === 'factor' ? 'factor.analysis.result.get' : 'backtest.result.get',
     ],
-    notes: `${revisionNote} ${paramsNote} 普通运行先用 ${kind}.update 保存用户指定参数，核对 parameters、parameterValidation.status=valid 且 revision 对齐，确认没有 parametersDraft，再省略 ${kind === 'factor' ? 'parameters' : 'backtest'} 提交。只有明确临时试跑时才传单次覆盖；覆盖不会保存配置。${runNote} 响应 id 作为后续 ${runKey}，幂等重放可能直接返回终态。`,
+    notes: `${revisionNote} ${paramsNote} For ordinary runs, save user-specified settings with ${kind}.update first, verify parameters, parameterValidation.status=valid, aligned revisions, and no parametersDraft, then submit without ${kind === 'factor' ? 'parameters' : 'backtest'}. Only pass a one-off override when the user explicitly requests a temporary trial run; overrides are not persisted. ${runNote} Use the response id as ${runKey}; idempotent replays may return a terminal state immediately.`,
     execute: async (request, input) => {
       const raw = await request({
         path: `${path(input)}/${children}`,
@@ -260,7 +261,9 @@ for (const kind of ['factor', 'strategy'] as const) {
   for (const cancel of [false, true])
     add({
       name: `${kind}.${child}.${cancel ? 'cancel' : 'get'}`,
-      description: cancel ? `请求取消${runLabel}，返回当前状态` : `读取${runLabel}状态、进度和指标`,
+      description: cancel
+        ? `Request cancellation of a ${runLabel} and return its current status`
+        : `Read ${runLabel} status, progress, and metrics`,
       scope: cancel ? execute : read,
       input: kind === 'factor' ? s.factorRunInput : s.backtestRunInput,
       output: s.runOutput(runKind),
@@ -270,7 +273,7 @@ for (const kind of ['factor', 'strategy'] as const) {
         `${kind}.${child}.get`,
         kind === 'factor' ? 'factor.analysis.result.get' : 'backtest.result.get',
       ],
-      notes: `${runNote} ${cancel ? 'cancelRequested=true 只表示取消已请求，不表示 status=cancelled；取消不承诺额外幂等性，超时后先 get。' : '状态响应不返回源码或大结果数组；错误摘要不会返回上游堆栈。'}`,
+      notes: `${runNote} ${cancel ? 'cancelRequested=true only indicates cancellation was requested, not that status=cancelled; cancel does not guarantee extra idempotency, so poll get after a timeout.' : 'Status responses omit source code and large result arrays, and error summaries never expose upstream stack traces.'}`,
       execute: async (request, input) => {
         const raw = await request({
           path: `${runBase}/${String(input[runKey])}${cancel ? '/cancel' : ''}`,
@@ -282,7 +285,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     })
   add({
     name: `${kind}.${child}.list`,
-    description: `读取指定${label}的${runLabel}历史`,
+    description: `List recent ${runLabel} runs for a specific ${label}`,
     scope: read,
     input: kind === 'factor' ? s.factorHistoryInput : s.backtestHistoryInput,
     output: kind === 'factor' ? s.pageOutput(s.runOutput(runKind)) : s.recentOutput,
@@ -292,8 +295,8 @@ for (const kind of ['factor', 'strategy'] as const) {
     related: [`${kind}.${child}.search`, `${kind}.${child}.get`],
     notes:
       kind === 'factor'
-        ? '上游最多返回最近 200 条，MCP 按 offset/limit 做切片；hasMore 仅指这批数据内仍有下一页，使用 nextOffset，nextCursor=null。possiblyTruncated=true 时通过 factor.analysis.search 按 factorId 检索完整历史。'
-        : '上游只支持最近 N 条（默认 100，上限 200）。possiblyTruncated=true 时无法证明全部历史已返回；完整检索使用 strategy.backtest.search。',
+        ? 'Upstream returns at most the 200 most recent runs and MCP slices by offset/limit; hasMore applies only within this batch (use nextOffset; nextCursor is null). When possiblyTruncated=true, use factor.analysis.search with factorId for complete history.'
+        : 'Upstream returns only the most recent N runs (default 100, max 200). When possiblyTruncated=true, complete history cannot be guaranteed; use strategy.backtest.search for full search.',
     execute: async (request, input) => {
       const raw = await request({
         path: `${path(input)}/${children}`,
@@ -319,7 +322,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.${child}.search`,
-    description: `跨${label}搜索${runLabel}摘要，支持状态、时间和游标`,
+    description: `Search ${runLabel} summaries across ${pluralLabel} by status, time, and cursor`,
     scope: read,
     input: s.searchInput(kind),
     output: s.pageOutput(s.runOutput(runKind, 'summary')),
@@ -327,7 +330,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     exampleOutput: emptyPage,
     related: [`${kind}.${child}.get`],
     notes:
-      'summary 默认 10 条、最多 10 条；纯日期过滤按上海自然日，to 包含当日。带时间的输入必须有时区。过滤条件保持不变，原样传回 nextCursor。摘要不逐项补拉详情。',
+      'Summary pages default to and cap at 10 items. Date-only filters use Asia/Shanghai calendar days with an inclusive end date; datetime inputs must include a timezone offset. Keep filter parameters identical when passing nextCursor. Summaries do not auto-fetch item details.',
     execute: async (request, input) =>
       p.cursorPage(
         await request({ path: runBase, query: query(input, true) }),
@@ -340,7 +343,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   // P1 uses the same registry and transport, without another runtime layer.
   add({
     name: `${kind}.create`,
-    description: `创建${label}资源并返回 ID 和 revision`,
+    description: `Create a ${label} resource and return its ID and revisions`,
     scope: write,
     input: inputs.create,
     output: detail,
@@ -353,7 +356,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     },
     exampleOutput: resourceExample(kind),
     related: [`${kind}.validate`, `${kind}.${child}.submit`],
-    notes: `${revisionNote} ${paramsNote} 策略 factorBinding 只能绑定同市场且上游允许绑定的因子版本。创建本身不运行分析或回测。`,
+    notes: `${revisionNote} ${paramsNote} Strategy factorBinding may bind only a bindable factor version from the same market. Creating a resource does not start an analysis or backtest.`,
     execute: async (request, input) =>
       p.resource(
         await request({
@@ -381,7 +384,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.update`,
-    description: `更新${label}名称、配置或因子绑定`,
+    description: `Update ${label} title, configuration, or factor binding`,
     scope: write,
     input: inputs.update,
     output: detail,
@@ -392,7 +395,7 @@ for (const kind of ['factor', 'strategy'] as const) {
       configRevision: 3,
     },
     related: [`${kind}.get`, `${kind}.${child}.submit`],
-    notes: `${revisionNote} ${paramsNote} 至少传一项变更；不修改源码。核对返回 parameters 与用户设置一致、parameterValidation.status=valid 且配置 revision 对齐，并确认没有 parametersDraft。保存失败或仍有草稿时先修正，不继续提交运行。策略解除绑定传 factorBinding=null。`,
+    notes: `${revisionNote} ${paramsNote} Provide at least one change; this action does not modify source code. Verify returned parameters match user settings, parameterValidation.status=valid with aligned configRevision, and no parametersDraft remains. Fix any validation errors or drafts before submitting a run. Pass factorBinding=null on a strategy to unbind.`,
     execute: async (request, input) => {
       const raw = await request({
         path: path(input),
@@ -417,7 +420,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.save_source`,
-    description: `使用 source revision 保存${label}源码`,
+    description: `Save ${label} source code using optimistic source revision locking`,
     scope: write,
     input: inputs.saveSource,
     output: detail,
@@ -429,7 +432,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     },
     exampleOutput: { ...resourceExample(kind), sourceRevision: 4 },
     related: [`${kind}.get_source`, `${kind}.validate`],
-    notes: `${revisionNote} 保存不自动运行；检查回执 validation，缺失或不匹配当前 source revision/hash 时先 validate，再按保存配置 submit。`,
+    notes: `${revisionNote} Saving source does not trigger a run; inspect the returned validation receipt and call validate if missing or mismatched with the current source revision/hash before submitting.`,
     execute: async (request, input) => {
       const raw = await request({
         path: `${path(input)}/source`,
@@ -447,7 +450,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.delete`,
-    description: `删除${label}资源，要求外层 confirm=true`,
+    description: `Delete a ${label} resource (requires top-level confirm=true)`,
     scope: write,
     input: inputs.delete,
     output: s.deletedOutput,
@@ -455,7 +458,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     exampleOutput: { id: resourceId, deleted: true },
     related: [`${kind}.get`],
     notes:
-      '仅在用户明确要求删除时调用，call 外层必须 confirm=true。布尔参数不替代客户端授权策略。删除没有额外幂等保证；超时后先核实状态。成功后不再次 get 已删除资源。',
+      'Call only when the user explicitly requests deletion; the outer call must pass confirm=true. This boolean flag does not replace client authorization policies. Deletion has no extra idempotency guarantee; verify state after a timeout and do not call get on a deleted resource after success.',
     execute: async (request, input) => {
       const raw = await request({ path: path(input), method: 'DELETE' })
       expectIdentity(raw, 'id', input[key])
@@ -471,14 +474,14 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.${child}.restore`,
-    description: `从成功${runLabel}恢复当前${label}资源`,
+    description: `Restore the current ${label} resource from a succeeded ${runLabel}`,
     scope: write,
     input: inputs.restoreRun,
     output: detail,
     exampleInput: { ...ids, runId, ...revExample },
     exampleOutput: resourceExample(kind),
     related: [`${kind}.get`, `${kind}.${child}.get`],
-    notes: `${revisionNote} 只能使用本资源的成功普通运行；上游检查归属和可恢复性。`,
+    notes: `${revisionNote} Only a succeeded ordinary run belonging to this resource may be restored; upstream validates ownership and restorability.`,
     execute: async (request, input) => {
       const raw = object(
         (
@@ -501,7 +504,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     kind === 'factor' ? APIs.RESEARCH_FACTOR_VERSIONS : APIs.RESEARCH_STRATEGY_VERSIONS
   add({
     name: `${kind}.version.list`,
-    description: `列出指定${label}的冻结版本`,
+    description: `List frozen versions of a specific ${label}`,
     scope: read,
     input: inputs.versions,
     output: s.pageOutput(s.versionOutput(kind)),
@@ -509,7 +512,7 @@ for (const kind of ['factor', 'strategy'] as const) {
     exampleOutput: emptyPage,
     related: [`${kind}.version.get`, `${kind}.version.restore`],
     notes:
-      '上游最多返回 1000 个版本，MCP 按 offset/limit 切片；下一页用 nextOffset。possiblyTruncated=true 时改用 version.search，hasMore 只指本批内的下一页。摘要不含源码，get 才返回冻结源码。',
+      'Upstream returns at most 1,000 versions and MCP slices by offset/limit; use nextOffset for the next page. When possiblyTruncated=true, switch to version.search; hasMore applies only within this batch. Summaries omit source code -- call get to read frozen source.',
     execute: async (request, input) => {
       const raw = await request({ path: `${path(input)}/versions` })
       return p.slicePage(
@@ -525,7 +528,7 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.version.search`,
-    description: `全局搜索${label}冻结版本`,
+    description: `Search frozen ${label} versions globally`,
     scope: read,
     input: kind === 'factor' ? s.factorVersionSearch : s.searchInput('strategy', true),
     output: s.pageOutput(s.versionOutput(kind)),
@@ -537,8 +540,8 @@ for (const kind of ['factor', 'strategy'] as const) {
     ],
     notes:
       kind === 'factor'
-        ? '因子版本搜索必须传 market，query 映射为上游 q，可用于策略因子绑定。游标保持原值，最多 100 条。'
-        : '策略版本不可变，不支持 status 或 updated_at 排序；最多 10 条，日期过滤按上海自然日。',
+        ? 'Factor version search requires market; query maps to upstream q and is useful for strategy factor binding. Pass cursor unchanged; max 100 items per page.'
+        : 'Strategy versions are immutable and do not support status or updated_at sorting; max 10 items per page, with date-only filters evaluated in Asia/Shanghai calendar days.',
     execute: async (request, input) =>
       p.cursorPage(
         await request({
@@ -561,14 +564,15 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.version.get`,
-    description: `读取${label}版本及冻结源码`,
+    description: `Read a frozen ${label} version and its source code`,
     scope: read,
     input: s.versionInput,
     output: s.versionOutput(kind, true),
     exampleInput: { versionId },
     exampleOutput: { ...versionExample(kind), code: '# Frozen source' },
     related: [`${kind}.version.restore`],
-    notes: '版本只读；读取版本不会修改当前资源。需要修改时先 restore，再单独编辑当前资源。',
+    notes:
+      'Versions are read-only; reading a version does not modify the current resource. To make changes, restore it first and then edit the current resource separately.',
     execute: async (request, input) => {
       const raw = await request({ path: `${versionBase}/${String(input.versionId)}` })
       expectIdentity(raw, 'id', input.versionId)
@@ -577,14 +581,14 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.version.create`,
-    description: `从成功${runLabel}保存冻结版本`,
+    description: `Save an immutable frozen version from a succeeded ${runLabel}`,
     scope: write,
     input: inputs.createVersion,
     output: s.versionOutput(kind),
     exampleInput: { ...ids, requestId: 'version-demo-1', runId, name: 'Research example' },
     exampleOutput: versionExample(kind),
     related: [`${kind}.${child}.get`, `${kind}.version.get`],
-    notes: `${revisionNote} 必须传所属资源成功的普通分析/回测 runId，不接受调优运行。name 是版本名，不是路径。`,
+    notes: `${revisionNote} Pass a succeeded ordinary analysis/backtest runId belonging to this resource; tuning runs are not accepted. name is a display label, not a file path.`,
     execute: async (request, input) => {
       const raw = await request({
         path: `${path(input)}/versions`,
@@ -602,14 +606,14 @@ for (const kind of ['factor', 'strategy'] as const) {
   })
   add({
     name: `${kind}.version.restore`,
-    description: `从冻结版本恢复当前${label}`,
+    description: `Restore the current ${label} from a frozen version`,
     scope: write,
     input: inputs.restoreVersion,
     output: detail,
     exampleInput: { ...ids, versionId, ...revExample },
     exampleOutput: resourceExample(kind),
     related: [`${kind}.get`, `${kind}.version.get`, `${kind}.validate`],
-    notes: `${revisionNote} restore 修改当前资源，不修改冻结版本；恢复后重新 validate，再决定是否运行。`,
+    notes: `${revisionNote} restore updates the current resource without altering the frozen version; re-validate after restoring before deciding to run.`,
     execute: async (request, input) => {
       const raw = object(
         (
@@ -632,7 +636,7 @@ for (const kind of ['factor', 'strategy'] as const) {
 
 add({
   name: 'factor.analysis.result.get',
-  description: '分页读取成功因子分析的统计表或图表条目',
+  description: 'Read paginated tables or chart entries from a succeeded factor analysis',
   scope: read,
   input: s.factorResultInput,
   output: s.resultOutput(true),
@@ -648,7 +652,7 @@ add({
   },
   related: ['factor.analysis.get'],
   notes:
-    '仅 succeeded 可读。factor_data/last_date_top_factor 按数组行分页；group_return_summary/return_chart/ic_charts 按对象键稳定排序，返回 {key,value}。null 是空结果。保留内部指标键和单位，不截断单个图表。当前上游仍一次返回完整分析；超预算时失败，不伪称上游已分页。',
+    'Readable only after succeeded. factor_data and last_date_top_factor paginate by array row; group_return_summary, return_chart, and ic_charts sort object keys deterministically and return {key, value} entries. null indicates an empty result. Preserve internal metric keys and units without truncating individual charts. Upstream currently returns the full analysis payload in one response and fails if it exceeds the byte budget.',
   execute: async (request, input) =>
     p.factorResults(
       await request({ path: `${APIs.RESEARCH_FACTOR_ANALYSES}/${String(input.analysisId)}` }),
@@ -657,7 +661,7 @@ add({
 })
 add({
   name: 'backtest.result.get',
-  description: '分页读取回测净值、成交、日志、标的表现或账户汇总',
+  description: 'Read paginated backtest equity, trades, logs, symbol metrics, or account summary',
   scope: read,
   input: s.resultInput,
   output: s.resultOutput(false),
@@ -673,7 +677,7 @@ add({
   },
   related: ['strategy.backtest.get', 'backtest.chart.get'],
   notes:
-    '支持上游提供的阶段性结果。partial=true 表示尚不完整，availableFrom/availableTotal 描述当前可读窗口；空页不代表运行完成。LIVE_RESULT_UNAVAILABLE 时保留 runId 并退避重试读取。keyword 可搜索结果行，symbol 仅用于 trades。hasMore=true 时使用 nextOffset。引擎行字段保持原值；account_summary 的 rows 为空或含一个对象，logs 保留日志行。数据属于回测产物，不是真实交易账户。',
+    'Supports intermediate results provided by upstream. partial=true indicates the run is still incomplete, and availableFrom/availableTotal describe the currently readable window; an empty page does not mean the run finished. On LIVE_RESULT_UNAVAILABLE, keep runId and retry with backoff. keyword filters result rows, and symbol applies only to trades. Use nextOffset when hasMore=true. Engine row fields keep original keys; account_summary has zero or one row object, and logs preserves log lines. All figures are backtest outputs, not a live trading account.',
   execute: async (request, input) => {
     return p.backtestResults(
       await request({
@@ -692,7 +696,7 @@ add({
 })
 add({
   name: 'backtest.chart.get',
-  description: '读取回测净值曲线、采样信息和成交日摘要',
+  description: 'Read backtest equity curve, sampling metadata, and trade-day summaries',
   scope: read,
   input: s.chartInput,
   output: s.chartOutput,
@@ -709,7 +713,7 @@ add({
   },
   related: ['strategy.backtest.get', 'backtest.result.get'],
   notes:
-    '支持排队中、运行中及终态的可用曲线；partial=true 或 complete=false 时不得当作完整结果。LIVE_RESULT_UNAVAILABLE 时保留 runId 并退避重试读取。benchmark 保留基准指数和曲线。maxPoints 只限制净值 points，不限制 tradeDays/trades；响应超限时收窄 from/to。保留 sampled/sourceCount/totalCount/complete/partial，不将抽样结果称为完整结果。不提供标的 K 线。',
+    'Supports available curves during queued, running, and terminal states; do not treat partial=true or complete=false as final results. On LIVE_RESULT_UNAVAILABLE, keep runId and retry with backoff. benchmark preserves the benchmark symbol and curve. maxPoints caps equity points only, not tradeDays or trades; narrow from/to if the response exceeds size limits. Preserve sampled, sourceCount, totalCount, complete, and partial without claiming sampled points are complete. Does not provide symbol K-lines.',
   execute: async (request, input) => {
     const raw = await request({
       path: `${APIs.RESEARCH_BACKTESTS}/${String(input.runId)}/chart`,
@@ -728,7 +732,9 @@ add({
 for (const create of [false, true])
   add({
     name: `factor.snapshot.${create ? 'create' : 'list'}`,
-    description: create ? '为因子分析保存命名快照' : '读取因子的分析快照列表',
+    description: create
+      ? 'Save a named snapshot for a factor analysis'
+      : 'List saved analysis snapshots for a factor',
     scope: create ? write : read,
     input: create ? s.snapshotCreateInput : s.snapshotListInput,
     output: create ? s.snapshotOutput : s.pageOutput(s.snapshotOutput),
@@ -740,8 +746,8 @@ for (const create of [false, true])
       : emptyPage,
     related: ['factor.analysis.get', 'factor.analysis.result.get'],
     notes: create
-      ? '保存快照不重跑分析；归属和可用性由上游检查。不承诺额外幂等性，超时后先 list 核实。'
-      : '上游最多返回最近 200 个快照，再按 offset/limit 切片；possiblyTruncated=true 表示可能还有更早快照，当前没有接口继续翻上游历史。hasMore 只指本批内的下一页。不存在独立快照 GET；从条目取 runId，作为 analysisId 调用分析状态和结果 action。',
+      ? 'Saving a snapshot does not re-run the analysis; upstream verifies ownership and availability. Extra idempotency is not guaranteed, so call list to verify after a timeout.'
+      : 'Upstream returns at most the 200 most recent snapshots and MCP slices by offset/limit; possiblyTruncated=true means older snapshots may exist without another upstream paging endpoint. hasMore applies only within this batch. There is no standalone snapshot get action -- pass an item runId as analysisId to factor.analysis.get and factor.analysis.result.get.',
     execute: async (request, input) => {
       const raw = await request({
         path: `${APIs.RESEARCH_FACTORS}/${String(input.factorId)}/analysis-snapshots`,

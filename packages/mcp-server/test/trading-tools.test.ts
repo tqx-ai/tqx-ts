@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../src/app'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
+import { expectPngIcons } from './helpers/icons'
 import { account, bugReport, envelope, hold, order, signal, tradingConfig } from './helpers/trading'
 
 const oauth = await createOAuthFixture()
@@ -137,10 +138,14 @@ describe('trading MCP tools over authenticated HTTP', () => {
       'tqx_submit_bug_report',
     ])
     for (const tool of tools) {
+      expectPngIcons(tool.icons)
       expect(tool.inputSchema.type).toBe('object')
       expect(tool.inputSchema.required).toContain('request')
       expect(tool.annotations.openWorldHint).toBe(true)
     }
+    expect(
+      new Set(tools.map((tool: { icons: { src: string }[] }) => tool.icons[0]?.src)).size,
+    ).toBe(6)
     expect(tools[3].annotations).toMatchObject({
       readOnlyHint: false,
       destructiveHint: true,
@@ -162,10 +167,15 @@ describe('trading MCP tools over authenticated HTTP', () => {
 
   it('lists and renders the bug-report preparation prompt', async () => {
     const s = setup()
-    const listed = await s.rpc('prompts/list')
-    expect((await parse(listed)).result.prompts).toEqual([
-      expect.objectContaining({ name: 'prepare_bug_report' }),
-    ])
+    await Promise.all(
+      ['2025-11-25', '2026-07-28'].map(async (protocolVersion) => {
+        const listed = await s.rpc('prompts/list', {}, mcpToken, protocolVersion)
+        expect(listed.status).toBe(200)
+        const prompts = (await parse(listed)).result.prompts
+        expect(prompts).toEqual([expect.objectContaining({ name: 'prepare_bug_report' })])
+        expectPngIcons(prompts[0].icons)
+      }),
+    )
     const response = await s.rpc('prompts/get', {
       name: 'prepare_bug_report',
     })
