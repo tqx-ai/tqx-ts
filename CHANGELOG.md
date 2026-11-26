@@ -4,6 +4,28 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.9.0-beta.1 - 2026-11-26
+
+### Added
+
+- Add an interactive Qube Backtest App with equity charts, metrics, frozen parameters, and
+  paginated results, opened through the read-only `tqx_open_backtest_view` MCP tool.
+- Add strategy and factor source resources, paged research resource discovery, and the
+  `inspect_strategy` prompt.
+- Expose bundled skills through the MCP Skills extension for URL-only connections, with
+  connection-source detection to avoid duplicating skills already installed by the agent plugin.
+- Add a Claude plugin marketplace and generate a native Antigravity plugin distribution from
+  the shared agent plugin sources.
+- Run strict plugin validation with the official Claude Code and Antigravity CLIs in CI and
+  release workflows.
+
+### Changed
+
+- Add MCP tool and resource icons, cache hints, and connection-source logging.
+- Synchronize plugin and marketplace versions with the MCP skill bundle version header.
+- Publish this preview to the npm `beta` channel and as a GitHub prerelease, keeping the stable
+  `latest` channel unchanged.
+
 ## 0.8.0 - 2026-11-20
 
 This stable release includes the changes previewed in 0.8.0-beta.1 through 0.8.0-beta.3.

@@ -13,7 +13,7 @@
       "name": "tqx-agent-plugin",
       "displayName": "TQX",
       "source": "./plugins/agent-plugin",
-      "version": "0.8.0",
+      "version": "0.9.0-beta.1",
       "description": "Let TQX help you invest and trade",
       "author": {
         "name": "TQX Team",
@@ -31,7 +31,7 @@
           "url": "https://www.tqx.ai/mcp?tqx_distribution=agent-plugin",
           "headers": {
             "X-TQX-Distribution": "agent-plugin",
-            "X-TQX-Skill-Bundle-Version": "0.8.0"
+            "X-TQX-Skill-Bundle-Version": "0.9.0-beta.1"
           }
         }
       }
