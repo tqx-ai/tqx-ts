@@ -5,6 +5,7 @@ import EquityChart from './components/EquityChart.vue'
 import ResultsTable from './components/ResultsTable.vue'
 import FrozenParameters from './components/FrozenParameters.vue'
 import BrandSignature from './components/BrandSignature.vue'
+import LoadingIndicator from '../../components/LoadingIndicator.vue'
 import { formatValue, numeric } from './format'
 import { useReport } from './use-report'
 
@@ -16,6 +17,7 @@ const {
   alert,
   canQuery,
   connected,
+  refreshing,
   fullscreen,
   refresh,
   analyze,
@@ -119,15 +121,20 @@ function trade(day: string) {
           @open-link="openLink"
         />
         <div class="report-actions">
+          <div class="refresh-action">
+            <button
+              type="button"
+              data-action="refresh"
+              class="text-button"
+              :disabled="!canQuery || !identity || refreshing"
+              :aria-busy="refreshing"
+              @click="refresh"
+            >
+              Refresh
+            </button>
+            <LoadingIndicator v-if="refreshing" label="Refreshing report" />
+          </div>
           <button
-            type="button"
-            data-action="refresh"
-            class="text-button"
-            :disabled="!canQuery || !identity"
-            @click="refresh"
-          >
-            Refresh</button
-          ><button
             v-if="connected && capabilities.message?.text"
             type="button"
             data-action="analyze"
@@ -143,3 +150,15 @@ function trade(day: string) {
     <BrandSignature />
   </main>
 </template>
+
+<style scoped>
+.report-actions {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.refresh-action {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+</style>

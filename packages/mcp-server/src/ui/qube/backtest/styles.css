@@ -30,8 +30,7 @@ html {
 }
 body {
   margin: 0;
-  padding: calc(30px + var(--safe-top)) calc(24px + var(--safe-right))
-    calc(24px + var(--safe-bottom)) calc(24px + var(--safe-left));
+  padding: 0 calc(24px + var(--safe-right)) 0 calc(24px + var(--safe-left));
   background:
     radial-gradient(ellipse at 76% 8%, rgba(255, 255, 255, 0.07), transparent 48%),
     radial-gradient(ellipse at 8% 82%, rgba(255, 255, 58, 0.025), transparent 45%), var(--canvas);
@@ -71,6 +70,8 @@ svg:focus:not(:focus-visible) {
 .preview {
   max-width: 1080px;
   margin: 0 auto;
+  /* Hosts can reset vertical padding on html/body after loading the App styles. */
+  padding-block: calc(30px + var(--safe-top)) calc(24px + var(--safe-bottom));
   position: relative;
   isolation: isolate;
 }
@@ -136,7 +137,7 @@ h1 {
   max-width: 70%;
   overflow-wrap: anywhere;
   font:
-    500 36px/1.25 'ABC Whyte Inktrap',
+    500 28px/1.25 'ABC Whyte Inktrap',
     Inter,
     sans-serif;
 }
@@ -644,7 +645,7 @@ td {
     padding: 28px 24px 16px;
   }
   h1 {
-    font-size: 28px;
+    font-size: 24px;
   }
   .metrics {
     gap: 16px;
@@ -700,8 +701,10 @@ td {
 }
 @media (max-width: 520px) {
   body {
-    padding: calc(20px + var(--safe-top)) calc(12px + var(--safe-right))
-      calc(20px + var(--safe-bottom)) calc(12px + var(--safe-left));
+    padding: 0 calc(12px + var(--safe-right)) 0 calc(12px + var(--safe-left));
+  }
+  .preview {
+    padding-block: calc(20px + var(--safe-top)) calc(20px + var(--safe-bottom));
   }
   .report-body {
     padding: 24px 20px 12px;
@@ -710,7 +713,7 @@ td {
     display: block;
   }
   h1 {
-    font-size: 26px;
+    font-size: 22px;
     max-width: 100%;
   }
   .heading-aside {

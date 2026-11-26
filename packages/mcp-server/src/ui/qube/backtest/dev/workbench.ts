@@ -128,10 +128,13 @@ async function restart() {
     html = await (await fetch('/app.html')).text()
     const policy =
       "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; font-src data:; img-src data:; connect-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
-    frame.srcdoc = html.replace(
-      '<head>',
-      `<head><meta http-equiv="Content-Security-Policy" content="${policy}">`,
-    )
+    frame.srcdoc = html
+      .replace('<head>', `<head><meta http-equiv="Content-Security-Policy" content="${policy}">`)
+      .replace(
+        '</head>',
+        // Reproduce the host reset that otherwise hides body-level App spacing.
+        '<style>html,body,#root{margin-top:0;margin-bottom:0;padding-top:0;padding-bottom:0}</style></head>',
+      )
   }
   resize()
   const search = new URLSearchParams({

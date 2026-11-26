@@ -4,6 +4,7 @@ import type { ChartData, Report } from '../../../../research/backtest-report/con
 import type { HostActions } from '../adapters/host'
 import { renderChart, renderOverview } from '../chart'
 import { formatValue, marketTime } from '../format'
+import LoadingIndicator from '../../../components/LoadingIndicator.vue'
 
 const props = defineProps<{
   report?: Report
@@ -273,7 +274,10 @@ onBeforeUnmount(() => {
         Trades
       </button>
     </div>
-    <div ref="plot" class="plot" :aria-busy="loading"></div>
+    <div class="plot-region">
+      <div ref="plot" class="plot" :aria-busy="loading"></div>
+      <LoadingIndicator v-if="loading" class="chart-loading" label="Loading chart" />
+    </div>
     <div class="query-controls" :inert="!canQuery">
       <div ref="overview" class="overview" aria-label="Full-period curve overview"></div>
       <div class="brush" role="group" aria-label="Select overview sample range">
@@ -320,3 +324,16 @@ onBeforeUnmount(() => {
     <p class="chart-note">{{ chartNote }}</p>
   </section>
 </template>
+
+<style scoped>
+.plot-region {
+  position: relative;
+}
+.chart-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: rgba(3, 3, 3, 0.55);
+  pointer-events: none;
+}
+</style>
