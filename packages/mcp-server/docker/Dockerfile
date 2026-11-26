@@ -13,6 +13,7 @@ FROM dependencies AS build
 
 RUN bun install --frozen-lockfile --filter @tqx-ai/mcp-server
 
+COPY tsconfig.json ./
 COPY packages/mcp-server/src ./packages/mcp-server/src
 COPY packages/mcp-server/scripts/build-backtest-app.ts packages/mcp-server/scripts/backtest-vite.ts ./packages/mcp-server/scripts/
 RUN bun run --cwd packages/mcp-server build:ui
