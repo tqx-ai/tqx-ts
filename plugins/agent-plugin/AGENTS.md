@@ -379,10 +379,13 @@ and Codex compatibility manifests. At least one skill or connector is required;
 the documented limits are 32 skills, 1,000 files, 20 MB uncompressed, and 15
 MCP servers. A supplied description is limited to 1,024 UTF-8 bytes.
 
-TQX's explicitly typed HTTPS MCP entry has no fixed headers or unresolved
-variables, matching the documented connector import shape. Perplexity skips
-local `stdio` servers, fixed-header servers, and disallowed connectors. Users
-still connect their own account. The guide defines no namespace for additional
+TQX's explicitly typed HTTPS MCP entry includes a stable
+`tqx_distribution=agent-plugin` URL marker, an `X-TQX-Distribution` header, and an
+`X-TQX-Skill-Bundle-Version` header. Perplexity skips local `stdio` servers,
+fixed-header servers, and disallowed connectors, so the canonical entry with
+headers does not satisfy that import shape. A configuration for that client must
+retain the URL marker and omit fixed headers. Users still connect their own
+account. The guide defines no namespace for additional
 metadata; do not invent `ai.perplexity` or claim the local Python data workflow
 was verified by successful connector import.
 
@@ -417,7 +420,8 @@ namespace or establish that Claude reads our portable root manifest. Do not add
 | Presentation metadata          | Vendor-owned `extensions` | Native manifest fields such as `displayName` |
 
 The generated native artifact references the same TQX MCP endpoint as
-`mcpServers.tqx` with `type: "http"` and `url: "https://www.tqx.ai/mcp"`.
+`mcpServers.tqx` with `type: "http"`, the canonical query-marked URL, and the
+canonical distribution and bundle-version headers.
 Changing filenames and the configuration type spelling does not require a new
 MCP service. Preserve the portable files and schema identifiers; generate a
 separate native distribution rather than adding `.claude-plugin/` and

@@ -62,7 +62,15 @@ describe('Antigravity plugin distribution', () => {
     expect(manifest.author).not.toHaveProperty('email')
 
     expect(JSON.parse(readFileSync(output('mcp_config.json'), 'utf8'))).toEqual({
-      mcpServers: { tqx: { url: 'https://www.tqx.ai/mcp' } },
+      mcpServers: {
+        tqx: {
+          url: 'https://www.tqx.ai/mcp?tqx_distribution=agent-plugin',
+          headers: {
+            'X-TQX-Distribution': 'agent-plugin',
+            'X-TQX-Skill-Bundle-Version': canonical.version,
+          },
+        },
+      },
     })
 
     for (const path of [

@@ -57,6 +57,7 @@ describe('Claude plugin distribution', () => {
       strict: false,
     })
     expect(entry.version).toBe(canonical.version)
+    expect(mcp.mcpServers.tqx.headers['X-TQX-Skill-Bundle-Version']).toBe(workspace.version)
     expect(entry.mcpServers).toEqual(
       Object.fromEntries(
         Object.entries(mcp.mcpServers).map(([name, server]) => [
@@ -94,7 +95,16 @@ describe('Claude plugin distribution', () => {
     expect(manifest).not.toHaveProperty('$schema')
     expect(manifest).not.toHaveProperty('extensions')
     expect(JSON.parse(readFileSync(output('.mcp.json'), 'utf8'))).toEqual({
-      mcpServers: { tqx: { type: 'http', url: 'https://www.tqx.ai/mcp' } },
+      mcpServers: {
+        tqx: {
+          type: 'http',
+          url: 'https://www.tqx.ai/mcp?tqx_distribution=agent-plugin',
+          headers: {
+            'X-TQX-Distribution': 'agent-plugin',
+            'X-TQX-Skill-Bundle-Version': canonical.version,
+          },
+        },
+      },
     })
     for (const path of [
       '.claude-plugin/plugin.json',

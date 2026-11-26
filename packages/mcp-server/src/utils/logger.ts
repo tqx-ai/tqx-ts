@@ -1,7 +1,9 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { Logger, type ILogObj, type ISettingsParam } from 'tslog'
 
-export interface LogContext {
+import type { ClientDistribution } from './client-distribution'
+
+export interface LogContext extends Partial<ClientDistribution> {
   requestId: string
   rpcId?: string | number
   rpcMethod?: string

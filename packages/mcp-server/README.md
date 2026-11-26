@@ -23,6 +23,32 @@ HTTP URLs/origins, including LAN addresses and hostnames, are allowed outside
 `NODE_ENV=production`. Host and Origin
 checks remain enabled; native clients without an Origin header are supported.
 
+## Connection source and local skills
+
+Every `/mcp` request resolves its connection source independently. Read
+`tqx_distribution` from the URL first, then `X-TQX-Distribution` when the query
+value is missing or blank. `agent-plugin` sets `hasLocalSkills: true`; `mcp-url`,
+unrecognized values, or no marker set `hasLocalSkills: false`. A nonempty query
+value takes precedence even when unrecognized. An unmarked connection is treated
+as URL-only with no local skills by product policy, rather than local filesystem
+detection. The markers never grant authorization or change OAuth audiences.
+
+Bundle versions use the same per-field priority: `tqx_skill_bundle_version`, then
+`X-TQX-Skill-Bundle-Version`. Missing, malformed, or oversized versions are omitted;
+a version alone does not imply local skills. The supported distribution values,
+the selected channel (`query`, `header`, or `default`), skill availability, and a
+valid plugin bundle version are exposed through `readClientDistribution(request)`
+in `src/utils/client-distribution.ts` and the request-local `logContext`.
+
+The plugin ships the stable URL
+`https://www.tqx.ai/mcp?tqx_distribution=agent-plugin` plus both headers. The bundle
+version lives in its header so releases do not change the connection URL.
+`bun scripts/sync-plugin-version.ts` updates that version and the Claude marketplace
+configuration when bumping the workspace version. Generated Claude and Antigravity
+distributions preserve both forms. Clients must retain a marker on every request;
+this stateless server does not remember an earlier initialization marker. Clients
+that reject fixed headers need a URL-only configuration with the same query marker.
+
 ## Logging
 
 `src/utils/logger.ts` manages tslog module loggers and request-local context.
@@ -43,6 +69,8 @@ authentication. Modern requests can provide client identity in `_meta`; legacy
 clients provide it on `initialize`, and it is not persisted across this stateless
 server's requests. Context fields (including verified OAuth `clientId`) appear
 in the JSON record's `_logMeta`; client-reported labels are diagnostic data.
+For `/mcp`, that context also includes `distribution`, `distributionSource`,
+`hasLocalSkills`, and, when available, `skillBundleVersion`.
 
 `mcp.request_completed` observes terminal SDK messages before transport delivery,
 with execution duration and `success`, `tool_error`, or `protocol_error` outcomes.
@@ -61,8 +89,9 @@ result, duration and returned upstream request ID. Existing `trading.write` and
 `bug-report.write` audit events retain their business fields and use the audit
 logger with the same request context. Injected audit sinks remain supported.
 
-Request arguments, tool output bodies, URL queries, raw errors and credentials
-are excluded from request logs. Sensitive object keys are masked by the logger.
+Request arguments, tool output bodies, raw URL queries, raw errors and credentials
+are excluded from request logs. Only validated connection-source and bundle-version
+query fields are included as structured context. Sensitive object keys are masked by the logger.
 Existing write audit fields include order details and idempotency keys, so deploy
 log access controls appropriate for that audit data. MCP protocol logging to
 clients and OpenTelemetry are future work. This change is local to the MCP

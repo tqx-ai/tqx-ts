@@ -129,6 +129,8 @@ export function createApp(options: AppOptions = {}) {
         'Mcp-Method',
         'Mcp-Name',
         'Last-Event-ID',
+        'X-TQX-Distribution',
+        'X-TQX-Skill-Bundle-Version',
       ],
       exposeHeaders: ['WWW-Authenticate', 'Mcp-Session-Id', 'MCP-Protocol-Version', 'X-Request-ID'],
       maxAge: 600,
