@@ -45,7 +45,124 @@ function call(
   })
 }
 
+function discovery(
+  app: ReturnType<typeof createApp>,
+  method: string,
+  { modern = false, authorization }: { modern?: boolean; authorization?: string } = {},
+) {
+  return app.request('http://127.0.0.1/mcp', {
+    method: 'POST',
+    headers: {
+      Host: '127.0.0.1',
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream',
+      ...(authorization !== undefined ? { Authorization: authorization } : {}),
+      ...(modern ? { 'MCP-Protocol-Version': '2026-07-28', 'Mcp-Method': method } : {}),
+    },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      ...(method === 'notifications/initialized' ? {} : { id: 1 }),
+      method,
+      params:
+        method === 'initialize'
+          ? {
+              protocolVersion: '2025-11-25',
+              capabilities: {},
+              clientInfo: { name: 'anonymous-test', version: '1.0.0' },
+            }
+          : modern
+            ? {
+                _meta: {
+                  'io.modelcontextprotocol/protocolVersion': '2026-07-28',
+                  'io.modelcontextprotocol/clientCapabilities': {},
+                },
+              }
+            : {},
+    }),
+  })
+}
+
 describe('authenticated MCP requests', () => {
+  it('allows an anonymous legacy handshake and tool listing, then challenges execution', async () => {
+    const verifier = { verifyAccessToken: vi.fn() }
+    const app = createApp({ config: testConfig, verifier })
+    async function expectDiscovery(method: string, status = 200) {
+      const response = await discovery(app, method)
+      expect(response.status).toBe(status)
+      expect(response.headers.has('WWW-Authenticate')).toBe(false)
+      expect(response.headers.get('Cache-Control')).toBe('no-store')
+      await response.text()
+    }
+    await expectDiscovery('initialize')
+    await expectDiscovery('notifications/initialized', 202)
+    await expectDiscovery('tools/list')
+    await expectDiscovery('ping')
+    expect(verifier.verifyAccessToken).not.toHaveBeenCalled()
+    expect((await call(app)).status).toBe(401)
+  })
+
+  it('allows anonymous modern discovery with the same tool catalog as an authenticated client', async () => {
+    const app = createApp({ config: testConfig, fetch: oauth.fetch })
+    const discover = await discovery(app, 'server/discover', { modern: true })
+    expect(discover.status).toBe(200)
+    expect((await discover.json()).result.capabilities).toHaveProperty('tools')
+    const anonymous = await discovery(app, 'tools/list', { modern: true })
+    const authenticated = await discovery(app, 'tools/list', {
+      modern: true,
+      authorization: `Bearer ${token}`,
+    })
+    expect(anonymous.status).toBe(200)
+    expect(authenticated.status).toBe(200)
+    expect((await anonymous.json()).result.tools).toEqual((await authenticated.json()).result.tools)
+    expect((await call(app)).status).toBe(401)
+    expect((await call(app, `Bearer ${token}`)).status).toBe(200)
+  })
+
+  it.each(['Basic abc', 'Bearer invalid', ''])(
+    'does not ignore credentials supplied during discovery: %j',
+    async (authorization) => {
+      const factory = vi.fn<McpServerFactory>(createServer)
+      const app = createApp({ config: testConfig, fetch: oauth.fetch, serverFactory: factory })
+      const response = await discovery(app, 'tools/list', { modern: true, authorization })
+      expect(response.status).toBe(401)
+      expect(factory).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['tools/call', 'resources/list', 'resources/read', 'prompts/get', 'skills/get'])(
+    'does not let a forged discovery header expose %s',
+    async (method) => {
+      const factory = vi.fn<McpServerFactory>(createServer)
+      const app = createApp({ config: testConfig, fetch: oauth.fetch, serverFactory: factory })
+      const response = await app.request('http://127.0.0.1/mcp', {
+        method: 'POST',
+        headers: {
+          Host: '127.0.0.1',
+          'Content-Type': 'application/json',
+          'Mcp-Method': 'tools/list',
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params: {} }),
+      })
+      expect(response.status).toBe(401)
+      expect(factory).not.toHaveBeenCalled()
+    },
+  )
+
+  it('does not exempt batches containing discovery and execution from authentication', async () => {
+    const factory = vi.fn<McpServerFactory>(createServer)
+    const app = createApp({ config: testConfig, fetch: oauth.fetch, serverFactory: factory })
+    const response = await app.request('http://127.0.0.1/mcp', {
+      method: 'POST',
+      headers: { Host: '127.0.0.1', 'Content-Type': 'application/json' },
+      body: JSON.stringify([
+        { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'tqx_ping' } },
+      ]),
+    })
+    expect(response.status).toBe(401)
+    expect(factory).not.toHaveBeenCalled()
+  })
+
   it.each([
     undefined,
     'Basic abc',

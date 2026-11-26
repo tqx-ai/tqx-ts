@@ -1,8 +1,13 @@
 import { requireScopes } from '@modelcontextprotocol/server'
-import type { CallToolResult, McpServer } from '@modelcontextprotocol/server'
+import type { AuthInfo, CallToolResult, McpServer } from '@modelcontextprotocol/server'
 
 import { toolSchema } from '../../../utils/tool-schema'
 import { toolIcons } from '../../../utils/icons'
+import {
+  isToolAuthError,
+  oauthSecuritySchemes,
+  toolAuthChallenge,
+} from '../../../auth/tool-challenge'
 import { researchError } from '../../../research/errors'
 import { loadReport, type ReportContext } from '../../../research/backtest-report/load'
 import { REPORT_META, viewInput, summarySchema } from '../../../research/backtest-report/contract'
@@ -17,10 +22,11 @@ function result(data: Report): CallToolResult {
     _meta: { [REPORT_META]: data },
   }
 }
-function failure(error: unknown): CallToolResult {
+function failure(error: unknown, auth?: AuthInfo): CallToolResult {
   const output = { error: researchError(error) }
   return {
     isError: true,
+    ...(isToolAuthError(error) ? { _meta: toolAuthChallenge(auth, ['research:read']) } : {}),
     structuredContent: output,
     content: [{ type: 'text', text: JSON.stringify(output) }],
   }
@@ -46,13 +52,16 @@ export function registerBacktestApp(server: McpServer, context: ReportContext) {
       outputSchema: toolSchema(summarySchema),
       annotations,
       scopeChallenge: requireScopes('research:read'),
-      _meta: { ui: { resourceUri: REPORT_URI, visibility: ['model', 'app'] } },
+      _meta: {
+        ui: { resourceUri: REPORT_URI, visibility: ['model', 'app'] },
+        ...oauthSecuritySchemes(['research:read']),
+      },
     },
     async (input) => {
       try {
         return result(await loadReport(context, input))
       } catch (error) {
-        return failure(error)
+        return failure(error, context.auth)
       }
     },
   )

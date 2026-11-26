@@ -1,8 +1,34 @@
 # TQX MCP Server
 
 Stateless Streamable HTTP resource server using MCP SDK v2, Hono, and Valibot.
-Every MCP request requires a TQX MCP Bearer token. Research and Trading tools use independently implemented gateway clients; this package does not import the TQX CLI or SDK.
+Anonymous clients can initialize, send `notifications/initialized`, discover the
+server, list tools, and send protocol `ping`. Tool execution and all other MCP
+methods require a TQX MCP Bearer token. Research and Trading tools use independently implemented gateway clients; this package does not import the TQX CLI or SDK.
 Each request gets a fresh server instance and its own verified identity.
+
+Authentication is deferred until a protected operation: an anonymous `tools/call`
+receives HTTP `401` with `WWW-Authenticate` pointing to the canonical protected
+resource metadata. Supplied credentials are always verified, including on discovery
+requests. The anonymous allowlist uses the SDK's bounded, parsed JSON-RPC body,
+not `Mcp-Method`; batches and user data methods such as `resources/list` remain
+protected. Host, Origin, CORS, and body-size checks apply to anonymous discovery.
+Every tool also declares OAuth through `_meta.securitySchemes` for Apps SDK hosts.
+Trading and the report opener declare their required scopes; Research actions and
+order/signal lookup retain per-operation SDK scope checks instead of requiring all
+possible scopes up front. Lookup's empty static OAuth scope list does not permit
+anonymous calls or bypass business permissions: order lookup requires `trade:read`,
+signal lookup requires `order:write`, and the token provider checks the requested
+scope again before exchanging credentials. Execution-time lookup OAuth challenges
+include that invocation's exact scope, even though the static discovery list is
+empty. Bug reports, catalog exploration, and demo ping require
+a valid token without an additional business scope. Execution-time authorization
+failures return error results with `_meta["mcp/www_authenticate"]`, including the
+canonical resource metadata URL and OAuth error/description. Snapshot section
+errors retain their existing data shape and add the same challenge when needed.
+Missing or invalid MCP credentials still receive HTTP `401`; verified tokens with
+insufficient scopes retain the SDK's HTTP `403` step-up challenge. Actual mobile
+login and inline OAuth UI behavior need real-client verification after deployment.
+See the [OpenAI authentication guide](https://developers.openai.com/apps-sdk/build/auth/).
 
 ## OAuth configuration
 
@@ -93,7 +119,7 @@ the response is available; an SSE stream may continue after that point.
 
 `mcp.request_received` records bounded JSON-RPC IDs, method, target name,
 protocol version and client-reported name/version from the SDK-parsed body after
-authentication. Modern requests can provide client identity in `_meta`; legacy
+authentication or anonymous discovery admission. Modern requests can provide client identity in `_meta`; legacy
 clients provide it on `initialize`, and it is not persisted across this stateless
 server's requests. Context fields (including verified OAuth `clientId`) appear
 in the JSON record's `_logMeta`; client-reported labels are diagnostic data.

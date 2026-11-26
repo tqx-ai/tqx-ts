@@ -37,6 +37,25 @@ import {
 const authLog = getLogger('auth')
 const auditLog = getLogger('audit')
 
+const anonymousMethods = new Set([
+  'initialize',
+  'notifications/initialized',
+  'server/discover',
+  'tools/list',
+  'ping',
+])
+
+function allowsAnonymousDiscovery(method: string, body: unknown): boolean {
+  if (method !== 'POST' || typeof body !== 'object' || body === null || Array.isArray(body))
+    return false
+  const message = body as Record<string, unknown>
+  return (
+    message.jsonrpc === '2.0' &&
+    typeof message.method === 'string' &&
+    anonymousMethods.has(message.method)
+  )
+}
+
 export interface AppOptions extends VerifierOptions {
   config?: McpConfig
   verifier?: OAuthTokenVerifier
@@ -165,6 +184,13 @@ export function createApp(options: AppOptions = {}) {
   mcpApp.all('/mcp', async (c: Context) => {
     c.header('Cache-Control', 'no-store')
     const authorization = c.req.header('Authorization')
+    const parsedBody = c.get('parsedBody')
+    // Discovery is public; credentials supplied by a client must still be verified.
+    // Inspect the bounded SDK-parsed body, never the client-controlled Mcp-Method hint.
+    if (authorization === undefined && allowsAnonymousDiscovery(c.req.method, parsedBody)) {
+      recordMcpRequest(parsedBody, c.req.header('MCP-Protocol-Version'))
+      return handler.fetch(c.req.raw, { parsedBody })
+    }
     if (authorization && !/^Bearer [^\s,]+$/i.test(authorization)) {
       authLog.warn({
         event: 'mcp.authorization_header_rejected',
@@ -192,7 +218,6 @@ export function createApp(options: AppOptions = {}) {
     }
     const context = logContext.getStore()
     if (context) context.clientId = authInfo.clientId
-    const parsedBody = c.get('parsedBody')
     if (parsedBody !== undefined) {
       recordMcpRequest(parsedBody, c.req.header('MCP-Protocol-Version'))
     }

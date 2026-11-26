@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../src/app'
+import { TradingError } from '../src/trading/errors'
 import { actions } from '../src/research/tools/actions'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
 import { expectPngIcons } from './helpers/icons'
@@ -45,7 +46,7 @@ function setup() {
       method: 'POST',
       headers: {
         Host: '127.0.0.1',
-        Authorization: `Bearer ${bearer}`,
+        ...(bearer ? { Authorization: `Bearer ${bearer}` } : {}),
         Origin: 'http://localhost:6274',
         'Content-Type': 'application/json',
         Accept: 'application/json, text/event-stream',
@@ -93,13 +94,15 @@ function setup() {
 describe('Research MCP tools over authenticated HTTP', () => {
   it('exposes Research tools and the report opener with compact object schemas and no aggregated output schema', async () => {
     const s = setup()
-    const body = await (await s.rpc('tools/list')).json()
+    const body = await (await s.rpc('tools/list', {}, '')).json()
     expect(body.result.tools.map((t: { name: string }) => t.name)).toEqual([
       'tqx_research_explore',
       'tqx_research_call',
       'tqx_open_backtest_view',
     ])
     const [explore, call] = body.result.tools
+    expect(explore['_meta'].securitySchemes).toEqual([{ type: 'oauth2', scopes: [] }])
+    expect(call['_meta'].securitySchemes).toEqual([{ type: 'oauth2', scopes: [] }])
     expectPngIcons(explore.icons)
     expectPngIcons(call.icons)
     expect(explore.icons[0].src).not.toBe(call.icons[0].src)
@@ -114,6 +117,39 @@ describe('Research MCP tools over authenticated HTTP', () => {
     })
     expect(JSON.stringify(body.result.tools.slice(0, 2)).length).toBeLessThan(5000)
     expect(s.exchange).not.toHaveBeenCalled()
+  })
+
+  it('returns an inline OAuth challenge with the action scope when token exchange is denied', async () => {
+    const s = setup()
+    s.exchange.mockRejectedValueOnce(new TradingError('authorization', 'Authorization revoked'))
+    const { response, body } = await s.call('tqx_research_call', {
+      action: 'factor.get',
+      input: { factorId: ID },
+    })
+    expect(response.status).toBe(200)
+    expect(body.result).toMatchObject({
+      isError: true,
+      structuredContent: { error: { code: 'AUTHORIZATION_REQUIRED' } },
+    })
+    const challenge = body.result['_meta']['mcp/www_authenticate'][0]
+    expect(challenge).toContain('error="invalid_token"')
+    expect(challenge).toContain('error_description=')
+    expect(challenge).toContain('scope="research:read"')
+    expect(challenge).toContain('resource_metadata=')
+    expect(s.fetch).not.toHaveBeenCalled()
+  })
+
+  it('returns an OAuth challenge when an upstream 401 persists after the existing read retry', async () => {
+    const s = setup()
+    s.fetch.mockImplementation(async () => new Response(null, { status: 401 }))
+    const { body } = await s.call('tqx_research_call', {
+      action: 'factor.get',
+      input: { factorId: ID },
+    })
+    expect(body.result.isError).toBe(true)
+    expect(body.result['_meta']['mcp/www_authenticate'][0]).toContain('scope="research:read"')
+    expect(s.fetch).toHaveBeenCalledTimes(2)
+    expect(s.exchange).toHaveBeenCalledTimes(2)
   })
 
   it('explores the complete catalog and precise action detail without any business scope or exchange', async () => {
@@ -294,6 +330,7 @@ describe('Research MCP tools over authenticated HTTP', () => {
       isError: true,
       structuredContent: { error: { code: 'INVALID_INPUT' } },
     })
+    expect(invalid.body.result['_meta']?.['mcp/www_authenticate']).toBeUndefined()
     const outer = await s.call('tqx_research_call', { action: 'factor.get', input: null })
     expect(outer.body.result.isError).toBe(true)
     expect(outer.body.result.content[0].text).toContain('Input validation error')

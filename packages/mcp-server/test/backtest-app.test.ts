@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../src/app'
+import { TradingError } from '../src/trading/errors'
 import { REPORT_META } from '../src/research/backtest-report/contract'
 import { REPORT_MIME, REPORT_URI } from '../src/apps/qube/backtest/resource'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
@@ -126,6 +127,7 @@ describe('Qube MCP Apps integration', () => {
     expect(apps).toEqual(text)
     const view = apps.find((tool: { name: string }) => tool.name === 'tqx_open_backtest_view')
     expect(view['_meta'].ui).toEqual({ resourceUri: REPORT_URI, visibility: ['model', 'app'] })
+    expect(view['_meta'].securitySchemes).toEqual([{ type: 'oauth2', scopes: ['research:read'] }])
     expect(view.inputSchema.required).toEqual(['type', 'runId'])
     expect(view.inputSchema.properties.type).toMatchObject({ const: 'qube' })
     expect(view.description).toContain('automatically')
@@ -142,6 +144,19 @@ describe('Qube MCP Apps integration', () => {
       apps.find((tool: { name: string }) => tool.name === 'tqx_research_call')['_meta'].ui,
     ).not.toHaveProperty('resourceUri')
     expect(s.exchange).not.toHaveBeenCalled()
+  })
+  it('returns an inline OAuth challenge when report loading loses authorization', async () => {
+    const s = setup()
+    s.exchange.mockRejectedValue(new TradingError('authorization', 'Authorization revoked'))
+    const { response, body } = await s.call('tqx_open_backtest_view', { type: 'qube', runId: RUN })
+    expect(response.status).toBe(200)
+    expect(body.result.isError).toBe(true)
+    const challenge = body.result['_meta']['mcp/www_authenticate'][0]
+    expect(challenge).toContain('error="invalid_token"')
+    expect(challenge).toContain('error_description=')
+    expect(challenge).toContain('scope="research:read"')
+    expect(challenge).toContain('resource_metadata=')
+    expect(s.fetch).not.toHaveBeenCalled()
   })
   it.each(['2025-11-25', '2026-07-28'])(
     'returns a bounded text summary with private UI data using %s',
