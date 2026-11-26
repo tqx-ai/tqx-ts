@@ -27,4 +27,6 @@ Ordinary analyses/backtests first save requested settings with resource update. 
 
 Keep IDs, revisions and request receipts. Poll the same run to a terminal state; timeout, partial results or missing benchmarks are not success or a reason to resubmit. Inspect actual parameters, dates, source snapshots, coverage and costs before interpreting results. Static validity does not establish runtime success or absence of look-ahead bias.
 
+When a requested strategy backtest reaches `status=succeeded`, automatically call `tqx_open_backtest_view({type:"qube",runId:<submission id>})` if available, unless the user asked for text only. This also applies when the submission is already terminal. Keep the ID internally; the user need not know it or request the report separately. An existing run can be reopened with the same tool. Text hosts receive a summary; unavailable tools fall back to existing read actions. Report failures retry the same run, never resubmit. Do not present failed/cancelled runs as successful.
+
 Report what changed, the highest evidence reached and the actual run status, with useful IDs and limitations. Keep credentials and private diagnostics out of replies. The public tools do not open workbenches, run harness chats or query standalone market data. If a required reference or action is missing, explain the unavailable contract before dependent work.

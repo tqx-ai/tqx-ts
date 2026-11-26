@@ -1,8 +1,9 @@
 import type { McpServer, Server } from '@modelcontextprotocol/server'
 import { isJSONRPCResponse } from '@modelcontextprotocol/server'
-import { Hono } from 'hono'
+import { Hono, type Context, type Next } from 'hono'
 
-import { getLogger, logContext, logLabel } from './logger'
+import { readClientDistribution } from './client-distribution'
+import { getLogger, logContext, logLabel, type LogContext } from './logger'
 
 const httpLog = getLogger('http')
 const protocolLog = getLogger('protocol')
@@ -14,32 +15,43 @@ export function logPath(path: string): string {
   return '[unmatched]'
 }
 
+function createRequestLogContext(c: Context): LogContext {
+  return {
+    requestId: crypto.randomUUID(),
+    ...(c.req.path === '/mcp' ? readClientDistribution(c.req.raw) : {}),
+  }
+}
+
+async function logHttpRequest(c: Context, next: Next) {
+  const startedAt = performance.now()
+  const fields = {
+    method: c.req.method,
+    path: logPath(c.req.path),
+  }
+  c.header('X-Request-ID', logContext.getStore()!.requestId)
+  httpLog.info({ event: 'mcp.http_received', ...fields })
+  try {
+    await next()
+  } finally {
+    const status = c.error ? 500 : c.res.status
+    const level = status >= 500 ? 'error' : 'info'
+    httpLog[level]({
+      event: 'mcp.http_completed',
+      ...fields,
+      status,
+      durationMs: Math.round(performance.now() - startedAt),
+    })
+  }
+}
+
+function requestLogging(c: Context, next: Next) {
+  if (c.req.path === '/healthz') return next()
+  return logContext.run(createRequestLogContext(c), logHttpRequest, c, next)
+}
+
 export function createLoggedApp() {
   const app = new Hono()
-  app.use('*', async (c, next) => {
-    if (c.req.path === '/healthz') return next()
-    return logContext.run({ requestId: crypto.randomUUID() }, async () => {
-      const startedAt = performance.now()
-      const fields = {
-        method: c.req.method,
-        path: logPath(c.req.path),
-      }
-      c.header('X-Request-ID', logContext.getStore()!.requestId)
-      httpLog.info({ event: 'mcp.http_received', ...fields })
-      try {
-        await next()
-      } finally {
-        const status = c.error ? 500 : c.res.status
-        const level = status >= 500 ? 'error' : 'info'
-        httpLog[level]({
-          event: 'mcp.http_completed',
-          ...fields,
-          status,
-          durationMs: Math.round(performance.now() - startedAt),
-        })
-      }
-    })
-  })
+  app.use('*', requestLogging)
   return app
 }
 

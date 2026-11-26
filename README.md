@@ -194,11 +194,14 @@ your TQX account. On Team and Enterprise plans, an organization Owner adds the
 connector before members connect their own accounts. See
 [adding a connector by URL](https://claude.com/docs/connectors/custom/add-unlisted.md#add-a-connector-by-url).
 
-To build the standalone Claude native distribution for ZIP upload or local loading:
+To build the standalone Claude or Antigravity native distributions for ZIP upload
+or local loading:
 
 ```bash
 bun run plugin:claude:build
 bun run plugin:claude:check
+bun run plugin:antigravity:build
+bun run plugin:antigravity:check
 ```
 
 Upload `dist/claude-plugin.zip` through Claude's plugin upload interface, or load
@@ -208,9 +211,12 @@ the generated directory in Claude Code:
 claude --plugin-dir ./dist/claude-plugin
 ```
 
-`bun run build` generates the same artifacts. Releases include the versioned
+For Antigravity, load or validate the generated `dist/antigravity-plugin/`
+directory (or distribute `dist/antigravity-plugin.zip`).
+
+`bun run build` generates both distributions. Releases include the versioned
 `tqx-agent-plugin-claude-v<version>.zip`. Generated files remain in `dist/`; edit
-the portable source to update either distribution.
+the portable source to update any distribution.
 
 ## License
 

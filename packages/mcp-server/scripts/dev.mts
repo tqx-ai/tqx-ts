@@ -78,6 +78,13 @@ try {
     })
   })
   controller.signal.throwIfAborted()
+  await new Promise<void>((resolve, reject) => {
+    const build = spawn('bun', ['run', 'build:ui'], { cwd, stdio: 'inherit' })
+    build.once('error', reject)
+    build.once('exit', (code) =>
+      code === 0 ? resolve() : reject(new Error('Backtest App build failed')),
+    )
+  })
   start('bun', ['--hot', 'src/index.ts'])
   await waitForServer(`${baseUrl}/healthz`, controller.signal)
   controller.signal.throwIfAborted()

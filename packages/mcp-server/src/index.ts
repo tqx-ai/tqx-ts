@@ -1,7 +1,11 @@
 import { createApp } from './app'
+import { getDefaultPluginSkills } from './skills'
 import { getLogger } from './utils/logger'
+import { readReportHtml } from './apps/qube/backtest/resource'
 
-const app = createApp()
+const skills = await getDefaultPluginSkills()
+const app = createApp({ skills })
+if (process.env.TQX_MCP_RESEARCH_BASE_URL !== undefined) await readReportHtml()
 const resourceUrl = process.env.TQX_MCP_RESOURCE_URL ?? ''
 const issuer = process.env.TQX_MCP_OAUTH_ISSUER ?? ''
 const allowedOrigins = (process.env.TQX_MCP_ALLOWED_ORIGINS ?? '')
@@ -14,6 +18,7 @@ getLogger('server').info({
   resourceUrl,
   issuer,
   allowedOriginCount: allowedOrigins.length,
+  skillCount: skills.entries.length,
 })
 
 export default {

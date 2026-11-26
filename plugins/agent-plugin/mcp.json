@@ -3,7 +3,11 @@
   "mcpServers": {
     "tqx": {
       "type": "streamable-http",
-      "url": "https://www.tqx.ai/mcp"
+      "url": "https://www.tqx.ai/mcp?tqx_distribution=agent-plugin",
+      "headers": {
+        "X-TQX-Distribution": "agent-plugin",
+        "X-TQX-Skill-Bundle-Version": "0.8.0"
+      }
     }
   }
 }

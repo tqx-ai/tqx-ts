@@ -23,6 +23,60 @@ HTTP URLs/origins, including LAN addresses and hostnames, are allowed outside
 `NODE_ENV=production`. Host and Origin
 checks remain enabled; native clients without an Origin header are supported.
 
+## Connection source and local skills
+
+Every `/mcp` request resolves its connection source independently. Read
+`tqx_distribution` from the URL first, then `X-TQX-Distribution` when the query
+value is missing or blank. `agent-plugin` sets `hasLocalSkills: true`; `mcp-url`,
+unrecognized values, or no marker set `hasLocalSkills: false`. A nonempty query
+value takes precedence even when unrecognized. An unmarked connection is treated
+as URL-only with no local skills by product policy, rather than local filesystem
+detection. The markers never grant authorization or change OAuth audiences.
+
+Bundle versions use the same per-field priority: `tqx_skill_bundle_version`, then
+`X-TQX-Skill-Bundle-Version`. Missing, malformed, or oversized versions are omitted;
+a version alone does not imply local skills. The supported distribution values,
+the selected channel (`query`, `header`, or `default`), skill availability, and a
+valid plugin bundle version are exposed through `readClientDistribution(request)`
+in `src/utils/client-distribution.ts` and the request-local `logContext`.
+
+The plugin ships the stable URL
+`https://www.tqx.ai/mcp?tqx_distribution=agent-plugin` plus both headers. The bundle
+version lives in its header so releases do not change the connection URL.
+`bun scripts/sync-plugin-version.ts` updates that version and the Claude marketplace
+configuration when bumping the workspace version. Generated Claude and Antigravity
+distributions preserve both forms. Clients must retain a marker on every request;
+this stateless server does not remember an earlier initialization marker. Clients
+that reject fixed headers need a URL-only configuration with the same query marker.
+
+### Remote Skills over MCP
+
+When `hasLocalSkills` is `false` (an unmarked URL connection or explicit
+`mcp-url` marker), `createServer` attaches the official MCP Skills extension
+(`io.modelcontextprotocol/skills`, `directoryRead: true`) backed directly by
+`plugins/agent-plugin/skills` via `src/skills.ts`. Compatible hosts discover
+`tqx-data`, `tqx-research`, `tqx-setup`, and `tqx-trading` through `skills/list`
+and `skills/get`, browse subdirectories via `resources/directory/read`, and fetch
+files on demand via `resources/read` (`skill://<name>/...`) with SHA-256 and
+frontmatter verification. Hosts without Skills extension support ignore the
+capability declaration without loading skill bodies.
+
+When `hasLocalSkills` is `true` (`agent-plugin` via query or header), the server
+omits `io.modelcontextprotocol/skills` and does not register the `skill://{+path}`
+template, avoiding duplicate local-plus-remote skill listings in plugin hosts.
+`server/discover` uses `cacheScope: "private"` because advertised capabilities
+depend on the connection's distribution marker, while skill catalog entries and
+file reads use 5-minute public cache hints. Skill methods require an
+authenticated MCP Bearer token and no additional downstream business scope.
+
+`src/skills.ts` resolves `../../../plugins/agent-plugin/skills` relative to
+`src/`, filtering local bytecode/cache artifacts (`__pycache__`, `*.py[co]`,
+dotfiles, `node_modules`, OS metadata) to match packaged plugin distributions.
+Both local startup and `docker/Dockerfile` (which copies
+`plugins/agent-plugin/skills` to `/app/plugins/agent-plugin/skills` alongside
+`/app/packages/mcp-server/src`) share that single skill source and validate the
+catalog strictly at startup.
+
 ## Logging
 
 `src/utils/logger.ts` manages tslog module loggers and request-local context.
@@ -43,6 +97,8 @@ authentication. Modern requests can provide client identity in `_meta`; legacy
 clients provide it on `initialize`, and it is not persisted across this stateless
 server's requests. Context fields (including verified OAuth `clientId`) appear
 in the JSON record's `_logMeta`; client-reported labels are diagnostic data.
+For `/mcp`, that context also includes `distribution`, `distributionSource`,
+`hasLocalSkills`, and, when available, `skillBundleVersion`.
 
 `mcp.request_completed` observes terminal SDK messages before transport delivery,
 with execution duration and `success`, `tool_error`, or `protocol_error` outcomes.
@@ -61,8 +117,9 @@ result, duration and returned upstream request ID. Existing `trading.write` and
 `bug-report.write` audit events retain their business fields and use the audit
 logger with the same request context. Injected audit sinks remain supported.
 
-Request arguments, tool output bodies, URL queries, raw errors and credentials
-are excluded from request logs. Sensitive object keys are masked by the logger.
+Request arguments, tool output bodies, raw URL queries, raw errors and credentials
+are excluded from request logs. Only validated connection-source and bundle-version
+query fields are included as structured context. Sensitive object keys are masked by the logger.
 Existing write audit fields include order details and idempotency keys, so deploy
 log access controls appropriate for that audit data. MCP protocol logging to
 clients and OpenTelemetry are future work. This change is local to the MCP
@@ -272,6 +329,10 @@ including all 57 actions for factors, analyses, strategies, backtests, versions
 and snapshots, plus factor and strategy parameter tuning. It excludes tqx_data, market/financial data, standalone symbol
 klines, SSE subscriptions and trading accounts.
 
+Qube backtest reports additionally expose `tqx_open_backtest_view`, a separate
+tool rather than a new entry in the 57-action registry. App interactions reuse
+the existing `tqx_research_call` tool.
+
 Enable it with both runtime settings below plus the shared
 `TQX_MCP_EXCHANGE_CLIENT_ID` / `TQX_MCP_EXCHANGE_CLIENT_SECRET`. Omit both Research
 variables to disable it. A partial configuration stops startup. Research-only,
@@ -313,6 +374,83 @@ action's output and `explore({ action })` returns its precise schema. Handler
 errors return `isError: true` with `{ error: { code, message, requestId?, details? } }`.
 SDK outer argument validation and protocol errors keep SDK semantics; missing
 action permissions use the existing HTTP scope challenge.
+
+### Qube Backtest App
+
+After a user-requested strategy backtest reaches `status=succeeded`, the agent
+should automatically call `tqx_open_backtest_view({type:"qube",runId})`, using the
+submission's root `id` internally. Users need not supply or understand run IDs.
+The tool also reopens existing runs. It reads data only and never starts a backtest.
+Report failures retry the same run; failed/cancelled runs remain labelled accordingly.
+
+The tool requires `research:read`. Its standard `_meta.ui.resourceUri` references
+`ui://tqx/qube/backtest/report-v1.html` (`text/html;profile=mcp-app`). Model-visible
+content is a bounded summary; chart data stays in `_meta["tqx.trade/backtest-view"]`.
+The App queries through `tqx_research_call`, visible to both model and App. A
+central UI adapter calls only `strategy.backtest.get`, `backtest.chart.get` and
+`backtest.result.get`; no separate query tool is registered. Existing public
+inputs, outputs, per-action scopes and authorization remain unchanged. Later
+queries use public `structuredContent`, not the opener's private report metadata.
+Explore and Trading tools remain model-only. Visibility is a host presentation
+rule, not access control. Text-only hosts receive the opener's bounded summary.
+
+The English dark glass report has sample-snapping equity/return inspection,
+benchmark and trade-day controls, range queries, paginated tables, frozen settings,
+metric explanations and host-controlled fullscreen. Reports follow the host's
+standard `containerDimensions`: fixed axes fill the viewport; flexible axes grow
+with content up to the supplied maximum. Constrained reports use one document
+scrollbar. Narrow result tables become
+labeled records without horizontal scrolling. Missing metrics remain unavailable;
+engine risk metrics are never recomputed from sampled curves. Fonts and code are
+bundled into one HTML file with no external network requirements or credentials.
+Vue 3 owns component state; the existing SVG renderer and official MCP Apps adapter remain
+independent. Vite 8 and vite-plugin-singlefile build the resource.
+
+```bash
+# From the workspace root; synthetic data, no account or UAT needed.
+bun run --cwd packages/mcp-server dev:backtest-app
+# Build the static resource used by the server and simulator.
+bun run --cwd packages/mcp-server build:ui
+```
+
+The workbench at `http://127.0.0.1:53043/` offers `Production sandbox` (the built
+single HTML) and `Vue HMR` (the same Vue source served by a second loopback port).
+Both use standard MCP Apps messages. It offers fixed scenarios, widths,
+delivery-order tests, query latency/failure/timeout simulation, host display-mode changes,
+natural/maximum/fixed inline heights, same-view scenario changes, teardown and a
+payload-free protocol trace. In HMR mode, CSS/template edits update without restarting the report; script edits
+may remount components. Production mode rebuilds and reloads the HTML.
+Only the development iframe permits local module/WebSocket access; production
+CSP remains network-free. Use `?build=hmr` to select development mode.
+`TQX_APP_DEV_PORT` overrides its loopback port. A manually sanitized projected
+overview JSON (maximum 512 KiB) can be replayed in memory; unrecorded table pages
+and new windows from sampled overview recordings fail explicitly. Automatic capture
+and complete query replay are future work.
+
+Production `build`, `start`, development server and Docker build prepare the HTML;
+direct `src/index.ts` startup fails clearly if Research is enabled but it is missing.
+Generated files stay in this package's ignored `dist/apps/`.
+`bun run typecheck` also runs strict `vue-tsc` checks for SFC templates. This checker
+uses a package-scoped `@typescript/typescript6` compatibility alias because Vue
+language-tools still requires the JS compiler API; workspace/server checks stay on
+native TS 7. UI build/test packages are development dependencies only.
+
+The host adapter uses the official `@modelcontextprotocol/ext-apps` App and
+PostMessageTransport APIs for initialization, routing, tool calls and teardown.
+Sizing uses `App.sendSizeChanged` only for flexible axes, within host limits and
+without duplicate size notifications. `App.getHostVersion()` exposes standard
+`hostInfo` (name/version) to report state for diagnostics; capabilities and context
+control behavior rather than the host's name or `userAgent`. Text analysis requires
+`hostCapabilities.message.text`, and tool queries require `serverTools`.
+First-party business schemas and TQX payload validation stay in Valibot. Zod is
+installed only to satisfy the SDK's runtime peer requirement; third-party internal
+use of Zod is allowed and is not grounds to reject a maintained library.
+Local protocol and data tests
+do not establish live ChatGPT/Claude compatibility, OAuth acceptance or publication
+approval. Those checks still require a real authorized run and target host. Public
+ChatGPT UI submission also requires a confirmed component origin (`_meta.ui.domain`);
+no domain is invented or enabled by this implementation. See the
+[design and acceptance boundaries](docs/backtest-mcp-app-design.md).
 
 ### Research resources and prompts
 

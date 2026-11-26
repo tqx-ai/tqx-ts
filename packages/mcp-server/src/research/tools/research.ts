@@ -38,6 +38,7 @@ export function registerResearchTools(
       description:
         'Discover Qube Research actions for factors, strategies, analyses, backtests, versions, snapshots and parameter tuning. Omit action for the catalog; pass an action for exact input/output schemas, usage examples, docs and composition guidance. Does not access research data. Execute through tqx_research_call.',
       inputSchema: toolSchema(exploreInput),
+      _meta: { ui: { visibility: ['model'] } },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -68,8 +69,9 @@ export function registerResearchTools(
     {
       icons: toolIcons.tqx_research_call,
       description:
-        'Execute a whitelisted Qube Research action with {action,input,confirm?}. Use tqx_research_explore for exact action inputs and direct business outputs. Async submissions return an ID; poll the matching get action, then read results. Permissions are checked per action. Deletion requires confirm=true. Excludes market data and trading.',
+        'Execute a whitelisted Qube Research action with {action,input,confirm?}. Use tqx_research_explore for exact action inputs and direct business outputs. Async submissions return an ID; poll the matching get action. When a requested strategy backtest succeeds, call tqx_open_backtest_view with {type:"qube",runId:<submission id>} automatically unless the user requested text only; no user-supplied runId is needed. Permissions are checked per action. Deletion requires confirm=true. Excludes market data and trading.',
       inputSchema: toolSchema(callInput),
+      _meta: { ui: { visibility: ['model', 'app'] } },
       scopeChallenge: (ctx) => {
         const parsed = v.safeParse(v.object({ action: v.string() }), ctx.request.params?.arguments)
         const action = parsed.success ? actions.get(parsed.output.action) : undefined

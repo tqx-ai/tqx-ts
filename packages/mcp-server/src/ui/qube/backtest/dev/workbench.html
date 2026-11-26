@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TQX App workbench</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #181818;
+        color: #eee;
+        font:
+          13px/1.5 system-ui,
+          sans-serif;
+      }
+      header,
+      aside {
+        padding: 16px 24px;
+      }
+      header {
+        border-bottom: 1px solid #ffffff18;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 12px;
+      }
+      h1 {
+        font-size: 14px;
+        margin: 0 12px 0 0;
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      select,
+      input,
+      button {
+        color: inherit;
+        background: #252525;
+        border: 1px solid #ffffff30;
+        border-radius: 6px;
+        padding: 5px 8px;
+        font: inherit;
+      }
+      input[type='number'] {
+        width: 70px;
+      }
+      input[type='file'] {
+        max-width: 240px;
+      }
+      button {
+        cursor: pointer;
+      }
+      .stage {
+        padding: 24px 0;
+      }
+      iframe {
+        display: block;
+        border: 0;
+        margin: auto;
+        background: #030303;
+        max-width: 100%;
+      }
+      aside {
+        color: #aaa;
+        border-top: 1px solid #ffffff18;
+      }
+      #trace {
+        white-space: pre-wrap;
+        max-height: 180px;
+        overflow: auto;
+        font: 11px/1.7 monospace;
+      }
+      #status {
+        margin-left: auto;
+        color: #ffff3a;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>TQX · local App workbench</h1>
+      <label
+        >Build<select id="build">
+          <option value="production">Production sandbox</option>
+          <option value="hmr">Vue HMR</option>
+        </select></label
+      >
+      <label>Scenario<select id="scenario"></select></label>
+      <label
+        >Width<select id="width">
+          <option>320</option>
+          <option>480</option>
+          <option selected>720</option>
+          <option>960</option>
+        </select></label
+      >
+      <label
+        >Delivery<select id="delivery">
+          <option value="normal">Input → result</option>
+          <option value="result-first">Result → input</option>
+          <option value="duplicate">Duplicate result</option>
+          <option value="stale">Stale run after result</option>
+        </select></label
+      >
+      <label
+        >Latency<input
+          id="latency"
+          type="number"
+          min="0"
+          max="5000"
+          step="100"
+          value="150"
+        />ms</label
+      >
+      <label><input id="reject" type="checkbox" />Reject queries</label>
+      <label><input id="stall" type="checkbox" />Drop query responses</label>
+      <label
+        >Host view<select id="display-mode">
+          <option value="inline">Inline</option>
+          <option value="fullscreen">Fullscreen</option>
+        </select></label
+      >
+      <label
+        >Inline height<select id="height-constraint">
+          <option value="natural">Natural</option>
+          <option value="max:600">Max 600px</option>
+          <option value="max:800">Max 800px</option>
+          <option value="fixed:640">Fixed 640px</option>
+        </select></label
+      >
+      <label><input id="reuse-view" type="checkbox" />Reuse view on scenario change</label>
+      <label><input id="text-host" type="checkbox" />Limited host</label>
+      <button id="restart">Restart App</button><button id="teardown">Teardown</button>
+      <span id="status" role="status">Starting</span>
+    </header>
+    <div class="stage">
+      <iframe id="app" title="Production Qube backtest App" sandbox="allow-scripts"></iframe>
+    </div>
+    <aside>
+      <p>
+        Local synthetic fixtures · production sandbox or Vue HMR · standard MCP Apps messages · no
+        account or network API calls.
+      </p>
+      <label
+        >Load a sanitized projected overview JSON<input
+          id="recording"
+          type="file"
+          accept="application/json,.json"
+      /></label>
+      <p>
+        Only load data you have already sanitized. Sampled overview replay cannot infer new chart
+        windows; result pages are unavailable without recordings. Files stay in memory and are never
+        uploaded. Reload to discard them.
+      </p>
+      <div id="trace" aria-label="Protocol trace"></div>
+    </aside>
+    <script src="/workbench.js"></script>
+  </body>
+</html>

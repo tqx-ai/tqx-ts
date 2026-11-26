@@ -10,3 +10,17 @@
 !packages/mcp-server/package.json
 !packages/mcp-server/src/
 !packages/mcp-server/src/**
+!packages/mcp-server/scripts/
+!packages/mcp-server/scripts/build-backtest-app.ts
+!packages/mcp-server/scripts/backtest-vite.ts
+!plugins/
+!plugins/agent-plugin/
+!plugins/agent-plugin/skills/
+!plugins/agent-plugin/skills/**
+plugins/agent-plugin/skills/**/.*
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/Thumbs.db
+**/desktop.ini
+**/__MACOSX

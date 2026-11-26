@@ -65,6 +65,30 @@ jobs:
       - name: Build SDK and CLI
         run: bun run build
 
+      - name: Install Antigravity CLI
+        shell: bash
+        run: |
+          curl -fsSL https://antigravity.google/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate Antigravity plugin
+        shell: bash
+        run: |
+          agy --version
+          agy plugin validate --strict ./dist/antigravity-plugin
+
+      - name: Install Claude Code CLI
+        shell: bash
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate Claude plugin
+        shell: bash
+        run: |
+          claude --version
+          claude plugin validate --strict ./dist/claude-plugin
+
       - name: Pack npm tarballs with Bun
         shell: bash
         run: |
