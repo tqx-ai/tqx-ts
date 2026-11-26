@@ -138,6 +138,24 @@ While the server is launched and executed using **Bun v1.4.4+**, the codebase mu
 - Use standard ESM import paths with no platform-specific hacks.
 - Ensure dependency resolution and packaging work cleanly when imported or packaged into Node.js 26 container environments.
 
+### 5.4 MCP Apps Host Styles and Layout Verification
+
+- Hosts can inject CSS after the App stylesheet. The Codex host was observed resetting
+  `margin-top`, `margin-bottom`, `padding-top`, and `padding-bottom` to `0` on
+  `html, body, #root`, overriding the App's body-level vertical spacing.
+- Put App vertical spacing on an owned content container such as `.preview`, including
+  host safe-area insets and responsive rules. Do not rely on vertical margin or padding
+  on `html`, `body`, or `#root`, or increase those values to compensate for a host reset.
+- Before changing layout based on a screenshot, identify the actual tool, resource,
+  and environment that produced it. Inspect computed styles and host-injected rules
+  in the real App when accessible; source CSS values alone do not prove effective spacing.
+- Keep the production sandbox workbench's host reset after the App stylesheet. Verify
+  desktop and narrow layouts with that reset applied, measuring the visible top and
+  bottom gaps. A standalone preview without host styles is insufficient evidence.
+- Distinguish local verification from deployed UAT or production verification. Do not
+  claim a deployed App is fixed until the updated resource is deployed and checked
+  in that host; state explicitly when a fix is local only.
+
 ---
 
 ## 6. Implementation Blueprint (Phased Roadmap)

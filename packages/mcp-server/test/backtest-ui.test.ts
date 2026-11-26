@@ -89,6 +89,70 @@ afterEach(() => {
 })
 
 describe('Vue backtest report lifecycle', () => {
+  it('shows independent chart and result loaders until each query finishes', async () => {
+    click('.range-form .secondary')
+    openResults()
+    await settle()
+    expect(root.querySelector('.chart-loading')?.getAttribute('aria-label')).toBe('Loading chart')
+    expect(root.querySelector('.result-loading')?.getAttribute('role')).toBe('status')
+    expect(root.querySelector('.plot svg')).not.toBeNull()
+    pending[0]!.resolve({
+      schemaVersion: 1,
+      type: 'qube',
+      runId: fixture('hk-loss').runId,
+      operation: 'chart',
+      chart: fixture('single').chart!,
+    })
+    await settle()
+    expect(root.querySelector('.chart-loading')).toBeNull()
+    expect(root.querySelector('.plot')?.getAttribute('aria-busy')).toBe('false')
+    expect(root.querySelector('.result-loading')).not.toBeNull()
+    pending[1]!.reject(new Error('Unavailable'))
+    await settle()
+    expect(root.querySelector('.result-loading')).toBeNull()
+    expect(root.querySelector('.result-status')?.textContent).toBe('Unavailable')
+  })
+  it('keeps the chart loader for the latest request and clears it on error or Reset', async () => {
+    click('.range-form .secondary')
+    change('[name="from"]', '2025-02-01')
+    click('.range-form .secondary')
+    await settle()
+    pending[0]!.reject(new Error('Old query failed'))
+    await settle()
+    expect(root.querySelector('.chart-loading')).not.toBeNull()
+    expect(root.querySelector('.alert')).toBeNull()
+    pending[1]!.reject(new Error('Chart unavailable'))
+    await settle()
+    expect(root.querySelector('.chart-loading')).toBeNull()
+    expect(root.querySelector('.alert')?.textContent).toBe('Chart unavailable')
+    expect(root.querySelector('.plot svg')).not.toBeNull()
+    click('.range-form .secondary')
+    await settle()
+    expect(root.querySelector('.chart-loading')).not.toBeNull()
+    click('[data-action="reset"]')
+    await settle()
+    expect(root.querySelector('.chart-loading')).toBeNull()
+  })
+  it('shows refresh progress, prevents duplicate refreshes and clears progress on success or error', async () => {
+    click('[data-action="refresh"]')
+    click('[data-action="refresh"]')
+    await settle()
+    expect(actions.query).toHaveBeenCalledOnce()
+    expect(root.querySelector('[aria-label="Refreshing report"]')).not.toBeNull()
+    expect(root.querySelector<HTMLButtonElement>('[data-action="refresh"]')!.disabled).toBe(true)
+    expect(root.querySelector('h1')!.textContent).toBe('Adaptive momentum')
+    pending[0]!.resolve(fixture('hk-loss'))
+    await settle()
+    expect(root.querySelector('[aria-label="Refreshing report"]')).toBeNull()
+    expect(root.querySelector<HTMLButtonElement>('[data-action="refresh"]')!.disabled).toBe(false)
+    click('[data-action="refresh"]')
+    pending[1]!.reject(new Error('Unavailable'))
+    await settle()
+    expect(root.querySelector('[aria-label="Refreshing report"]')).toBeNull()
+    expect(root.querySelector('.alert')?.textContent).toContain(
+      'Previously loaded data is retained',
+    )
+  })
   it('opens the current strategy through the host and reports a rejected link', async () => {
     const url = 'https://www.tqx.ai/qube/strategies/0123456789abcdef01234567'
     const link = root.querySelector<HTMLAnchorElement>('.strategy-link')!
@@ -217,8 +281,12 @@ describe('Vue backtest report lifecycle', () => {
     events.input({ type: 'qube', runId: next.runId })
     events.result(next)
     await settle()
+    expect(root.querySelector('[aria-label="Refreshing report"]')).toBeNull()
+    click('[data-action="refresh"]')
+    await settle()
     pending[0]!.resolve(fixture('hk-loss'))
     await settle()
+    expect(root.querySelector('[aria-label="Refreshing report"]')).not.toBeNull()
     expect([...root.querySelectorAll('.metric-value')].map((node) => node.textContent)).toEqual([
       '—',
       '—',
@@ -239,10 +307,12 @@ describe('Vue backtest report lifecycle', () => {
     change('[name="field"]', 'symbol_performance')
     await settle()
     expect(pending).toHaveLength(2)
-    pending[1]!.resolve(page('symbol_performance', 'LATEST'))
-    await settle()
     pending[0]!.resolve(page('trades', 'STALE'))
     await settle()
+    expect(root.querySelector('.result-loading')).not.toBeNull()
+    pending[1]!.resolve(page('symbol_performance', 'LATEST'))
+    await settle()
+    expect(root.querySelector('.result-loading')).toBeNull()
     expect(root.querySelector('table')!.textContent).toContain('LATEST')
     expect(root.querySelector('table')!.textContent).not.toContain('STALE')
     expect(root.querySelector('th')!.textContent).toBe('Symbol')
@@ -325,9 +395,14 @@ describe('Vue backtest report lifecycle', () => {
   })
   it('disables queries after teardown and releases the host on unmount', async () => {
     click('[data-action="refresh"]')
+    click('.range-form .secondary')
+    openResults()
+    await settle()
+    expect(root.querySelectorAll('.loading-indicator')).toHaveLength(3)
     events.teardown()
     pending[0]!.resolve(fixture('us-profit'))
     await settle()
+    expect(root.querySelectorAll('.loading-indicator')).toHaveLength(0)
     expect(root.querySelector<HTMLButtonElement>('[data-action="refresh"]')!.disabled).toBe(true)
     expect(root.querySelector('h1')!.textContent).toBe('Adaptive momentum')
     app.unmount()

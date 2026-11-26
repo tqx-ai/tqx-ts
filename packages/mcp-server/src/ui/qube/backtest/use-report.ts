@@ -19,7 +19,8 @@ export function useReport() {
   const capabilities = shallowRef<HostCapabilities>({}),
     alert = shallowRef('')
   const hostInfo = shallowRef<HostInfo>()
-  const connected = shallowRef(false)
+  const connected = shallowRef(false),
+    refreshing = shallowRef(false)
   let awaitingInput: Report | undefined
   let active = true,
     refreshRequest = 0
@@ -47,6 +48,7 @@ export function useReport() {
           report.value = undefined
           alert.value = ''
           refreshRequest++
+          refreshing.value = false
         }
         identity.value = next
         const buffered = awaitingInput
@@ -68,10 +70,21 @@ export function useReport() {
         awaitingInput = undefined
         connected.value = false
         refreshRequest++
+        refreshing.value = false
         alert.value = 'Report disconnected. Restart to reconnect.'
       },
     })
   })
+  watch(
+    canQuery,
+    (enabled) => {
+      if (!enabled) {
+        refreshRequest++
+        refreshing.value = false
+      }
+    },
+    { flush: 'sync' },
+  )
   watch(
     context,
     (next) => {
@@ -85,9 +98,10 @@ export function useReport() {
     { flush: 'sync' },
   )
   async function refresh() {
-    if (!canQuery.value || !identity.value || !host.value) return
+    if (!canQuery.value || !identity.value || !host.value || refreshing.value) return
     const current = ++refreshRequest,
       key = identityKey(identity.value)
+    refreshing.value = true
     try {
       const data = await host.value.query({ ...identity.value, operation: 'overview' })
       if (
@@ -100,6 +114,8 @@ export function useReport() {
     } catch {
       if (active && current === refreshRequest)
         alert.value = 'Refresh unavailable. Previously loaded data is retained.'
+    } finally {
+      if (current === refreshRequest) refreshing.value = false
     }
   }
   async function analyze(selection: Record<string, unknown>) {
@@ -142,6 +158,7 @@ export function useReport() {
     alert,
     canQuery,
     connected,
+    refreshing,
     fullscreen,
     refresh,
     analyze,
