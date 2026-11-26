@@ -1,5 +1,6 @@
 import { createMcpHonoApp } from '@modelcontextprotocol/hono'
 import type { McpServerFactory, OAuthTokenVerifier } from '@modelcontextprotocol/server'
+import type { SkillsExtension } from '@modelcontextprotocol/server/ext/skills'
 import {
   bearerAuthChallengeResponse,
   createMcpHandler,
@@ -16,6 +17,7 @@ import type { VerifierOptions } from './auth/verifier'
 import { loadMcpConfig } from './config'
 import type { McpConfig } from './config'
 import { createServer } from './server'
+import { getDefaultPluginSkills } from './skills'
 import { loadTradingConfig } from './trading/config'
 import type { TradingConfig } from './trading/config'
 import { createTradingRuntime } from './trading/runtime'
@@ -23,6 +25,7 @@ import type { TradingRuntimeOptions } from './trading/runtime'
 import { loadResearchConfig, type ResearchConfig } from './research/config'
 import { createResearchRuntime, type ResearchRuntimeOptions } from './research/runtime'
 
+import { readClientDistribution } from './utils/client-distribution'
 import { getLogger, logContext, logLabel } from './utils/logger'
 import {
   createLoggedApp,
@@ -42,6 +45,7 @@ export interface AppOptions extends VerifierOptions {
   trading?: TradingRuntimeOptions
   researchConfig?: ResearchConfig | null
   research?: ResearchRuntimeOptions
+  skills?: SkillsExtension | Promise<SkillsExtension> | null
   demoPing?: boolean
 }
 
@@ -73,19 +77,35 @@ export function createApp(options: AppOptions = {}) {
         ...options.research,
       })
     : undefined
+  let resolvedSkills: Promise<SkillsExtension> | undefined =
+    options.skills === undefined || options.skills === null
+      ? undefined
+      : Promise.resolve(options.skills)
+  const getSkills = () => {
+    if (options.skills === null) return undefined
+    resolvedSkills ??= getDefaultPluginSkills()
+    return resolvedSkills
+  }
   const factory: McpServerFactory =
     options.serverFactory ??
-    ((context) =>
-      createServer(context, {
+    (async (context) => {
+      const hasLocalSkills = context.requestInfo
+        ? readClientDistribution(context.requestInfo).hasLocalSkills
+        : false
+      const pendingSkills = !hasLocalSkills ? getSkills() : undefined
+      const skills = pendingSkills ? await pendingSkills : null
+      return createServer(context, {
         gateway: runtime?.gateway,
         researchGateway: researchRuntime?.gateway,
         researchStrategyCache: researchRuntime?.strategyCache,
         researchResourceCursorKey: researchRuntime?.resourceCursorKey,
+        skills,
         now: options.now,
         demoPing:
           options.demoPing ??
           ((!runtime && !researchRuntime) || process.env.NODE_ENV !== 'production'),
-      }))
+      })
+    })
   const handler = createMcpHandler(async (context) => observeMcpServer(await factory(context)), {
     onerror: (error) =>
       getLogger('protocol').warn({

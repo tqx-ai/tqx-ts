@@ -49,6 +49,34 @@ distributions preserve both forms. Clients must retain a marker on every request
 this stateless server does not remember an earlier initialization marker. Clients
 that reject fixed headers need a URL-only configuration with the same query marker.
 
+### Remote Skills over MCP
+
+When `hasLocalSkills` is `false` (an unmarked URL connection or explicit
+`mcp-url` marker), `createServer` attaches the official MCP Skills extension
+(`io.modelcontextprotocol/skills`, `directoryRead: true`) backed directly by
+`plugins/agent-plugin/skills` via `src/skills.ts`. Compatible hosts discover
+`tqx-data`, `tqx-research`, `tqx-setup`, and `tqx-trading` through `skills/list`
+and `skills/get`, browse subdirectories via `resources/directory/read`, and fetch
+files on demand via `resources/read` (`skill://<name>/...`) with SHA-256 and
+frontmatter verification. Hosts without Skills extension support ignore the
+capability declaration without loading skill bodies.
+
+When `hasLocalSkills` is `true` (`agent-plugin` via query or header), the server
+omits `io.modelcontextprotocol/skills` and does not register the `skill://{+path}`
+template, avoiding duplicate local-plus-remote skill listings in plugin hosts.
+`server/discover` uses `cacheScope: "private"` because advertised capabilities
+depend on the connection's distribution marker, while skill catalog entries and
+file reads use 5-minute public cache hints. Skill methods require an
+authenticated MCP Bearer token and no additional downstream business scope.
+
+`src/skills.ts` resolves `../../../plugins/agent-plugin/skills` relative to
+`src/`, filtering local bytecode/cache artifacts (`__pycache__`, `*.py[co]`,
+dotfiles, `node_modules`, OS metadata) to match packaged plugin distributions.
+Both local startup and `docker/Dockerfile` (which copies
+`plugins/agent-plugin/skills` to `/app/plugins/agent-plugin/skills` alongside
+`/app/packages/mcp-server/src`) share that single skill source and validate the
+catalog strictly at startup.
+
 ## Logging
 
 `src/utils/logger.ts` manages tslog module loggers and request-local context.

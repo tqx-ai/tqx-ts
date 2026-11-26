@@ -267,6 +267,18 @@ describe('Qube MCP Apps integration', () => {
     const text = (await s.rpc('resources/list', {}, readToken, false)).body.result
     expect(text.resources.some((item: { uri: string }) => item.uri === REPORT_URI)).toBe(false)
   })
+  it.each(['2025-03-26', '2025-06-18', '2025-11-25'])(
+    'serves legacy stateless resources without assuming Apps support (%s)',
+    async (version) => {
+      const s = setup()
+      const { response, body } = await s.rpc('resources/list', {}, readToken, true, version)
+      expect(response.status).toBe(200)
+      expect(body.result.resources).toEqual([])
+      const read = await s.rpc('resources/read', { uri: REPORT_URI }, readToken, true, version)
+      expect(read.response.status).toBe(200)
+      expect(read.body.result.contents[0].mimeType).toBe(REPORT_MIME)
+    },
+  )
   it('documents automatic native reporting after successful same-run polling', async () => {
     const s = setup()
     const { body } = await s.call('tqx_research_explore', { action: 'strategy.backtest.submit' })

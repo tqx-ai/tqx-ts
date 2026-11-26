@@ -249,8 +249,11 @@ describe('Qube resources, completions, and dynamic prompt', () => {
           'tqx://qube/strategies/{strategy}',
           'tqx://qube/strategies/{strategy}/versions/{version}',
           'tqx://qube/factors/{factor}',
+          'skill://{+path}',
         ])
-        for (const template of templates.body.result.resourceTemplates) {
+        for (const template of templates.body.result.resourceTemplates.filter(
+          (t: { uriTemplate: string }) => t.uriTemplate.startsWith('tqx://'),
+        )) {
           expectPngIcons(template.icons)
           if (template.name === 'qube_factor') expect(template).not.toHaveProperty('mimeType')
           else expect(template.mimeType).toBe('text/x-python')

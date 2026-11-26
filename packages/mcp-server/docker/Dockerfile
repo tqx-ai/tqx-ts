@@ -28,6 +28,7 @@ COPY --from=dependencies --chown=bun:bun /app/node_modules /app/node_modules
 COPY --from=dependencies --chown=bun:bun /app/packages/mcp-server/node_modules ./node_modules
 COPY --chown=bun:bun packages/mcp-server/package.json ./package.json
 COPY --chown=bun:bun packages/mcp-server/src ./src
+COPY --chown=bun:bun plugins/agent-plugin/skills /app/plugins/agent-plugin/skills
 COPY --from=build --chown=bun:bun /app/packages/mcp-server/dist/apps ./dist/apps
 
 USER bun

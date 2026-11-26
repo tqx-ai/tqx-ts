@@ -127,7 +127,15 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
       expectPngIcons(initialization.result.serverInfo.icons)
       expect(initialization.result.capabilities).not.toHaveProperty('prompts')
       expect(initialization).toMatchObject({
-        result: { protocolVersion, capabilities: { tools: {} }, serverInfo },
+        result: {
+          protocolVersion,
+          capabilities: {
+            tools: {},
+            resources: {},
+            extensions: { 'io.modelcontextprotocol/skills': { directoryRead: true } },
+          },
+          serverInfo,
+        },
       })
     } else {
       // Modern clients discover directly without an initialize handshake.
@@ -137,9 +145,13 @@ describe.each<ProtocolVersion>(['2025-11-25', '2026-07-28'])('MCP %s', (protocol
       expect(body).toMatchObject({
         result: {
           supportedVersions: [protocolVersion],
-          capabilities: { tools: {} },
+          capabilities: {
+            tools: {},
+            resources: {},
+            extensions: { 'io.modelcontextprotocol/skills': { directoryRead: true } },
+          },
           ttlMs: 5 * 60 * 1000,
-          cacheScope: 'public',
+          cacheScope: 'private',
           _meta: { 'io.modelcontextprotocol/serverInfo': serverInfo },
         },
       })
