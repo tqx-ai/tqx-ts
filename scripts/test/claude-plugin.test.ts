@@ -33,6 +33,47 @@ beforeEach(() => {
 afterEach(() => rmSync(temporaryDirectory, { recursive: true, force: true }))
 
 describe('Claude plugin distribution', () => {
+  it('provides a repository marketplace with portable skills and native HTTP MCP configuration', () => {
+    const marketplace = JSON.parse(
+      readFileSync(resolve(root, '.claude-plugin/marketplace.json'), 'utf8'),
+    )
+    const canonical = JSON.parse(readFileSync(source('plugin.json'), 'utf8'))
+    const mcp = JSON.parse(readFileSync(source('mcp.json'), 'utf8'))
+    const workspace = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
+    expect(marketplace.name).toBe('tqx-plugins')
+    expect(marketplace.owner).toEqual(canonical.author)
+    expect(marketplace.plugins).toHaveLength(1)
+    const [entry] = marketplace.plugins
+    expect(entry).toMatchObject({
+      name: canonical.name,
+      displayName: canonical.extensions['com.openai'].interface.displayName,
+      source: './plugins/agent-plugin',
+      version: workspace.version,
+      description: canonical.description,
+      author: canonical.author,
+      homepage: canonical.homepage,
+      repository: canonical.repository,
+      license: canonical.license,
+      strict: false,
+    })
+    expect(entry.version).toBe(canonical.version)
+    expect(mcp.mcpServers.tqx.headers['X-TQX-Skill-Bundle-Version']).toBe(workspace.version)
+    expect(entry.mcpServers).toEqual(
+      Object.fromEntries(
+        Object.entries(mcp.mcpServers).map(([name, server]) => [
+          name,
+          { ...(server as Record<string, unknown>), type: 'http' },
+        ]),
+      ),
+    )
+    const pluginRoot = resolve(root, entry.source)
+    for (const skill of ['tqx-setup', 'tqx-trading', 'tqx-data', 'tqx-research']) {
+      expect(existsSync(resolve(pluginRoot, 'skills', skill, 'SKILL.md'))).toBe(true)
+    }
+    expect(existsSync(resolve(pluginRoot, '.claude-plugin/plugin.json'))).toBe(false)
+    expect(existsSync(resolve(pluginRoot, '.mcp.json'))).toBe(false)
+  })
+
   it('packages native metadata, MCP, and identical skill resources without altering the source', () => {
     const sourceManifest = readFileSync(source('plugin.json'))
     const sourceMcp = readFileSync(source('mcp.json'))
@@ -45,7 +86,7 @@ describe('Claude plugin distribution', () => {
       version: canonical.version,
       author: canonical.author,
       license: canonical.license,
-      displayName: 'TQX',
+      displayName: canonical.extensions['com.openai'].interface.displayName,
       icon: './assets/logo.png',
       supportUrl: canonical.extensions['com.openai'].interface.supportURL,
       privacyPolicyUrl: canonical.extensions['com.openai'].interface.privacyPolicyURL,
@@ -54,7 +95,16 @@ describe('Claude plugin distribution', () => {
     expect(manifest).not.toHaveProperty('$schema')
     expect(manifest).not.toHaveProperty('extensions')
     expect(JSON.parse(readFileSync(output('.mcp.json'), 'utf8'))).toEqual({
-      mcpServers: { tqx: { type: 'http', url: 'https://tqxtest.uatpandaai.com/mcp' } },
+      mcpServers: {
+        tqx: {
+          type: 'http',
+          url: 'https://tqxtest.uatpandaai.com/mcp?tqx_distribution=agent-plugin',
+          headers: {
+            'X-TQX-Distribution': 'agent-plugin',
+            'X-TQX-Skill-Bundle-Version': canonical.version,
+          },
+        },
+      },
     })
     for (const path of [
       '.claude-plugin/plugin.json',

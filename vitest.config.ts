@@ -3,12 +3,15 @@ import { fileURLToPath } from 'node:url'
 
 import { defineConfig } from 'vitest/config'
 
+import { backtestVuePlugin } from './packages/mcp-server/scripts/backtest-vite'
+
 const cliPackageJson = JSON.parse(
   readFileSync(new URL('./packages/cli/package.json', import.meta.url), 'utf8'),
 ) as { version: string }
 const sdkEntry = fileURLToPath(new URL('./packages/sdk/src/index.ts', import.meta.url))
 
 export default defineConfig({
+  plugins: [backtestVuePlugin()],
   define: {
     __TQX_BUILD_API_KEY_URL__: JSON.stringify('https://build-api-key.example.test'),
     __TQX_BUILD_CLI_VERSION__: JSON.stringify(cliPackageJson.version),

@@ -4,6 +4,7 @@ import * as v from 'valibot'
 
 import { toolSchema } from '../../utils/tool-schema'
 import { toolIcons } from '../../utils/icons'
+import { isToolAuthError, oauthSecuritySchemes, toolAuthChallenge } from '../../auth/tool-challenge'
 import { ResearchError, researchError } from '../errors'
 import type { ResearchGateway } from '../gateway'
 import { catalogOutput, detailOutput, exploreInput, callInput } from '../schemas'
@@ -38,6 +39,7 @@ export function registerResearchTools(
       description:
         'Discover Qube Research actions for factors, strategies, analyses, backtests, versions, snapshots and parameter tuning. Omit action for the catalog; pass an action for exact input/output schemas, usage examples, docs and composition guidance. Does not access research data. Execute through tqx_research_call.',
       inputSchema: toolSchema(exploreInput),
+      _meta: { ui: { visibility: ['model'] }, ...oauthSecuritySchemes() },
       annotations: {
         readOnlyHint: true,
         destructiveHint: false,
@@ -68,8 +70,10 @@ export function registerResearchTools(
     {
       icons: toolIcons.tqx_research_call,
       description:
-        'Execute a whitelisted Qube Research action with {action,input,confirm?}. Use tqx_research_explore for exact action inputs and direct business outputs. Async submissions return an ID; poll the matching get action, then read results. Permissions are checked per action. Deletion requires confirm=true. Excludes market data and trading.',
+        'Execute a whitelisted Qube Research action with {action,input,confirm?}. Use tqx_research_explore for exact action inputs and direct business outputs. Async submissions return an ID; poll the matching get action. When a requested strategy backtest succeeds, call tqx_open_backtest_view with {type:"qube",runId:<submission id>} automatically unless the user requested text only; no user-supplied runId is needed. Permissions are checked per action. Deletion requires confirm=true. Excludes market data and trading.',
       inputSchema: toolSchema(callInput),
+      // The required business scope varies by action; the SDK challenges it below.
+      _meta: { ui: { visibility: ['model', 'app'] }, ...oauthSecuritySchemes() },
       scopeChallenge: (ctx) => {
         const parsed = v.safeParse(v.object({ action: v.string() }), ctx.request.params?.arguments)
         const action = parsed.success ? actions.get(parsed.output.action) : undefined
@@ -92,7 +96,14 @@ export function registerResearchTools(
           )
         return result(await callAction(context.gateway, context.auth, action, input, confirm))
       } catch (error) {
-        return result({ error: researchError(error) }, true)
+        const output = researchError(error)
+        const scope = actions.get(name)?.scope
+        return {
+          ...result({ error: output }, true),
+          ...(isToolAuthError(error)
+            ? { _meta: toolAuthChallenge(context.auth, scope ? [scope] : []) }
+            : {}),
+        }
       }
     },
   )

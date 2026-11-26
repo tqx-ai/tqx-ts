@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
 import { createApp } from '../src/app'
+import { TradingError } from '../src/trading/errors'
 import { createOAuthFixture, testConfig } from './helpers/oauth'
 import { expectPngIcons } from './helpers/icons'
 import { account, bugReport, envelope, hold, order, signal, tradingConfig } from './helpers/trading'
@@ -57,7 +58,7 @@ function setup() {
       method: 'POST',
       headers: {
         Host: '127.0.0.1',
-        Authorization: `Bearer ${token}`,
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         Origin: 'http://localhost:6274',
         'Content-Type': 'application/json',
         Accept: 'application/json, text/event-stream',
@@ -124,7 +125,7 @@ const place = {
 describe('trading MCP tools over authenticated HTTP', () => {
   it('lists six compact business tools with object roots, scoped writes and annotations', async () => {
     const s = setup()
-    const response = await s.rpc('tools/list')
+    const response = await s.rpc('tools/list', {}, '')
     expect(response.status).toBe(200)
     const body = await parse(response)
     expect(body.error).toBeUndefined()
@@ -142,6 +143,15 @@ describe('trading MCP tools over authenticated HTTP', () => {
       expect(tool.inputSchema.type).toBe('object')
       expect(tool.inputSchema.required).toContain('request')
       expect(tool.annotations.openWorldHint).toBe(true)
+      expect(tool['_meta'].securitySchemes).toEqual([
+        {
+          type: 'oauth2',
+          scopes:
+            tool.name === 'tqx_submit_bug_report' || tool.name === 'tqx_trading_lookup'
+              ? []
+              : [tool.name === 'tqx_trading_order' ? 'order:write' : 'trade:read'],
+        },
+      ])
     }
     expect(
       new Set(tools.map((tool: { icons: { src: string }[] }) => tool.icons[0]?.src)).size,
@@ -163,6 +173,90 @@ describe('trading MCP tools over authenticated HTTP', () => {
     })
     expect(JSON.stringify(tools).length).toBeLessThan(20_000)
     expect(s.exchange).not.toHaveBeenCalled()
+  })
+
+  it.each(['2025-11-25', '2026-07-28'])(
+    'returns an inline OAuth challenge when execution authorization is revoked using %s',
+    async (version) => {
+      const s = setup()
+      s.exchange.mockRejectedValueOnce(new TradingError('authorization', 'Authorization revoked'))
+      const { response, body } = await s.call(
+        'tqx_trading_activity',
+        { type: 'orders' },
+        mcpToken,
+        version,
+      )
+      expect(response.status).toBe(200)
+      expect(body.result.isError).toBe(true)
+      const challenge = body.result['_meta']['mcp/www_authenticate'][0]
+      expect(challenge).toContain('error="invalid_token"')
+      expect(challenge).toContain('error_description=')
+      expect(challenge).toContain('scope="trade:read"')
+      expect(challenge).toContain(
+        'resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource/mcp"',
+      )
+      expect(challenge).not.toContain(mcpToken)
+      expect(s.fetch).not.toHaveBeenCalled()
+    },
+  )
+
+  it('preserves snapshot section errors while returning an OAuth challenge', async () => {
+    const s = setup()
+    s.exchange.mockRejectedValue(new TradingError('authorization', 'Authorization revoked'))
+    const { body } = await s.call('tqx_trading_snapshot', {})
+    expect(body.result.isError).toBe(true)
+    expect(body.result.structuredContent.data).toEqual({ account: null, positions: null })
+    expect(body.result.structuredContent.meta.errors).toHaveLength(2)
+    expect(body.result['_meta']['mcp/www_authenticate'][0]).toContain('scope="trade:read"')
+    expect(s.fetch).not.toHaveBeenCalled()
+  })
+
+  it.each(['2025-11-25', '2026-07-28'])(
+    'includes the exact lookup scope in execution-time OAuth challenges over %s',
+    async (version) => {
+      await Promise.all(
+        (
+          [
+            ['order', 'order-1', 'trade:read'],
+            ['signal', 'signal-123', 'order:write'],
+          ] as const
+        ).map(async ([type, id, scope]) => {
+          const s = setup()
+          s.exchange.mockRejectedValueOnce(
+            new TradingError('authorization', 'Authorization revoked'),
+          )
+          const { response, body } = await s.call(
+            'tqx_trading_lookup',
+            { type, id },
+            mcpToken,
+            version,
+          )
+          expect(response.status).toBe(200)
+          expect(body.result.isError).toBe(true)
+          const challenge = body.result['_meta']['mcp/www_authenticate'][0]
+          expect(challenge).toContain('error="invalid_token"')
+          expect(challenge).toContain(`scope="${scope}"`)
+          expect(challenge).toContain(
+            'resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource/mcp"',
+          )
+          expect(s.fetch).not.toHaveBeenCalled()
+          expect(s.exchange).toHaveBeenCalledExactlyOnceWith(
+            expect.objectContaining({ scopes: [scope] }),
+          )
+        }),
+      )
+    },
+  )
+
+  it('returns an OAuth challenge after the existing read retry still receives an upstream 401', async () => {
+    const s = setup()
+    s.fetch.mockImplementation(async () => new Response(null, { status: 401 }))
+    const { body } = await s.call('tqx_trading_lookup', { type: 'order', id: 'order-1' })
+    expect(body.result.isError).toBe(true)
+    expect(body.result['_meta']['mcp/www_authenticate'][0]).toContain('error="invalid_token"')
+    expect(body.result['_meta']['mcp/www_authenticate'][0]).toContain('scope="trade:read"')
+    expect(s.fetch).toHaveBeenCalledTimes(2)
+    expect(s.exchange).toHaveBeenCalledTimes(2)
   })
 
   it('lists and renders the bug-report preparation prompt', async () => {

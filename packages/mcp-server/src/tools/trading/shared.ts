@@ -11,6 +11,7 @@ import { publicError, TradingError } from '../../trading/errors'
 import type { TradingGateway } from '../../trading/gateway'
 import { toolSchema } from '../../utils/tool-schema'
 import { toolIcons } from '../../utils/icons'
+import { isToolAuthError, oauthSecuritySchemes, toolAuthChallenge } from '../../auth/tool-challenge'
 
 export interface TradingToolContext {
   auth?: AuthInfo
@@ -46,17 +47,23 @@ export function registerTradingTool<T extends v.GenericSchema>(
     write?: boolean
     errorKind?: string
     scopeChallenge?: ScopeChallengeHandler
+    /** Static discovery hints; scopeChallenge enforces the invocation's permissions. */
+    oauthScopes?: readonly string[]
+    /** Required scopes for an execution-time authorization failure. */
+    oauthChallengeScopes?: (request: v.InferOutput<T>) => readonly string[]
     destructive?: boolean
     idempotent?: boolean
   },
   handler: (request: v.InferOutput<T>, auth: AuthInfo) => Promise<CallToolResult>,
 ): void {
+  const scopes = definition.oauthScopes ?? [definition.write ? 'order:write' : 'trade:read']
   server.registerTool(
     definition.name,
     {
       icons: toolIcons[definition.name],
       description: definition.description,
       inputSchema: toolSchema(v.strictObject({ request: definition.schema })),
+      _meta: { ui: { visibility: ['model'] }, ...oauthSecuritySchemes(scopes) },
       scopeChallenge:
         definition.scopeChallenge ?? requireScopes(definition.write ? 'order:write' : 'trade:read'),
       annotations: {
@@ -74,6 +81,14 @@ export function registerTradingTool<T extends v.GenericSchema>(
         const output = { kind: definition.errorKind ?? 'trading.error', error: publicError(error) }
         return {
           isError: true,
+          ...(isToolAuthError(error)
+            ? {
+                _meta: toolAuthChallenge(
+                  context.auth,
+                  definition.oauthChallengeScopes?.(request) ?? scopes,
+                ),
+              }
+            : {}),
           structuredContent: output,
           content: [{ type: 'text', text: JSON.stringify(output) }],
         }

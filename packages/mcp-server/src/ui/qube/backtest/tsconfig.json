@@ -1,0 +1,13 @@
+{
+  "extends": "../../../../../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"],
+    "ignoreDeprecations": "6.0"
+  },
+  "vueCompilerOptions": {
+    "strictTemplates": true,
+    "dataAttributes": ["data-*"]
+  },
+  "include": ["**/*.ts", "**/*.vue"],
+  "exclude": ["dev", "adapters/fixture.ts"]
+}

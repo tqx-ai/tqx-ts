@@ -33,7 +33,7 @@ All development in this package must strictly adhere to the following stack:
 | **MCP SDK**                  | MCP TypeScript SDK **v2** | [`https://ts.sdk.modelcontextprotocol.io/v2`](https://ts.sdk.modelcontextprotocol.io/v2)<br>Packages: `@modelcontextprotocol/server` (^2.x), `@modelcontextprotocol/hono` (^2.x).<br>**Strictly prohibit SDK v1 (`@modelcontextprotocol/sdk` v1.x).** |
 | **MCP Protocol Spec**        | MCP Specification         | **`2026-07-28`** ([https://modelcontextprotocol.io/specification/2026-07-28](https://modelcontextprotocol.io/specification/2026-07-28))                                                                                                               |
 | **Web Framework**            | **Hono**                  | `hono` (^4.x) utilizing standard Web Standards (Fetch API, Request/Response, Web Streams).                                                                                                                                                            |
-| **Type & Schema Validation** | **Valibot**               | `valibot` (^1.x) + `@valibot/to-json-schema` (^1.x) for all schema validation and MCP tool input JSON Schema generation. **Do not use Zod.**                                                                                                          |
+| **Type & Schema Validation** | **Valibot**               | `valibot` (^1.x) + `@valibot/to-json-schema` (^1.x) for first-party business validation and MCP tool input JSON Schema generation. Dependencies may use Zod internally.                                                                               |
 | **Primary Runtime**          | **Bun**                   | **v1.4.4+** as the development, build, and primary production startup runtime.                                                                                                                                                                        |
 | **Compatibility Targets**    | **Node.js & TypeScript**  | Must maintain full cross-runtime compatibility with **Node.js 26** and **TypeScript 7 (TS 7)**.                                                                                                                                                       |
 
@@ -102,7 +102,7 @@ To bridge MCP clients to downstream platform APIs without violating security spe
 
 ## 4. Schema Definition and Type Checking (Valibot)
 
-In alignment with workspace standards (which utilize Valibot in `@tqx-ai/sdk`), this package enforces **Valibot** exclusively:
+In alignment with workspace standards (which utilize Valibot in `@tqx-ai/sdk`), this package uses **Valibot for first-party business schemas and validation**:
 
 1. **Tool Input Schemas:**
    - Define parameter schemas using Valibot constructs (`v.object`, `v.string`, `v.number`, `v.optional`, etc.).
@@ -110,8 +110,10 @@ In alignment with workspace standards (which utilize Valibot in `@tqx-ai/sdk`), 
 2. **Payload Validation:**
    - Register tool input schemas with `toStandardJsonSchema()` and let `McpServer.registerTool` validate arguments with Valibot before invoking the handler. Use `v.safeParse()` or `v.parse()` for query parameters and configuration blocks outside that flow.
    - Follow the SDK's documented error semantics: tool argument validation failures return tool results with `isError: true` and clear issue descriptions. Protocol-level failures, such as unknown tools or malformed requests, use JSON-RPC errors. Do not override `tools/list` or `tools/call` just to change standard tool validation errors into `-32602` responses.
-3. **No Zod Dependency:**
-   - The official MCP TS SDK v2 is schema-agnostic or supports pluggable adapters; do not bring in `zod` as an indirect dependency for tool schemas.
+3. **Business Validation Boundary:**
+   - Do not directly import Zod or define Zod schemas in first-party business code.
+   - Third-party SDKs may use Zod internally. Their required Zod runtime or peer dependencies are allowed, including an explicit package dependency to satisfy a peer. Do not reject a library or reimplement its protocol solely because it uses Zod.
+   - Use the official `@modelcontextprotocol/ext-apps` SDK for MCP Apps transport and lifecycle; keep TQX payload validation and tool schemas in Valibot.
 
 ---
 
@@ -175,7 +177,7 @@ When implementation begins, development should proceed through the following pha
 1. **NO External Databases:** Strictly do NOT connect to Redis, MongoDB, MySQL, PostgreSQL, or any external datastores. The MCP server must remain an ultra-lightweight, stateless forwarding service.
 2. **NO Token Passthrough:** Incoming MCP tokens (`aud=https://www.tqx.trade/mcp`) must never be forwarded directly to downstream resource servers. Always exchange them for short-lived API tokens (`aud=https://www.tqx.trade/api`) via RFC 8693.
 3. **NO MCP SDK v1:** Never import from legacy `@modelcontextprotocol/sdk` v1 packages. Use official v2 packages (`@modelcontextprotocol/server`, `@modelcontextprotocol/hono`).
-4. **NO Zod:** Do not introduce `zod`. Keep the bundle light and coherent by using `valibot`.
+4. **Valibot Business Schemas:** Do not directly use Zod in first-party business code. Dependencies may use Zod internally or require it as a peer; this is allowed and does not justify replacing a maintained SDK with a handwritten implementation.
 5. **NO Runtime Lock-In:** Core business logic, tool handlers, and stream processing must not rely on proprietary `Bun.*` runtime namespaces.
 6. **NO Global State Leaks:** Remote servers serve concurrent users; any mutable state must be tied to a request/session context.
 7. **Open-Source Boundary Hygiene:** `tqx-ts` is a public repository. Committed code must never reference internal private IPs, closed-source repository internals, or proprietary internal cluster headers. All external interactions must go through standard public HTTP/OAuth interfaces.

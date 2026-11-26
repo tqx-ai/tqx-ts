@@ -1,16 +1,16 @@
-# TQX TypeScript SDK and CLI
+# TQX Agent Toolkit
 
-TQX provides the Node.js-compatible `@tqx-ai/sdk` and the Citty-based `@tqx-ai/cli`.
+Connect AI agents to TQX for quantitative research and trading through the CLI, TypeScript SDK, and agent plugins.
 
 ## Installation
 
-**Using an AI agent?** Give it this instruction: "Read
-https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md and install the TQX
-CLI." [INSTALL.md](./INSTALL.md) is the step-by-step install, update, and troubleshooting protocol
-written for agents.
+**Using an AI agent?** Give it this instruction:
 
-The standalone CLI binary does not require Node.js. The npm distribution requires Node.js 22.18
-or newer.
+> Read https://raw.githubusercontent.com/tqx-ai/tqx-ts/refs/heads/main/INSTALL.md and install the TQX CLI.
+
+[INSTALL.md](./INSTALL.md) is the step-by-step install, update, and troubleshooting protocol written for agents.
+
+The standalone CLI binary does not require Node.js. The npm distribution requires Node.js 22.18 or newer.
 
 Install the CLI from the latest standalone release (recommended for agents and servers):
 
@@ -167,15 +167,41 @@ const signal = await client.trading.placeOrder({
 All requests use the native Fetch API. Public request and response schemas are exported as
 Valibot schemas alongside their inferred TypeScript types.
 
-## Agent plugins
+## Agent plugins (Beta)
 
 The portable [TQX Agent Plugin](./plugins/agent-plugin/README.md) is the source for
-the included skills, MCP connection, and plugin metadata. Build the Claude native
-distribution from it with:
+the included skills, MCP connection, and plugin metadata.
+
+In Claude's **Add marketplace** dialog, enter `tqx-ai/tqx-ts`, sync the
+`tqx-plugins` marketplace, and install `tqx-agent-plugin`. In Claude Code:
+
+```bash
+claude plugin marketplace add tqx-ai/tqx-ts
+claude plugin install tqx-agent-plugin@tqx-plugins
+```
+
+The repository's `.claude-plugin/marketplace.json` points to the portable plugin's
+skills and declares the Claude HTTP MCP configuration inline. In Claude chat or
+Cowork, open the installed plugin's **Connectors** tab. If TQX is **Not added**,
+add it, then connect and complete the OAuth flow. In Claude Code, run `/mcp` to
+authenticate. Once connected, run the `tqx-setup` skill. See Claude's
+[bundled connector instructions](https://claude.com/docs/plugins/overview.md#bundled-connectors).
+
+For MCP tools without the bundled skills, use Claude's **Add custom connector**
+flow with the name `TQX` and server URL `https://www.tqx.ai/mcp`.
+Keep the detected authentication settings, add the connector, and connect with
+your TQX account. On Team and Enterprise plans, an organization Owner adds the
+connector before members connect their own accounts. See
+[adding a connector by URL](https://claude.com/docs/connectors/custom/add-unlisted.md#add-a-connector-by-url).
+
+To build the standalone Claude or Antigravity native distributions for ZIP upload
+or local loading:
 
 ```bash
 bun run plugin:claude:build
 bun run plugin:claude:check
+bun run plugin:antigravity:build
+bun run plugin:antigravity:check
 ```
 
 Upload `dist/claude-plugin.zip` through Claude's plugin upload interface, or load
@@ -185,9 +211,12 @@ the generated directory in Claude Code:
 claude --plugin-dir ./dist/claude-plugin
 ```
 
-`bun run build` generates the same artifacts. Releases include the versioned
+For Antigravity, load or validate the generated `dist/antigravity-plugin/`
+directory (or distribute `dist/antigravity-plugin.zip`).
+
+`bun run build` generates both distributions. Releases include the versioned
 `tqx-agent-plugin-claude-v<version>.zip`. Generated files remain in `dist/`; edit
-the portable source to update either distribution.
+the portable source to update any distribution.
 
 ## License
 

@@ -1,6 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/server'
 
 import { publicError } from '../../trading/errors'
+import { isToolAuthError, toolAuthChallenge } from '../../auth/tool-challenge'
 import { snapshotSchema } from '../../trading/schemas'
 import { registerTradingTool, result, type TradingToolContext } from './shared'
 
@@ -38,7 +39,13 @@ export function registerSnapshot(server: McpServer, context: TradingToolContext)
         if (response.status === 'rejected')
           errors.push({ section, ...publicError(response.reason) })
       })
-      return result('trading.snapshot', data, context.now, errors)
+      const needsAuth = responses.some(
+        (response) => response.status === 'rejected' && isToolAuthError(response.reason),
+      )
+      return {
+        ...result('trading.snapshot', data, context.now, errors),
+        ...(needsAuth ? { _meta: toolAuthChallenge(auth, ['trade:read']) } : {}),
+      }
     },
   )
 }

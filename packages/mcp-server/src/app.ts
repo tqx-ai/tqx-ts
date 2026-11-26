@@ -1,5 +1,6 @@
 import { createMcpHonoApp } from '@modelcontextprotocol/hono'
 import type { McpServerFactory, OAuthTokenVerifier } from '@modelcontextprotocol/server'
+import type { SkillsExtension } from '@modelcontextprotocol/server/ext/skills'
 import {
   bearerAuthChallengeResponse,
   createMcpHandler,
@@ -16,6 +17,7 @@ import type { VerifierOptions } from './auth/verifier'
 import { loadMcpConfig } from './config'
 import type { McpConfig } from './config'
 import { createServer } from './server'
+import { getDefaultPluginSkills } from './skills'
 import { loadTradingConfig } from './trading/config'
 import type { TradingConfig } from './trading/config'
 import { createTradingRuntime } from './trading/runtime'
@@ -23,6 +25,7 @@ import type { TradingRuntimeOptions } from './trading/runtime'
 import { loadResearchConfig, type ResearchConfig } from './research/config'
 import { createResearchRuntime, type ResearchRuntimeOptions } from './research/runtime'
 
+import { readClientDistribution } from './utils/client-distribution'
 import { getLogger, logContext, logLabel } from './utils/logger'
 import {
   createLoggedApp,
@@ -34,6 +37,25 @@ import {
 const authLog = getLogger('auth')
 const auditLog = getLogger('audit')
 
+const anonymousMethods = new Set([
+  'initialize',
+  'notifications/initialized',
+  'server/discover',
+  'tools/list',
+  'ping',
+])
+
+function allowsAnonymousDiscovery(method: string, body: unknown): boolean {
+  if (method !== 'POST' || typeof body !== 'object' || body === null || Array.isArray(body))
+    return false
+  const message = body as Record<string, unknown>
+  return (
+    message.jsonrpc === '2.0' &&
+    typeof message.method === 'string' &&
+    anonymousMethods.has(message.method)
+  )
+}
+
 export interface AppOptions extends VerifierOptions {
   config?: McpConfig
   verifier?: OAuthTokenVerifier
@@ -42,6 +64,7 @@ export interface AppOptions extends VerifierOptions {
   trading?: TradingRuntimeOptions
   researchConfig?: ResearchConfig | null
   research?: ResearchRuntimeOptions
+  skills?: SkillsExtension | Promise<SkillsExtension> | null
   demoPing?: boolean
 }
 
@@ -73,19 +96,35 @@ export function createApp(options: AppOptions = {}) {
         ...options.research,
       })
     : undefined
+  let resolvedSkills: Promise<SkillsExtension> | undefined =
+    options.skills === undefined || options.skills === null
+      ? undefined
+      : Promise.resolve(options.skills)
+  const getSkills = () => {
+    if (options.skills === null) return undefined
+    resolvedSkills ??= getDefaultPluginSkills()
+    return resolvedSkills
+  }
   const factory: McpServerFactory =
     options.serverFactory ??
-    ((context) =>
-      createServer(context, {
+    (async (context) => {
+      const hasLocalSkills = context.requestInfo
+        ? readClientDistribution(context.requestInfo).hasLocalSkills
+        : false
+      const pendingSkills = !hasLocalSkills ? getSkills() : undefined
+      const skills = pendingSkills ? await pendingSkills : null
+      return createServer(context, {
         gateway: runtime?.gateway,
         researchGateway: researchRuntime?.gateway,
         researchStrategyCache: researchRuntime?.strategyCache,
         researchResourceCursorKey: researchRuntime?.resourceCursorKey,
+        skills,
         now: options.now,
         demoPing:
           options.demoPing ??
           ((!runtime && !researchRuntime) || process.env.NODE_ENV !== 'production'),
-      }))
+      })
+    })
   const handler = createMcpHandler(async (context) => observeMcpServer(await factory(context)), {
     onerror: (error) =>
       getLogger('protocol').warn({
@@ -129,6 +168,8 @@ export function createApp(options: AppOptions = {}) {
         'Mcp-Method',
         'Mcp-Name',
         'Last-Event-ID',
+        'X-TQX-Distribution',
+        'X-TQX-Skill-Bundle-Version',
       ],
       exposeHeaders: ['WWW-Authenticate', 'Mcp-Session-Id', 'MCP-Protocol-Version', 'X-Request-ID'],
       maxAge: 600,
@@ -143,6 +184,13 @@ export function createApp(options: AppOptions = {}) {
   mcpApp.all('/mcp', async (c: Context) => {
     c.header('Cache-Control', 'no-store')
     const authorization = c.req.header('Authorization')
+    const parsedBody = c.get('parsedBody')
+    // Discovery is public; credentials supplied by a client must still be verified.
+    // Inspect the bounded SDK-parsed body, never the client-controlled Mcp-Method hint.
+    if (authorization === undefined && allowsAnonymousDiscovery(c.req.method, parsedBody)) {
+      recordMcpRequest(parsedBody, c.req.header('MCP-Protocol-Version'))
+      return handler.fetch(c.req.raw, { parsedBody })
+    }
     if (authorization && !/^Bearer [^\s,]+$/i.test(authorization)) {
       authLog.warn({
         event: 'mcp.authorization_header_rejected',
@@ -170,7 +218,6 @@ export function createApp(options: AppOptions = {}) {
     }
     const context = logContext.getStore()
     if (context) context.clientId = authInfo.clientId
-    const parsedBody = c.get('parsedBody')
     if (parsedBody !== undefined) {
       recordMcpRequest(parsedBody, c.req.header('MCP-Protocol-Version'))
     }

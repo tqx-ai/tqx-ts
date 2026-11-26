@@ -88,3 +88,23 @@ jobs:
 
       - name: Run package smoke tests
         run: bun run pack:check
+
+      - name: Install Antigravity CLI
+        run: |
+          curl -fsSL https://antigravity.google/cli/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate Antigravity plugin
+        run: |
+          agy --version
+          agy plugin validate --strict ./dist/antigravity-plugin
+
+      - name: Install Claude Code CLI
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate Claude plugin
+        run: |
+          claude --version
+          claude plugin validate --strict ./dist/claude-plugin

@@ -13,6 +13,9 @@ export function registerLookup(server: McpServer, context: TradingToolContext): 
     {
       name: 'tqx_trading_lookup',
       schema: lookupSchema,
+      // OAuth is always required; business scopes are enforced per order/signal call.
+      oauthScopes: [],
+      oauthChallengeScopes: (request) => [operations[request.type].scope],
       scopeChallenge: (challengeContext) => {
         const parsed = v.safeParse(
           v.object({ request: v.object({ type: v.unknown() }) }),

@@ -15,6 +15,7 @@ export function registerBugReport(server: McpServer, context: TradingToolContext
       // downstream exchange uses a scope-free Trading Resource token because
       // this endpoint has no user permission boundary.
       scopeChallenge: () => undefined,
+      oauthScopes: [],
       errorKind: 'bug_report.error',
       destructive: true,
       idempotent: true,

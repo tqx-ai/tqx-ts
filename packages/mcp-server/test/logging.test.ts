@@ -32,9 +32,10 @@ function call(
   id = 1,
   headers: Record<string, string> = {},
   modern = true,
+  query = '',
 ) {
   const app = createApp({ config: testConfig, fetch: oauth.fetch, tradingConfig: null })
-  return app.request('http://127.0.0.1/mcp?secret=never-log-query', {
+  return app.request(`http://127.0.0.1/mcp?secret=never-log-query${query}`, {
     method: 'POST',
     headers: {
       Host: '127.0.0.1',
@@ -72,6 +73,56 @@ function events(event: string) {
 }
 
 describe('MCP logging', () => {
+  it('isolates query, header and URL-only skill contexts across concurrent requests', async () => {
+    const responses = await Promise.all([
+      call(
+        'tqx_ping',
+        { name: 'query' },
+        31,
+        {
+          'X-TQX-Distribution': 'mcp-url',
+          'X-TQX-Skill-Bundle-Version': '0.8.0',
+        },
+        true,
+        '&tqx_distribution=agent-plugin&tqx_skill_bundle_version=1.2.3',
+      ),
+      call('tqx_ping', { name: 'header' }, 32, {
+        'X-TQX-Distribution': 'agent-plugin',
+        'X-TQX-Skill-Bundle-Version': '0.8.0',
+      }),
+      call('tqx_ping', { name: 'url' }, 33),
+    ])
+    expect(responses.map((response) => response.status)).toEqual([200, 200, 200])
+    await Promise.all(responses.map((response) => response.text()))
+    const contexts = events('mcp.request_completed')
+      .map((record) => record['_logMeta'] as Record<string, unknown>)
+      .toSorted((a, b) => Number(a.rpcId) - Number(b.rpcId))
+    expect(contexts).toEqual([
+      expect.objectContaining({
+        rpcId: 31,
+        distribution: 'agent-plugin',
+        distributionSource: 'query',
+        hasLocalSkills: true,
+        skillBundleVersion: '1.2.3',
+      }),
+      expect.objectContaining({
+        rpcId: 32,
+        distribution: 'agent-plugin',
+        distributionSource: 'header',
+        hasLocalSkills: true,
+        skillBundleVersion: '0.8.0',
+      }),
+      expect.objectContaining({
+        rpcId: 33,
+        distribution: 'mcp-url',
+        distributionSource: 'default',
+        hasLocalSkills: false,
+      }),
+    ])
+    expect(contexts[2]).not.toHaveProperty('skillBundleVersion')
+    expect(JSON.stringify(records)).not.toContain('never-log-query')
+  })
+
   it('records concurrent request identities, tool results and safe client metadata', async () => {
     const responses = await Promise.all([
       call('tqx_ping', { name: 'never-log-arguments' }, 11),

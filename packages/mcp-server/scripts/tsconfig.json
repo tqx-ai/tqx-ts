@@ -1,0 +1,8 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "bun"]
+  },
+  "include": ["build-backtest-app.ts", "dev-backtest-app.ts", "backtest-vite.ts"],
+  "exclude": []
+}

@@ -82,14 +82,20 @@ describe('OAuth resource discovery', () => {
     expect(response.status).toBe(403)
   })
 
-  it('lets allowed browsers read the authentication challenge', async () => {
-    const response = await app.request('http://127.0.0.1/mcp', {
-      headers: { Host: '127.0.0.1', Origin: 'http://localhost:6274' },
-    })
-    expect(response.status).toBe(401)
-    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:6274')
-    expect(response.headers.get('Access-Control-Expose-Headers')).toContain('WWW-Authenticate')
-  })
+  it.each(['/mcp', '/mcp?tqx_distribution=agent-plugin'])(
+    'lets allowed browsers read the canonical authentication challenge at %s',
+    async (path) => {
+      const response = await app.request(`http://127.0.0.1${path}`, {
+        headers: { Host: '127.0.0.1', Origin: 'http://localhost:6274' },
+      })
+      expect(response.status).toBe(401)
+      expect(response.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:6274')
+      expect(response.headers.get('Access-Control-Expose-Headers')).toContain('WWW-Authenticate')
+      expect(response.headers.get('WWW-Authenticate')).toContain(
+        'resource_metadata="https://mcp.example.test/.well-known/oauth-protected-resource/mcp"',
+      )
+    },
+  )
 
   it('answers browser preflight without executing MCP authentication', async () => {
     const response = await app.request('http://127.0.0.1/mcp', {
@@ -98,11 +104,16 @@ describe('OAuth resource discovery', () => {
         Host: '127.0.0.1',
         Origin: 'http://localhost:6274',
         'Access-Control-Request-Method': 'POST',
-        'Access-Control-Request-Headers': 'Authorization,Content-Type,Mcp-Method',
+        'Access-Control-Request-Headers':
+          'Authorization,Content-Type,Mcp-Method,X-TQX-Distribution,X-TQX-Skill-Bundle-Version',
       },
     })
     expect(response.status).toBe(204)
     expect(response.headers.get('Access-Control-Allow-Headers')).toContain('Authorization')
+    expect(response.headers.get('Access-Control-Allow-Headers')).toContain('X-TQX-Distribution')
+    expect(response.headers.get('Access-Control-Allow-Headers')).toContain(
+      'X-TQX-Skill-Bundle-Version',
+    )
     expect(response.headers.get('WWW-Authenticate')).toBeNull()
   })
 

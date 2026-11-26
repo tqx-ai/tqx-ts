@@ -212,7 +212,7 @@ authentication, Python execution, or marketplace behavior.
 | OpenAI              | `com.openai`                                                     | Keep existing presentation metadata and `onboardingSkill`.                         |
 | GitHub Copilot      | `com.github.copilot`                                             | Shared skills and MCP suffice; no client-only components to configure.             |
 | VS Code / Copilot   | `com.github.copilot`                                             | Reuse Copilot's namespace; do not invent `com.microsoft.vscode`.                   |
-| Antigravity         | No named Agent Plugins extension contract in the reviewed guides | Record the native-format mismatch; do not invent `com.google.antigravity`.         |
+| Antigravity         | No named Agent Plugins extension contract in the reviewed guides | Generate a separate native distribution; do not invent `com.google.antigravity`.   |
 | Hermes              | `com.nousresearch.hermes`                                        | Omit optional trust overrides; retain client-managed authorization.                |
 | NanoClaw            | `ai.nanoco.nanoclaw`                                             | Set `agentName` to `TQX`.                                                          |
 | OpenClaw            | `ai.openclaw`                                                    | Declare tool activation with `onStartup: false`.                                   |
@@ -257,11 +257,28 @@ The authoring guide explicitly says Antigravity ignores `mcp.json` and loads
 `mcp_config.json`. A `.antigravity-plugin/plugin.json` overrides the root
 manifest in that client. Therefore, our existing package must not be advertised
 as providing its MCP connection in Antigravity without an adapter and live
-verification. If a native distribution is needed, build it separately from the
-canonical package; do not replace our schema or relocate its MCP configuration.
-Validate that artifact with `agy plugin validate`; evaluate the documented
-multi-tool warnings separately from errors. Root contributor `AGENTS.md` is not
-an Antigravity plugin rule.
+verification. Build the native distribution separately from the canonical
+package; do not replace our schema or relocate its MCP configuration. Root
+contributor `AGENTS.md` is not an Antigravity plugin rule.
+
+Run these commands from the workspace root:
+
+```bash
+bun run plugin:antigravity:build
+bun run plugin:antigravity:check
+```
+
+The builder in `scripts/build-antigravity-plugin.ts` uses
+`scripts/lib/antigravity-plugin.ts` (sharing packaging utilities with
+`scripts/lib/claude-plugin.ts` via `scripts/lib/plugin-distribution.ts`) to
+produce `dist/antigravity-plugin/` and `dist/antigravity-plugin.zip`. It maps
+`name`, `version`, `description`, `author` (`name` and `url`), `homepage`, and
+`repository` from the canonical manifest, maps `displayName`, `logo`
+(`assets/logo.png`), and the first three `defaultPrompt` entries
+(`suggestedPrompts`) from `com.openai.interface`, converts `mcp.json` to
+`mcp_config.json`, and copies `skills/`, `README.md`, and `LICENSE` unchanged.
+Validate the generated directory with `agy plugin validate`; evaluate the
+documented multi-tool warnings separately from errors.
 
 ### Hermes
 
@@ -362,10 +379,13 @@ and Codex compatibility manifests. At least one skill or connector is required;
 the documented limits are 32 skills, 1,000 files, 20 MB uncompressed, and 15
 MCP servers. A supplied description is limited to 1,024 UTF-8 bytes.
 
-TQX's explicitly typed HTTPS MCP entry has no fixed headers or unresolved
-variables, matching the documented connector import shape. Perplexity skips
-local `stdio` servers, fixed-header servers, and disallowed connectors. Users
-still connect their own account. The guide defines no namespace for additional
+TQX's explicitly typed HTTPS MCP entry includes a stable
+`tqx_distribution=agent-plugin` URL marker, an `X-TQX-Distribution` header, and an
+`X-TQX-Skill-Bundle-Version` header. Perplexity skips local `stdio` servers,
+fixed-header servers, and disallowed connectors, so the canonical entry with
+headers does not satisfy that import shape. A configuration for that client must
+retain the URL marker and omit fixed headers. Users still connect their own
+account. The guide defines no namespace for additional
 metadata; do not invent `ai.perplexity` or claim the local Python data workflow
 was verified by successful connector import.
 
@@ -400,7 +420,8 @@ namespace or establish that Claude reads our portable root manifest. Do not add
 | Presentation metadata          | Vendor-owned `extensions` | Native manifest fields such as `displayName` |
 
 The generated native artifact references the same TQX MCP endpoint as
-`mcpServers.tqx` with `type: "http"` and `url: "https://www.tqx.ai/mcp"`.
+`mcpServers.tqx` with `type: "http"`, the canonical query-marked URL, and the
+canonical distribution and bundle-version headers.
 Changing filenames and the configuration type spelling does not require a new
 MCP service. Preserve the portable files and schema identifiers; generate a
 separate native distribution rather than adding `.claude-plugin/` and

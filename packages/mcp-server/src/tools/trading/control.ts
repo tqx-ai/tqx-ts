@@ -14,6 +14,7 @@ export function registerControl(server: McpServer, context: TradingToolContext):
       schema: controlSchema,
       write: true,
       scopeChallenge: requireScopes(operations.hold.scope),
+      oauthScopes: [operations.hold.scope],
       idempotent: true,
       description:
         'Mark the authorized agent active for today with action hold. Does not place or confirm an order. Changes agent activity; requires trade:read and a fresh token exchange. Uses the server activity_date, not the client date.',
