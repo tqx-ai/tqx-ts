@@ -100,7 +100,7 @@ jobs:
         shell: bash
         run: |
           version="$(node -p "require('./package.json').version")"
-          cp dist/claude-plugin.zip "release-artifacts/tqx-agent-plugin-claude-v${version}.zip"
+          cp dist/claude-plugin.zip "release-artifacts/tqx-uat-plugin-claude-v${version}.zip"
 
       - name: Compile Linux standalone binaries
         shell: bash
@@ -238,7 +238,7 @@ jobs:
       - name: Flatten downloaded release artifacts
         shell: bash
         run: |
-          find release-assets -mindepth 2 -type f \( -name 'tqx-v*' -o -name '*.tgz' -o -name 'tqx-agent-plugin-claude-v*.zip' \) -exec cp {} release-assets/ \;
+          find release-assets -mindepth 2 -type f \( -name 'tqx-v*' -o -name '*.tgz' -o -name 'tqx-uat-plugin-claude-v*.zip' \) -exec cp {} release-assets/ \;
           find release-assets -mindepth 2 -type f -name '*.exe' -exec cp {} release-assets/ \;
           find release-assets -mindepth 2 -type f -delete
           find release-assets -mindepth 1 -type d -empty -delete
@@ -395,25 +395,25 @@ jobs:
         shell: bash
         run: |
           changelog_url="https://github.com/${GITHUB_REPOSITORY}/blob/${NOTES_REF}/CHANGELOG.md"
-          claude_plugin_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/tqx-agent-plugin-claude-v${VERSION}.zip"
+          claude_plugin_url="https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/tqx-uat-plugin-claude-v${VERSION}.zip"
 
           cat > release-notes.md <<'EOF'
           TQX agent plugin, CLI binaries, and npm packages for version **__VERSION__**.
 
           ### Claude plugin
 
-          Download [tqx-agent-plugin-claude-v__VERSION__.zip](__CLAUDE_PLUGIN_URL__) from this release.
+          Download [tqx-uat-plugin-claude-v__VERSION__.zip](__CLAUDE_PLUGIN_URL__) from this release.
           It includes TQX skills and the MCP connection configuration.
 
           Upload the ZIP through Claude's plugin upload interface, or extract it and load it in Claude Code:
 
           ```bash
-          unzip tqx-agent-plugin-claude-v__VERSION__.zip -d tqx-claude-plugin
+          unzip tqx-uat-plugin-claude-v__VERSION__.zip -d tqx-claude-plugin
           claude --plugin-dir ./tqx-claude-plugin
           ```
 
           In Claude Code, run `/mcp` to connect TQX and complete authentication, then run
-          `/tqx-agent-plugin:tqx-setup` to get started. The `--plugin-dir` option loads the plugin for that session.
+          `/tqx-uat-plugin:tqx-setup` to get started. The `--plugin-dir` option loads the plugin for that session.
 
           ### Standalone CLI binaries
 

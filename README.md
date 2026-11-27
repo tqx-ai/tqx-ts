@@ -173,11 +173,11 @@ The portable [TQX Agent Plugin](./plugins/agent-plugin/README.md) is the source 
 the included skills, MCP connection, and plugin metadata.
 
 In Claude's **Add marketplace** dialog, enter `tqx-ai/tqx-ts`, sync the
-`tqx-plugins` marketplace, and install `tqx-agent-plugin`. In Claude Code:
+`tqx-plugins` marketplace, and install `tqx-uat-plugin`. In Claude Code:
 
 ```bash
 claude plugin marketplace add tqx-ai/tqx-ts
-claude plugin install tqx-agent-plugin@tqx-plugins
+claude plugin install tqx-uat-plugin@tqx-plugins
 ```
 
 The repository's `.claude-plugin/marketplace.json` points to the portable plugin's
@@ -215,7 +215,7 @@ For Antigravity, load or validate the generated `dist/antigravity-plugin/`
 directory (or distribute `dist/antigravity-plugin.zip`).
 
 `bun run build` generates both distributions. Releases include the versioned
-`tqx-agent-plugin-claude-v<version>.zip`. Generated files remain in `dist/`; edit
+`tqx-uat-plugin-claude-v<version>.zip`. Generated files remain in `dist/`; edit
 the portable source to update any distribution.
 
 ## License

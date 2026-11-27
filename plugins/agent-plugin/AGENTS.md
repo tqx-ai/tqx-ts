@@ -16,7 +16,7 @@ requirements of the standard.
 
 ## Product Intent
 
-`tqx-agent-plugin` is for people using compatible Agent clients, not an internal
+`tqx-uat-plugin` is for people using compatible Agent clients, not an internal
 developer assistant for the TQX team. It should help users invest in the future,
 discover promising assets, and make better-informed investment and trading
 decisions through the capabilities explicitly exposed by the plugin.
@@ -486,7 +486,7 @@ sources produce identical archives. Generated output stays ignored by Git.
 both the directory and ZIP match their current sources, including resource
 contents and file lists. The focused tests in
 `scripts/test/claude-plugin.test.ts` run with the workspace unit suite. The
-release workflow stages a versioned `tqx-agent-plugin-claude-v<version>.zip`
+release workflow stages a versioned `tqx-uat-plugin-claude-v<version>.zip`
 alongside the npm and standalone CLI artifacts.
 
 Load the generated directory with `claude --plugin-dir ./dist/claude-plugin`,
