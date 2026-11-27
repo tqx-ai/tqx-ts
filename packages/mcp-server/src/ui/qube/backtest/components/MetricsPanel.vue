@@ -18,16 +18,16 @@ const metrics = [
     'Engine annualized return. Short backtests can amplify this value.',
   ],
   [
-    'maxDrawdown',
-    'Max drawdown',
-    'Peak to trough',
-    'Largest peak-to-trough decline reported by the engine; not recalculated from sampled points.',
-  ],
-  [
     'sharpe',
     'Sharpe ratio',
     'Risk-adjusted return',
     'Engine risk-adjusted return. Its risk-free rate and volatility assumptions are unchanged.',
+  ],
+  [
+    'maxDrawdown',
+    'Max drawdown',
+    'Peak to trough',
+    'Largest peak-to-trough decline reported by the engine; not recalculated from sampled points.',
   ],
 ] as const
 const help = ref<{ button: HTMLButtonElement; message: string }>(),
@@ -98,7 +98,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="metrics" aria-label="Full-period backtest metrics">
     <div
-      v-for="([key, label, caption], index) in metrics"
+      v-for="([key, label], index) in metrics"
       :key="key"
       class="metric"
       :class="{ 'metric-primary': index === 0 }"
@@ -137,7 +137,6 @@ onBeforeUnmount(() => {
               : `${numeric(summary.metrics[key].value * 100)}%`
         }}
       </div>
-      <div class="metric-caption">{{ caption }}</div>
     </div>
     <div
       v-show="help"

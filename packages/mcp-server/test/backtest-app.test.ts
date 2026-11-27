@@ -22,7 +22,7 @@ afterEach(() => {
   disposals.splice(0).forEach((dispose) => dispose())
 })
 
-function setup() {
+function setup(webBaseUrl = 'https://web.example.test') {
   const fetch = vi.fn<typeof globalThis.fetch>().mockImplementation(async (url) => {
     const path = new URL(String(url)).pathname
     if (path.endsWith('/chart')) return envelope(chart)
@@ -51,7 +51,7 @@ function setup() {
     expiresAt: Date.now() + 300_000,
   }))
   const app = createApp({
-    config: testConfig,
+    config: { ...testConfig, webBaseUrl },
     fetch: oauth.fetch,
     tradingConfig: null,
     researchConfig,
@@ -179,6 +179,9 @@ describe('Qube MCP Apps integration', () => {
       expect(body.result.structuredContent).not.toHaveProperty('chart')
       expect(JSON.parse(body.result.content[0].text)).toEqual(body.result.structuredContent)
       expect(body.result['_meta'][REPORT_META].chart.points).toHaveLength(1)
+      expect(body.result['_meta'][REPORT_META].strategyUrl).toBe(
+        `https://web.example.test/qube/strategies/${ID}`,
+      )
       expect(JSON.stringify(body)).not.toMatch(/private-source|exchanged-secret|storage_path/)
       expect(s.fetch).toHaveBeenCalledTimes(2)
     },
@@ -217,7 +220,8 @@ describe('Qube MCP Apps integration', () => {
         },
       },
     })
-    expect(resource.text).toContain('Painted by TQX')
+    expect(resource.text.includes('View details')).toBe(true)
+    expect(resource.text.includes('Painted by TQX')).toBe(true)
     expect(resource.text).toContain('ui/initialize')
     expect(resource.text).not.toMatch(
       /hk-loss|Synthetic instrument|Local fixture|exchanged-secret|script src=|APP_SCRIPT|__VUE_HMR_RUNTIME__|You are running a development build/,

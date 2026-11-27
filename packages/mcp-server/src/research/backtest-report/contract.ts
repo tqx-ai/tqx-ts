@@ -133,6 +133,7 @@ export const resultSchema = v.object({
 export const reportSchema = v.object({
   ...identity,
   operation: v.literal('overview'),
+  strategyUrl: v.optional(v.pipe(v.string(), v.url(), v.regex(/^https?:\/\//))),
   summary: summarySchema,
   chart: v.nullable(chartSchema),
 })

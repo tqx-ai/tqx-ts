@@ -38,7 +38,12 @@ export function useReport() {
     )
       return
     identity.value = { type: data.type, runId: data.runId }
-    report.value = data
+    report.value = {
+      ...data,
+      strategyUrl:
+        data.strategyUrl ??
+        (report.value?.runId === data.runId ? report.value.strategyUrl : undefined),
+    }
     alert.value = ''
   }
   onMounted(() => {

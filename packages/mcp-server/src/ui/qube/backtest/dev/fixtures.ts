@@ -80,6 +80,7 @@ export function fixture(scenario: Scenario): Report {
     type: 'qube',
     runId: fixtureRun,
     operation: 'overview',
+    strategyUrl: 'https://www.tqx.ai/qube/strategies/0123456789abcdef01234567',
     chart,
     summary: {
       schemaVersion: 1,

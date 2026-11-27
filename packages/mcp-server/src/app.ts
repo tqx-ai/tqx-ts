@@ -114,6 +114,7 @@ export function createApp(options: AppOptions = {}) {
       const pendingSkills = !hasLocalSkills ? getSkills() : undefined
       const skills = pendingSkills ? await pendingSkills : null
       return createServer(context, {
+        webBaseUrl: config.webBaseUrl,
         gateway: runtime?.gateway,
         researchGateway: researchRuntime?.gateway,
         researchStrategyCache: researchRuntime?.strategyCache,

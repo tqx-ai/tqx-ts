@@ -43,7 +43,13 @@ build variables and are not embedded by tsdown. The package maintains its own
 | `TQX_MCP_ALLOWED_HOSTS`   | Comma-separated hostnames without scheme or port, such as `www.tqx.trade,127.0.0.1,localhost,[::1]`.                                   |
 | `TQX_MCP_ALLOWED_ORIGINS` | Comma-separated exact browser origins, including scheme and port. An explicitly empty value permits native clients only.               |
 
-All four variables must be explicitly set. Invalid or missing configuration stops
+`TQX_WEB_BASE_URL` configures the frontend origin used by the Backtest App's
+**View details** link: `${TQX_WEB_BASE_URL}/qube/strategies/${strategyId}`. It defaults
+to `https://www.tqx.ai`; set it in `packages/mcp-server/.env` for another deployment.
+It is read at server startup, so changing it requires a restart, not a UI rebuild.
+Only an HTTP(S) origin is accepted; production requires HTTPS.
+
+All four `TQX_MCP_*` variables above must be explicitly set. Invalid or missing configuration stops
 startup; there is no anonymous fallback. Production URLs/origins must use HTTPS.
 HTTP URLs/origins, including LAN addresses and hostnames, are allowed outside
 `NODE_ENV=production`. Host and Origin
@@ -420,15 +426,17 @@ queries use public `structuredContent`, not the opener's private report metadata
 Explore and Trading tools remain model-only. Visibility is a host presentation
 rule, not access control. Text-only hosts receive the opener's bounded summary.
 
-The English dark glass report has sample-snapping equity/return inspection,
-benchmark and trade-day controls, range queries, paginated tables, frozen settings,
-metric explanations and host-controlled fullscreen. Reports follow the host's
-standard `containerDimensions`: fixed axes fill the viewport; flexible axes grow
-with content up to the supplied maximum. Constrained reports use one document
-scrollbar. Narrow result tables become
-labeled records without horizontal scrolling. Missing metrics remain unavailable;
-engine risk metrics are never recomputed from sampled curves. Fonts and code are
-bundled into one HTML file with no external network requirements or credentials.
+The compact horizontal card shows the strategy name, an inspectable return curve
+(equity when initial capital is unavailable), total return, annualized return,
+Sharpe ratio and maximum drawdown. The analysis button sits at the top right;
+strategy ID and **View details** sit in the footer. The TQX wordmark and
+**Painted by TQX** remain below the card at the left. Details open through the host's
+standard `openLink` API, with a normal external link for hosts without that capability.
+The card stacks on narrow screens. Missing metrics remain unavailable and risk
+metrics are never recomputed from sampled curves. Sampled/incomplete curves retain
+a small data-quality note. Fonts and code are bundled into one HTML file with no
+external network requirements or credentials.
+Reports follow standard host `containerDimensions` and safe-area insets.
 Vue 3 owns component state; the existing SVG renderer and official MCP Apps adapter remain
 independent. Vite 8 and vite-plugin-singlefile build the resource.
 

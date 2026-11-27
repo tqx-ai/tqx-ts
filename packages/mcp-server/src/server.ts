@@ -32,6 +32,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000
 export function createServer(
   context?: McpRequestContext,
   options: {
+    webBaseUrl?: string
     gateway?: TradingGateway
     researchGateway?: ResearchGateway
     researchStrategyCache?: StrategyCompletionCache
@@ -67,6 +68,7 @@ export function createServer(
     }
     registerResearchTools(server, { auth: context?.authInfo, gateway: options.researchGateway })
     registerBacktestApp(server, {
+      webBaseUrl: options.webBaseUrl,
       auth: context?.authInfo,
       gateway: options.researchGateway,
       now: options.now,
