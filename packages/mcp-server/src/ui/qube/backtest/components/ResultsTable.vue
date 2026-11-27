@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import type { Report, ResultPage } from '../../../../research/backtest-report/contract'
 import type { HostActions } from '../adapters/host'
 import { marketTime } from '../format'
+import LoadingIndicator from '../../../components/LoadingIndicator.vue'
 
 const props = defineProps<{
   report?: Report
@@ -63,7 +64,7 @@ async function load(offset: number) {
     selected = field.value
   page.value = undefined
   loading.value = true
-  status.value = 'Loading\u2026'
+  status.value = ''
   try {
     const data = await props.host.query({
       type: props.report.type,
@@ -134,7 +135,12 @@ onBeforeUnmount(() => {
     <p class="detail-note">Backtest records across the selected run.</p>
     <form class="search-form" :inert="!canQuery" @submit.prevent="search">
       <label class="sr-only" for="result-field">Result section</label
-      ><select id="result-field" v-model="field" name="field">
+      ><select
+        id="result-field"
+        v-model="field"
+        name="field"
+        @change="($event.currentTarget as HTMLSelectElement).blur()"
+      >
         <option value="trades">Trades</option>
         <option value="symbol_performance">Symbol performance</option>
         <option value="account_summary">Account summary</option></select
@@ -149,6 +155,7 @@ onBeforeUnmount(() => {
       /><button type="button" class="secondary" @click="search">Search</button>
     </form>
     <div class="result-records">
+      <LoadingIndicator v-if="loading" class="result-loading" label="Loading results" />
       <table class="result-table" :aria-busy="loading">
         <template v-if="page"
           ><thead>
@@ -181,3 +188,9 @@ onBeforeUnmount(() => {
     </div>
   </details>
 </template>
+
+<style scoped>
+.result-loading {
+  min-height: 128px;
+}
+</style>
