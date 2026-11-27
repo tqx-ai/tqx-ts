@@ -4,6 +4,37 @@ import { loadMcpConfig } from '../src/config'
 import { testEnvironment } from './helpers/oauth'
 
 describe('MCP OAuth configuration', () => {
+  it('normalizes a frontend origin and allows development HTTP', () => {
+    expect(
+      loadMcpConfig({ ...testEnvironment, TQX_WEB_BASE_URL: ' https://web.example.test/ ' })
+        .webBaseUrl,
+    ).toBe('https://web.example.test')
+    expect(
+      loadMcpConfig({ ...testEnvironment, TQX_WEB_BASE_URL: 'http://localhost:3000' }).webBaseUrl,
+    ).toBe('http://localhost:3000')
+  })
+  it.each([
+    '',
+    'invalid',
+    'javascript:alert(1)',
+    'https://user:secret@web.example.test',
+    'https://web.example.test/path',
+    'https://web.example.test?secret',
+    'https://web.example.test#hash',
+  ])('rejects invalid frontend origin %s without echoing it', (url) => {
+    expect(() => loadMcpConfig({ ...testEnvironment, TQX_WEB_BASE_URL: url })).toThrow(
+      '[mcp-config] Invalid or missing TQX_WEB_BASE_URL',
+    )
+  })
+  it('requires HTTPS frontend origins in production', () => {
+    expect(() =>
+      loadMcpConfig({
+        ...testEnvironment,
+        NODE_ENV: 'production',
+        TQX_WEB_BASE_URL: 'http://localhost:3000',
+      }),
+    ).toThrow('TQX_WEB_BASE_URL')
+  })
   it('normalizes public URLs and explicit comma-separated allowlists', () => {
     expect(
       loadMcpConfig({
@@ -13,6 +44,7 @@ describe('MCP OAuth configuration', () => {
         TQX_MCP_ALLOWED_ORIGINS: 'http://localhost:6274/,http://localhost:6274',
       }),
     ).toEqual({
+      webBaseUrl: 'https://www.tqx.ai',
       resourceUrl: 'https://mcp.example.test/mcp',
       issuer: 'https://auth.example.test',
       allowedHosts: ['mcp.example.test', '127.0.0.1'],
@@ -87,6 +119,7 @@ describe('MCP OAuth configuration', () => {
           TQX_MCP_ALLOWED_ORIGINS: 'http://[2001:db8::3]:6274/',
         }),
       ).toEqual({
+        webBaseUrl: 'https://www.tqx.ai',
         resourceUrl: 'http://192.0.2.3:3001/mcp',
         issuer: 'http://auth.example.test:26823',
         allowedHosts: ['192.0.2.3'],

@@ -34,6 +34,7 @@ export function pointValue(equity: number | null, initial: number | null, return
 }
 
 export interface ChartOptions {
+  height?: number
   initial: number | null
   returns: boolean
   strategy: boolean
@@ -70,7 +71,7 @@ export function renderChart(container: HTMLElement, data: ChartData, options: Ch
     return () => {}
   }
   const width = Math.max(260, container.clientWidth),
-    height = width < 500 ? 260 : 300,
+    height = options.height ?? (width < 500 ? 260 : 300),
     left = 8,
     right = 62,
     top = 24,

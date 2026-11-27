@@ -8,6 +8,7 @@ import { projectChart, projectRun, report } from './project'
 import type { Identity, Report } from './contract'
 
 export interface ReportContext {
+  webBaseUrl?: string
   auth?: AuthInfo
   gateway: ResearchGateway
   now?: () => number
@@ -34,7 +35,13 @@ export async function loadReport(context: ReportContext, input: Identity): Promi
     new Date((context.now ?? Date.now)()).toISOString(),
     run.value,
   )
-  return curve.status === 'fulfilled'
-    ? report(summary, curve.value)
-    : report(summary, null, researchError(curve.reason))
+  return {
+    ...(curve.status === 'fulfilled'
+      ? report(summary, curve.value)
+      : report(summary, null, researchError(curve.reason))),
+    strategyUrl: new URL(
+      `/qube/strategies/${encodeURIComponent(summary.strategyId)}`,
+      context.webBaseUrl ?? 'https://www.tqx.ai',
+    ).href,
+  }
 }

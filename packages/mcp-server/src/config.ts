@@ -4,6 +4,7 @@ import { configurationError, parseList, parsePublicUrl } from './utils/config'
 
 export interface McpConfig {
   readonly resourceUrl: string
+  readonly webBaseUrl?: string
   readonly issuer: string
   readonly allowedHosts: readonly string[]
   readonly allowedOrigins: readonly string[]
@@ -15,6 +16,7 @@ const environmentSchema = v.object({
   TQX_MCP_ALLOWED_HOSTS: v.pipe(v.string(), v.trim(), v.nonEmpty()),
   // An explicitly empty list allows native clients only.
   TQX_MCP_ALLOWED_ORIGINS: v.pipe(v.string(), v.trim()),
+  TQX_WEB_BASE_URL: v.optional(v.pipe(v.string(), v.trim(), v.nonEmpty()), 'https://www.tqx.ai'),
   NODE_ENV: v.optional(v.string()),
 })
 
@@ -30,6 +32,8 @@ export function loadMcpConfig(
   const production = input.NODE_ENV === 'production'
   const resourceUrl = parsePublicUrl(input.TQX_MCP_RESOURCE_URL, 'TQX_MCP_RESOURCE_URL', production)
   const issuer = parsePublicUrl(input.TQX_MCP_OAUTH_ISSUER, 'TQX_MCP_OAUTH_ISSUER', production)
+  const webBaseUrl = parsePublicUrl(input.TQX_WEB_BASE_URL, 'TQX_WEB_BASE_URL', production)
+  if (webBaseUrl.pathname !== '/') throw configurationError('TQX_WEB_BASE_URL')
   const allowedHosts = parseList(input.TQX_MCP_ALLOWED_HOSTS, 'TQX_MCP_ALLOWED_HOSTS').map(
     (entry) => {
       const hostname = entry.toLowerCase()
@@ -58,6 +62,7 @@ export function loadMcpConfig(
   })
 
   return {
+    webBaseUrl: webBaseUrl.origin,
     resourceUrl: resourceUrl.href.replace(/\/$/, ''),
     issuer: issuer.href.replace(/\/$/, ''),
     allowedHosts: [...new Set(allowedHosts)],
