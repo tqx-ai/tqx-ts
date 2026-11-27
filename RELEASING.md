@@ -3,7 +3,7 @@
 `@tqx-ai/cli` bundles the `@tqx-ai/sdk` source into its build output and declares the SDK only as a
 dev dependency, so installing the CLI never installs the SDK.
 
-The release being prepared is npm version `0.9.0-beta.2` with planned Git tag `v0.9.0-beta.2`.
+The release being prepared is npm version `0.9.0-beta.3` with planned Git tag `v0.9.0-beta.3`.
 Publish it to the npm `beta` channel and mark the GitHub Release as a prerelease.
 
 Use Bun to pack packages. Bun rewrites `workspace:*` specifiers, including the CLI's SDK dev

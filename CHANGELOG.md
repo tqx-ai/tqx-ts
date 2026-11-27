@@ -4,6 +4,20 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.9.0-beta.3 - 2026-11-27
+
+### Added
+
+- Add a **View details** link to the Backtest App, configured by the MCP server's runtime
+  `TQX_WEB_BASE_URL` frontend origin.
+
+### Changed
+
+- Compact the Qube Backtest App into a horizontal card showing the strategy name, curve,
+  total return, annualized return, Sharpe ratio, maximum drawdown, and strategy ID.
+- Move backtest analysis to the top-right corner and retain the TQX wordmark and
+  **Painted by TQX** signature outside the card at the bottom left.
+
 ## 0.9.0-beta.2 - 2026-11-27
 
 ### Added
