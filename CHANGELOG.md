@@ -4,6 +4,17 @@ All notable changes to the TQX TypeScript SDK and CLI are documented in this fil
 
 ## Unreleased
 
+## 0.9.0-beta.2 - 2026-11-27
+
+### Added
+
+- Add anonymous MCP discovery support and OAuth challenges for authenticated tools.
+- Add loading indicators and lifecycle states to the interactive Qube Backtest App.
+
+### Fixed
+
+- Include `tsconfig.json` in the MCP server Docker build context.
+
 ## 0.9.0-beta.1 - 2026-11-26
 
 ### Added

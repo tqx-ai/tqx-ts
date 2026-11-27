@@ -87,7 +87,7 @@ describe('CommandRuntime', () => {
 
     const headers = new Headers(fetch.mock.calls[0]?.[1]?.headers)
     expect(headers.get('X-TQX-Client-MAC')).toBe('AA:BB:CC:DD:EE:FF')
-    expect(headers.get('X-TQX-Client-Version')).toBe('0.9.0-beta.1')
+    expect(headers.get('X-TQX-Client-Version')).toBe('0.9.0-beta.2')
   })
 
   it('handles unauthenticated trading errors at the shared boundary', async () => {
